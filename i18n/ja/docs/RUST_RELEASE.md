@@ -1,0 +1,91 @@
+<a id="published-rust-crate"></a>
+
+# 公開済み Rust crate
+
+> [英語原文](../../../docs/RUST_RELEASE.md)の参考訳。09/11/2026 更新。識別子とコード例は原文のままです。
+
+09/11/2026 に確認：[`dcp-ai` 2.14.0](https://crates.io/crates/dcp-ai/2.14.0) が crates.io で利用できます（[変更点](#what-changed-in-2140)）。以前のリリースである [2.13.0](https://crates.io/crates/dcp-ai/2.13.0)（05/11/2026 に確認）、[2.11.1](https://crates.io/crates/dcp-ai/2.11.1)（28/10/2026 に確認）、[2.11.0](https://crates.io/crates/dcp-ai/2.11.0)（26/10/2026 に確認）の注記は下に残しています。crate のバージョンは DCP のワイヤー／仕様のバージョンとは独立しています。Rust crate は npm、Python、Go、コンテナとは別に公開されます。
+
+<a id="install"></a>
+
+## インストール
+
+現在の安定版 Rust ツールチェーンを使い、アプリケーションの crate から実行します。変更後の `Cargo.toml` と `Cargo.lock` をコミットしてください。この例は互換性のある 2.x 更新を許可します。完全固定が必要なら manifest で `=2.14.0` を指定します。
+
+```bash
+cargo add dcp-ai@2.14.0
+cargo check --locked
+```
+
+```toml
+[dependencies]
+dcp-ai = "2.14.0"
+```
+
+任意の OTLP エクスポートと WebAssembly バインディングは `otlp` と `wasm` で選択します。対象に必要な機能だけを有効にしてください。この Rust リリースで別の npm WASM パッケージは再公開しません。
+
+<a id="what-changed-in-2111"></a>
+
+## 2.11.1 の変更点
+
+[VERIFICATION.md の V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらを検証します：`audit_merkle_root_secondary`（一次と同じ方法で作る SHA3-256 の木。空の記録では `sha3-256:` に 64 個のゼロを続けた値）、各 `prev_hash_secondary`（最初のエントリーでは `"GENESIS"`、以降はバンドルに含まれているとおりの直前のエントリーの SHA3-256）、各 `intent_hash_secondary`（インテントのペイロードの SHA3-256）。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。これは、これらのフィールドを持つ証拠について、2.11.0 が受け入れていたものに対する受け入れの変更です。API、結果のフィールド、`dcp-jcs-v1`、実験的でオプトインの `dcp-jcs-v2` API、`hash_alg` の扱いは変わりません。検証は引き続き、プリンシパルへの信頼、受け入れ、認可ではありません。 テレメトリーは `2.11.1` を報告します。
+
+<a id="upgrade-and-compatibility"></a>
+
+## 更新と互換性
+
+2.11.0（2026 年 10 月 26 日）に含まれ、2.11.1 も引き継ぐもの：V2 の責任主体・鍵・成果物・チェックポイント検証の修正、明示的な信頼と `strict-v1`、委任チェーン、V2 バンドル構築・署名、実験的候補 API を含みます。10 フィールドの `V2VerificationResult` API の互換性は維持され、署名者の詳細は別に取得できます。2.11.0 ではテレメトリは `2.11.0` を報告していました。[SDK README](../../../sdks/rust/README.md)、[受け入れガイド](../../../docs/ADMISSION.md)、[セキュリティ方針](../../../SECURITY.md)を参照してください。
+
+検証は 2.10.0 より厳密です。以前受理された不正・不整合な証拠が拒否される場合があります。過去の証拠は書き換えず保存してください。`dcp-jcs-v1` は規範かつデフォルトのままです。`dcp-jcs-v2` は実験的・非規範で明示的な選択が必要です。検証は責任主体への信頼、受け入れ、権限を与えません。Rust には A2A AES-256-GCM セッション暗号化とリプレイウィンドウがまだなく、V2 ビルダーは PQ チェックポイントを生成しません。2.11.0 の検証器は主監査チェーンを確認しましたが、任意の副 SHA3-256 フィールドは確認しませんでした。2.11.1 は存在する場合にそれらを確認します。
+
+<a id="validation"></a>
+
+## 検証
+
+2.13.0 では、リリースワークフローが `main`（`46b142bd`）から crate を公開しました。レジストリの crate のファイルは、`.cargo_vcs_info.json` を除き、公開前にテストした成果物とすべて一致します。`.cargo_vcs_info.json` は候補のビルドコミットではなくそのコミットを記録しています。新しい Cargo home で、path 依存や patch なしに crates.io から 2.13.0 を解決した利用側は、外部適合性キット（7 カタログ、697 ケース）とデフォルトプロファイルの確認に合格しました。golden の `dcp-jcs-v1` バンドルは検証され、同じバンドルで `dcp-jcs-v2` を宣言したものは拒否されます。
+
+2.11.1 では、リリースのワークフローが crate を公開しました。レジストリの crate の全ファイルは、`main` のクリーンなコミットを記録する `.cargo_vcs_info.json` を除き、レビュー済みのものと一致します。crates.io から 2.11.1 を解決する外部利用側は 73 件のテストに合格しました。
+
+2.11.0（2026 年 10 月 26 日）では、既定スイートは 261 件、全機能スイートは 267 件に合格しました（doctest を含む）。WASM ライブラリとテストは `wasm32-unknown-unknown` 向けにコンパイル済みですが、これはブラウザー実行テストではありません。Cargo による 71 ファイルのパッケージ化・検証と公開 dry-run に合格しました。展開した crate に対する外部利用側の 72 件（受け入れ、互換性、候補入力・ルーター、検証器の回帰テスト）が合格し、反転した負の対照は期待どおり失敗しました。公開後、新規レジストリキャッシュからローカルパスや patch なしで正確に 2.11.0 を解決し、同じ 72 件に合格しました。公開アーカイブの checksum とソースのバイト列はレビュー済みリリースと一致しました。テスト用共有 fixture はリポジトリから取得します。アプリケーションには不要です。
+
+<a id="what-changed-in-2130"></a>
+
+## 2.13.0 の変更点
+
+2.13.0 は 05/11/2026 にリリースワークフローによって `main`（`46b142bd`）から crates.io に公開されました。下記の 2.12.0 を置き換えます。2.12.0 は公開されませんでした。2.11.1 と比べて、2.13.0 は次のとおりです：
+
+- **V2-2 のスキーマ検証を実行します（受け入れの変更）。** `verify_signed_bundle_v2`、`…_with_policy`、`…_at` は、WASM ビルドも含め、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受け入れられていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
+- **`RawAuditEventV2` と `RawAuditEventError` を追加します。** 下記の 2.12.0 と同じです。
+- **`wasm_dual_merkle_root` を修正します**（`wasm` フィーチャー使用時）。下記の 2.12.0 と同じです。以前の関数で算出したルートは記録されたまま保持されます。[`dualMerkleRoot` の結果の移行](../../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)を参照してください。
+- **委任状の確認を揃えます。** `verify_mandate_validity` は期間を文字列ではなく瞬間として比較し、`verify_mandate_validity_at`（新規）は検証時刻を受け取ります。`verify_mandate_chain` はドメインを繰り返すルート委任状を拒否します。
+
+テレメトリーは `2.13.0` を報告します。ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わらず、crate に Apache-2.0 の `LICENSE` が含まれるようになりました。この Rust のソースからビルドされる npm パッケージは `@dcp-ai/wasm` 2.1.3 で、これも 05/11/2026 に公開されました（[npm パッケージ](../../../docs/NPM_RELEASES.md)を参照）。公開済みの crate に含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの crate は変更できません。[SDK README](../../../sdks/rust/README.md)と[変更履歴](../../../CHANGELOG.md#unreleased)を参照してください。
+
+<a id="prepared-not-published-2120"></a>
+
+## 準備済み・未公開: 2.12.0
+
+2.12.0 は 30/10/2026 にリポジトリで準備済みですが、crates.io では公開されていません。準備の時点では、インストールコマンドは 2.11.1 のままでした。現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。2.11.1 と比べて、2.12.0 は次のとおりです。
+
+- **`dcp_ai::v2::types::RawAuditEventV2` と `RawAuditEventError` を追加。** `RawAuditEventV2` は受信した監査エントリーをデコード済みの `serde_json::Value` として保持するため、未知のメンバーを含むすべてのメンバーが、存在するかどうかと `null` であるかどうかを保ちます。保持するのはデコード済みの値であり、元のテキストではありません。シリアライズしたり `dcp-jcs-v1` で正規化したりすると、その値のバイト列になります。`typed()` は情報が失われるビューです。`AuditEventV2` の動作は変わりません。バンドル全体の解析、検証、正規化は変わりません。
+- **`wasm_dual_merkle_root` を修正（`wasm` フィーチャー使用時）。** バンドル検証器が使う [VERIFICATION.md の V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の縮約（32 バイトの生のダイジェストを使い、奇数個の層では最後のノードを複製する）で二重 Merkle ルートを計算するようになりました。32 バイトの 16 進ダイジェストでない葉に対しては、不正な形式の入力を受け入れるのではなくエラーを返します。この crate から作られる npm パッケージは `@dcp-ai/wasm` 2.1.2 で、これも準備済み・未公開です（[npm パッケージ](../../../docs/NPM_RELEASES.md)を参照）。
+
+その他の API、`dcp-jcs-v1`、実験的でオプトインの `dcp-jcs-v2` API は変わりません。実験的候補の新しいテストはどのデフォルトも変更しません。テレメトリーは `2.12.0` を報告します。crate には翻訳版 README が含まれなくなりました。これらは現在、リポジトリの `i18n/` ツリーにあります。[SDK README](../../../sdks/rust/README.md) と[変更履歴](../../../CHANGELOG.md)を参照してください。
+
+> **注記（05/11/2026）。** 上の比較は、準備済みの 2.12.0 について 30/10/2026 に書いたもので、2.12.0 はまだ公開されていません。その後 `main` は検証を変更しました。WASM ビルドを含むすべての V2 検証器が V2-2 のスキーマ検証を実行し（#116、02/11/2026）、委任状の有効性ヘルパー、チェーンの時刻確認、繰り返されるルートドメインの確認が変わりました（#117〜#119）。これらの変更は上記の 2.12.0 には含まれません。2.12.0 は公開されず、上の 2.13.0 がこれらの変更を含んで置き換えており、`main` のマニフェストは 2.13.0 を記載しています。[監査資料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)を参照してください。
+
+<a id="what-changed-in-2140"></a>
+
+## 2.14.0 の変更点
+
+2.14.0 は 09/11/2026 に、リリースワークフローにより `main`（`cdb7099b`）から crates.io に公開されました。公開前にテストした候補の 92 ファイルはレジストリの crate でも同一で、crate はその commit を示す `.cargo_vcs_info.json` を追加するだけです。新しい Cargo home で、パス依存や patch なしに crates.io から 2.14.0 を解決した利用側は、デフォルトと `otlp` の feature をビルドし、テスト済みの crate と同じ API の結果を出しました。`otlp` では、リゾルバーは下の最小値以上の `anyhow` と `tokio` を選びました。2.13.0 との比較：
+
+- **追加（オプトイン）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment`、`evaluate_delegation_activation_v2`（[変更履歴](../../../CHANGELOG.md#unreleased)）。
+- **受理の変更。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーにおける P-ED-1。`wasm` フィーチャーでは、生のエクスポート `wasm_canonicalize_v2_result`。
+- **`otlp` フィーチャー。** エクスポーターがグラフに持ち込む `anyhow` 1.0.103 以降と `tokio` 1.53.3 以降を必要とします（RUSTSEC-2026-0190、RUSTSEC-2026-0386）。デフォルトと `wasm` のビルドはどちらも選択しません。crate 自身の `Cargo.lock` は利用者を拘束しません。`otlp` を有効にするロックを持つプロジェクトは `cargo update -p anyhow -p tokio` を実行します。`otlp` を有効にすると、この最小バージョンは修正済みの tokio 1.51.x 系（1.51.6 以降）も除外します。これは 1.51.6 が脆弱であることを意味しません。Cargo では両方の系列を許可できないだけです。
+
+<a id="related-releases"></a>
+
+## 関連するリリース
+
+各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Python 2.11.0](../../../docs/PYTHON_RELEASE.md)、[Go v2.14.0](../../../docs/GO_RELEASE.md)。

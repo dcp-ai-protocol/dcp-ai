@@ -1,19 +1,17 @@
 name: Deploy Docs
 
-# Builds the MkDocs Material site from docs/, spec/, README.md, and
-# CHANGELOG.md, then publishes to GitHub Pages. Runs on every push to
-# main and on manual dispatch.
+# Validate and build the complete five-language manifest, then deploy Pages.
+# SDK/integration/contributor Markdown is included, not just docs/ and spec/.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'spec/**'
-      - 'README.md'
-      - 'CHANGELOG.md'
+      - '**/*.md'
       - 'mkdocs.yml'
       - 'scripts/build-docs-site.sh'
+      - 'scripts/docs*'
+      - 'scripts/test_docs*'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -40,10 +38,10 @@ jobs:
           python-version: '3.12'
       - name: Install MkDocs Material
         run: pip install 'mkdocs==1.6.*' 'mkdocs-material==9.5.*' 'pymdown-extensions==10.*'
-      - name: Populate docs-site/
+      - name: Test documentation gates
+        run: python3 -m unittest discover -s scripts -p 'test_docs*.py' -v
+      - name: Validate translations and build all languages
         run: bash scripts/build-docs-site.sh
-      - name: Build site
-        run: mkdocs build --clean
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

@@ -28,7 +28,8 @@ import type {
   KeyEntry,
 } from '../types/v2.js';
 import { canonicalizeV2 } from './canonicalize.js';
-import { sha256Hex } from './dual-hash.js';
+import { schemaDiagnostics, validateSignedBundleV2Schema } from './schema-v2.js';
+import { sha256Hex, sha3_256Hex } from './dual-hash.js';
 import { compositeVerify } from './composite-ops.js';
 import type { CompositeVerifyResult } from './composite-ops.js';
 import type { CompositeSignature } from './composite-sig.js';
@@ -38,6 +39,7 @@ import type { DcpContext } from './domain-separation.js';
 import { verifySessionBinding, parseRfc3339 } from './session-nonce.js';
 import { verifyPayloadHash } from './signed-payload.js';
 import { computeSecurityTier, effectiveVerificationMode } from './security-tier.js';
+import { deriveKid } from './crypto-provider.js';
 
 export interface VerifyV2Result {
   verified: boolean;
@@ -55,7 +57,28 @@ export interface VerifyV2Result {
     verification_mode?: VerificationMode;
     resolved_tier?: SecurityTier;
     advisory_rejected_algs?: string[];
+    /**
+     * For every composite signature checked, the key entry the verifier resolved for each
+     * component and whether that component verified (spec/profiles/admission § 2.3).
+     */
+    signer_keys?: SignerKeyUse[];
   };
+}
+
+/** The key a signature component was verified with, as the verifier resolved it. */
+export interface SignerKeyUse {
+  /** bundle, responsible_principal_record, agent_passport, intent, policy_decision or pq_checkpoints[<id>]. */
+  signature: string;
+  component: 'classical' | 'pq';
+  kid: string;
+  alg: string;
+  public_key_b64: string;
+  verified: boolean;
+}
+
+export interface VerifyV2Options {
+  /** The instant every time check uses, in milliseconds since the epoch. Default: Date.now(). */
+  now?: number;
 }
 
 export const DEFAULT_VERIFIER_POLICY: VerifierPolicy = {
@@ -109,10 +132,10 @@ function payloadHashHex(payload: unknown): string {
   return sha256Hex(Buffer.from(canonical, 'utf8'));
 }
 
-function auditMerkleRootHex(entries: AuditEventV2[]): string {
+function auditMerkleRootHex(entries: AuditEventV2[], hashHex: (data: Buffer) => string = sha256Hex): string {
   let leaves = entries.map((e) => {
     const canonical = canonicalizeV2(e);
-    return sha256Hex(Buffer.from(canonical, 'utf8'));
+    return hashHex(Buffer.from(canonical, 'utf8'));
   });
 
   while (leaves.length > 1) {
@@ -120,7 +143,7 @@ function auditMerkleRootHex(entries: AuditEventV2[]): string {
     const next: string[] = [];
     for (let i = 0; i < leaves.length; i += 2) {
       next.push(
-        sha256Hex(
+        hashHex(
           Buffer.concat([
             Buffer.from(leaves[i], 'hex'),
             Buffer.from(leaves[i + 1], 'hex'),
@@ -134,6 +157,46 @@ function auditMerkleRootHex(entries: AuditEventV2[]): string {
   return leaves[0];
 }
 
+const sha3Ref = (value: unknown) => `sha3-256:${sha3_256Hex(Buffer.from(canonicalizeV2(value), 'utf8'))}`;
+
+/**
+ * The manifest's audit_merkle_root_secondary, when present (VERIFICATION.md V2-11 erratum): the SHA3-256 tree
+ * built like audit_merkle_root, 64 zeros for an empty trail. Absent is not checked.
+ */
+function secondaryRootErrors(manifest: Record<string, unknown>, entries: AuditEventV2[]): string[] {
+  if (!Object.hasOwn(manifest, 'audit_merkle_root_secondary')) return [];
+  const got = manifest.audit_merkle_root_secondary;
+  if (typeof got !== 'string') return [`Manifest audit_merkle_root_secondary is invalid: ${JSON.stringify(got)}`];
+  const expected = `sha3-256:${entries.length > 0 ? auditMerkleRootHex(entries, sha3_256Hex) : '0'.repeat(64)}`;
+  return got === expected ? [] : ['Manifest audit_merkle_root_secondary mismatch'];
+}
+
+/**
+ * Every present prev_hash_secondary and intent_hash_secondary (VERIFICATION.md V2-11 erratum): "GENESIS" on the
+ * first entry, then the SHA3-256 of the entry before it as carried; the intent's SHA3-256. Absent fields are not
+ * required, so a bundle that omits some links has no complete secondary chain.
+ */
+function secondaryChainErrors(entries: AuditEventV2[], intentPayload: unknown): string[] {
+  const errors: string[] = [];
+  let intentRef: string | undefined;
+  entries.forEach((entry, i) => {
+    const e = entry as unknown as Record<string, unknown>;
+    if (Object.hasOwn(e, 'prev_hash_secondary')) {
+      const got = e.prev_hash_secondary;
+      const expected = i === 0 ? 'GENESIS' : sha3Ref(entries[i - 1]);
+      if (typeof got !== 'string') errors.push(`prev_hash_secondary invalid at entry[${i}]: ${JSON.stringify(got)}`);
+      else if (got !== expected) errors.push(`prev_hash_secondary chain break at entry[${i}]: expected ${expected}, got ${got}`);
+    }
+    if (Object.hasOwn(e, 'intent_hash_secondary')) {
+      const got = e.intent_hash_secondary;
+      intentRef ??= sha3Ref(intentPayload);
+      if (typeof got !== 'string') errors.push(`intent_hash_secondary invalid at entry[${i}]: ${JSON.stringify(got)}`);
+      else if (got !== intentRef) errors.push(`intent_hash_secondary mismatch at entry[${i}]: expected ${intentRef}`);
+    }
+  });
+  return errors;
+}
+
 const VERIFICATION_MODES: readonly unknown[] = [
   'classical_only',
   'hybrid_preferred',
@@ -144,8 +207,10 @@ const VERIFICATION_MODES: readonly unknown[] = [
 /**
  * The policy's mode for a risk tier: only the policy's own overrides count,
  * and a value that is not a VerificationMode resolves to undefined.
+ * @internal Exported for the tests only (not by the package): with V2-2 in front, a risk_tier outside its enum
+ * no longer reaches it through verifySignedBundleV2, so its prototype-name guard is tested directly.
  */
-function resolveMode(policy: VerifierPolicy, riskTier?: RiskTier): VerificationMode | undefined {
+export function resolveMode(policy: VerifierPolicy, riskTier?: RiskTier): VerificationMode | undefined {
   const mode =
     riskTier && Object.hasOwn(policy.risk_overrides, riskTier)
       ? policy.risk_overrides[riskTier]
@@ -163,10 +228,40 @@ function findKeyByKid(keys: KeyEntry[], kid: string): KeyEntry | undefined {
   return keys.find((k) => k.kid === kid);
 }
 
+/** The bytes of canonical base64 (RFC 4648 § 4, padded, zero trailing bits), or undefined. */
+export function canonicalB64Bytes(value: unknown): Uint8Array | undefined {
+  if (typeof value !== 'string' || value.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value)) return undefined;
+  const bytes = Buffer.from(value, 'base64');
+  return bytes.toString('base64') === value ? new Uint8Array(bytes) : undefined;
+}
+
+/** V2-13: why a key cannot verify a signature (non-canonical key, kid not derived from it), or undefined. */
+function keyIdentityError(key: KeyEntry): string | undefined {
+  const bytes = canonicalB64Bytes(key.public_key_b64);
+  if (!bytes) return `Key ${key.kid} public_key_b64 is not canonical base64 (V2-13)`;
+  try {
+    if (deriveKid(key.alg, bytes) === key.kid) return undefined;
+  } catch {
+    // An alg deriveKid cannot take is a kid that is not derived.
+  }
+  return `Key ${key.kid} is not derived from its public key (V2-13)`;
+}
+
+/** How far in the future a signed session start may be (V2-4), as DCP-04 allows for timestamps. */
+export const SESSION_CLOCK_SKEW_MS = 30_000;
+
+/** The audit entry record of each policy decision (V2-14). */
+const AUDITED_DECISION: Record<string, string> = { approve: 'approved', escalate: 'escalated', block: 'blocked' };
+
+/** Two identifiers that are the same string; two missing ones are not the same. */
+const sameId = (a: unknown, b: unknown): boolean => typeof a === 'string' && a === b;
+
 interface SigCheck {
   valid: boolean;
   errors: string[];
   warnings: string[];
+  /** The resolved key of each component that reached the cryptographic check. */
+  keys: Array<Omit<SignerKeyUse, 'signature'>>;
 }
 
 /**
@@ -188,7 +283,7 @@ async function checkCompositeSig(
 ): Promise<SigCheck> {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const fail = (error: string): SigCheck => ({ valid: false, errors: [...errors, error], warnings });
+  const fail = (error: string): SigCheck => ({ valid: false, errors: [...errors, error], warnings, keys: [] });
   const rejectedAlgs = policy.advisory_rejected_algs || [];
 
   if (!isObject(sig) || !isObject(sig.classical)) {
@@ -200,6 +295,13 @@ async function checkCompositeSig(
   }
   if (sig.pq && !PQ_ALGS.includes(sig.pq.alg)) {
     return fail(`PQ slot holds ${sig.pq.alg}, which is not a PQ algorithm`);
+  }
+  // One encoding per signature, the same bytes in every SDK (V2-5).
+  if (!canonicalB64Bytes(sig.classical.sig_b64)) {
+    return fail('Classical sig_b64 is not canonical base64 (V2-5)');
+  }
+  if (sig.pq && !canonicalB64Bytes(sig.pq.sig_b64)) {
+    return fail('PQ sig_b64 is not canonical base64 (V2-5)');
   }
 
   if (mode !== 'pq_only') {
@@ -245,6 +347,10 @@ async function checkCompositeSig(
   if (mode === 'pq_only' && !pqKey) {
     return fail('pq_only mode requires PQ key, but no PQ key found');
   }
+  for (const key of [signerKey, pqKey]) {
+    const identityError = key && keyIdentityError(key);
+    if (identityError) return fail(identityError);
+  }
 
   let result: CompositeVerifyResult;
   try {
@@ -288,7 +394,128 @@ async function checkCompositeSig(
       errors.push('Unknown verification mode');
   }
 
-  return { valid: result.valid, errors, warnings };
+  const used: SigCheck['keys'] = [];
+  if (signerKey) {
+    used.push({ component: 'classical', kid: signerKey.kid, alg: signerKey.alg, public_key_b64: signerKey.public_key_b64, verified: result.classical_valid });
+  }
+  if (sig.pq && pqKey) {
+    used.push({ component: 'pq', kid: pqKey.kid, alg: pqKey.alg, public_key_b64: pqKey.public_key_b64, verified: result.pq_valid });
+  }
+  return { valid: result.valid, errors, warnings, keys: used };
+}
+
+/**
+ * V2-14: the artifacts describe one action, by one agent, for one principal.
+ * The signatures say who signed each one; these checks tie them together.
+ */
+function consistencyErrors(bundle: SignedBundleV2['bundle'], intentHash: string, now: number): string[] {
+  const errors: string[] = [];
+  const rpr = bundle.responsible_principal_record.payload as unknown as Record<string, unknown>;
+  const passport = bundle.agent_passport.payload as unknown as Record<string, unknown>;
+  const intent = bundle.intent.payload as unknown as Record<string, unknown>;
+  const policy = bundle.policy_decision.payload as unknown as Record<string, unknown>;
+
+  if (passport.status !== 'active' && passport.status !== 'declining') {
+    errors.push(`agent_passport status is ${String(passport.status)}, not active (DCP-05 § 3.1)`);
+  }
+  if (rpr.expires_at !== undefined && rpr.expires_at !== null) {
+    const expires = parseRfc3339(rpr.expires_at);
+    if (expires === undefined) {
+      errors.push(`responsible_principal_record has an invalid expires_at: ${String(rpr.expires_at)}`);
+    } else if (expires < now) {
+      errors.push(`responsible_principal_record expired at ${String(rpr.expires_at)}`);
+    }
+  }
+  if (!sameId(passport.principal_binding_reference, rpr.human_id)) {
+    errors.push('agent_passport principal_binding_reference is not the RPR human_id');
+  }
+  if (!sameId(intent.agent_id, passport.agent_id)) {
+    errors.push('intent agent_id is not the passport agent_id');
+  }
+  if (!sameId(intent.human_id, rpr.human_id)) {
+    errors.push('intent human_id is not the RPR human_id');
+  }
+  if (!sameId(policy.intent_id, intent.intent_id)) {
+    errors.push('policy_decision intent_id is not the intent intent_id');
+  }
+  bundle.audit_entries.forEach((entry, i) => {
+    const e = entry as unknown as Record<string, unknown>;
+    if (!sameId(e.intent_id, intent.intent_id)) errors.push(`audit_entries[${i}] intent_id is not the intent intent_id`);
+    if (!sameId(e.intent_hash, intentHash)) errors.push(`audit_entries[${i}] intent_hash is not the intent payload hash`);
+    if (!sameId(e.agent_id, passport.agent_id)) errors.push(`audit_entries[${i}] agent_id is not the passport agent_id`);
+    if (!sameId(e.human_id, rpr.human_id)) errors.push(`audit_entries[${i}] human_id is not the RPR human_id`);
+    if (!sameId(e.policy_decision, AUDITED_DECISION[String(policy.decision)])) {
+      errors.push(`audit_entries[${i}] policy_decision ${String(e.policy_decision)} does not record the decision ${String(policy.decision)}`);
+    }
+  });
+  return errors;
+}
+
+/**
+ * V2-12: the bundle carries exactly the checkpoints its signed manifest lists;
+ * each covers a contiguous run of audit entries, with their Merkle root, and is
+ * signed by the agent with both algorithms (the PQ one alone under pq_only).
+ */
+async function checkPQCheckpoints(
+  registry: AlgorithmRegistry,
+  policy: VerifierPolicy,
+  mode: VerificationMode,
+  bundle: SignedBundleV2['bundle'],
+  passportKeys: KeyEntry[],
+  signerKeys: SignerKeyUse[],
+): Promise<string[]> {
+  const listed: unknown = bundle.manifest.pq_checkpoints ?? [];
+  const carried: unknown = bundle.pq_checkpoints ?? [];
+  if (!Array.isArray(listed) || !Array.isArray(carried)) {
+    return ['pq_checkpoints: manifest list and bundle checkpoints must be arrays'];
+  }
+  const errors: string[] = [];
+  const byId = new Map<unknown, PQCheckpoint>();
+  for (const cp of carried as PQCheckpoint[]) {
+    const id = isObject(cp) ? cp.checkpoint_id : undefined;
+    if (typeof id !== 'string' || byId.has(id)) {
+      errors.push(`pq_checkpoints: checkpoint ${String(id)} is missing an id or carried twice`);
+    } else {
+      byId.set(id, cp);
+    }
+  }
+  if (new Set(listed).size !== listed.length) errors.push('pq_checkpoints: the manifest lists a checkpoint twice');
+  for (const id of listed) {
+    if (!byId.has(id)) errors.push(`pq_checkpoints: manifest lists ${String(id)}, which the bundle does not carry`);
+  }
+  for (const id of byId.keys()) {
+    if (!listed.includes(id)) errors.push(`pq_checkpoints: ${String(id)} is not listed in the manifest`);
+  }
+  if (errors.length > 0) return errors;
+
+  const entries = bundle.audit_entries;
+  const cpMode: VerificationMode = mode === 'pq_only' ? 'pq_only' : 'hybrid_required';
+  for (const [id, cp] of byId) {
+    const label = `pq_checkpoints[${String(id)}]`;
+    if (cp.session_nonce !== bundle.manifest.session_nonce) {
+      errors.push(`${label}: session_nonce is not the manifest's`);
+      continue;
+    }
+    const range = isObject(cp.event_range) ? cp.event_range : undefined;
+    const at = (id: unknown) => (typeof id === 'string' ? entries.findIndex((e) => e.audit_id === id) : -1);
+    const from = at(range?.from_audit_id);
+    const to = at(range?.to_audit_id);
+    if (from < 0 || to < from || range?.count !== to - from + 1) {
+      errors.push(`${label}: event_range does not match the audit entries`);
+      continue;
+    }
+    if (cp.merkle_root !== `sha256:${auditMerkleRootHex(entries.slice(from, to + 1))}`) {
+      errors.push(`${label}: merkle_root does not match its audit entries`);
+      continue;
+    }
+    const { composite_sig: sig, ...payload } = cp;
+    const check = await checkCompositeSig(
+      registry, policy, cpMode, DCP_CONTEXTS.AuditEvent, payload, sig, passportKeys, 'passport keys',
+    );
+    errors.push(...check.errors.map((e) => `${label}: ${e}`));
+    signerKeys.push(...check.keys.map((k) => ({ signature: label, ...k })));
+  }
+  return errors;
 }
 
 /**
@@ -301,10 +528,66 @@ export async function verifySignedBundleV2(
   signedBundle: SignedBundleV2,
   registry: AlgorithmRegistry,
   policy: VerifierPolicy = DEFAULT_VERIFIER_POLICY,
+  options: VerifyV2Options = {},
+): Promise<VerifyV2Result> {
+  return verifySignedBundleV2WithProfile(signedBundle, registry, policy, options, 'dcp-jcs-v1');
+}
+
+/**
+ * @internal Not exported by the package: verifySignedBundleV2 with the canonicalization profile the
+ * manifest must name. 'dcp-jcs-v1' (the field absent or dcp-jcs-v1) is verifySignedBundleV2;
+ * 'dcp-jcs-v2' (exactly that value) is reached only from the original bytes, through the experimental
+ * candidate verifier. Every hash and signature is computed as for dcp-jcs-v1: the candidate keeps its
+ * output rules, so on the values it accepts the same canonicalizer gives its bytes.
+ *
+ * `tierFloor` is the effective tier of a mandate chain, fed to the tier computation (spec § 14.2), where it
+ * can only raise the tier and so the mode every signature is verified in. Only admitDelegatedBundleV2 passes
+ * one, from the chain it verifies itself; absent or null, the result is verifySignedBundleV2's.
+ */
+export async function verifySignedBundleV2WithProfile(
+  signedBundle: SignedBundleV2,
+  registry: AlgorithmRegistry,
+  policy: VerifierPolicy = DEFAULT_VERIFIER_POLICY,
+  options: VerifyV2Options = {},
+  acceptedProfile: 'dcp-jcs-v1' | 'dcp-jcs-v2',
+  tierFloor: SecurityTier | null = null,
+): Promise<VerifyV2Result> {
+  const now = options.now ?? Date.now();
+  if (!Number.isFinite(now)) throw new TypeError('verifySignedBundleV2: options.now must be a finite number of milliseconds');
+  // A structurally malformed bundle (a missing or null bundle, signature,
+  // manifest or audit trail, a number the canonicalization profile rejects,
+  // ...) fails verification instead of throwing, as in the Python, Go and
+  // Rust verifiers (VERIFICATION.md V2-3, V2-5).
+  try {
+    // V2-2 first: the envelope and the four payloads against their schemas, before any hash, key or signature.
+    // A schema failure returns the schema diagnostics alone (at most 16, then a marker) with no cryptographic
+    // details: no other check ran.
+    const schema = validateSignedBundleV2Schema(signedBundle, acceptedProfile);
+    if (!schema.valid) return { verified: false, errors: schemaDiagnostics(schema), warnings: [], details: {} };
+    return await verifyV2(signedBundle, registry, policy, Math.floor(now), acceptedProfile, tierFloor);
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    return {
+      verified: false,
+      errors: [`Malformed signed bundle: ${reason}`],
+      warnings: [],
+      details: {},
+    };
+  }
+}
+
+async function verifyV2(
+  signedBundle: SignedBundleV2,
+  registry: AlgorithmRegistry,
+  policy: VerifierPolicy,
+  now: number,
+  acceptedProfile: 'dcp-jcs-v1' | 'dcp-jcs-v2',
+  tierFloor: SecurityTier | null,
 ): Promise<VerifyV2Result> {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const details: VerifyV2Result['details'] = {};
+  const signerKeys: SignerKeyUse[] = [];
+  const details: VerifyV2Result['details'] = { signer_keys: signerKeys };
 
   const { bundle, signature } = signedBundle;
 
@@ -378,7 +661,7 @@ export async function verifySignedBundleV2(
       errors.push(`Invalid session_expires_at: ${String(sessionExpiresAt)}`);
       return { verified: false, errors, warnings, details };
     }
-    if (sessionExpires < Date.now()) {
+    if (sessionExpires < now) {
       errors.push(`Session expired at ${String(sessionExpiresAt)}`);
       return { verified: false, errors, warnings, details };
     }
@@ -387,9 +670,36 @@ export async function verifySignedBundleV2(
     return { verified: false, errors, warnings, details };
   }
 
+  // The session start is the signed session_issued_at, never the unsigned
+  // signature.created_at (V2-4).
+  const sessionIssuedAt: unknown = bundle.manifest.session_issued_at;
+  let sessionIssued: number | undefined;
+  if (sessionIssuedAt !== undefined && sessionIssuedAt !== null) {
+    sessionIssued = parseRfc3339(sessionIssuedAt);
+    if (sessionIssued === undefined) {
+      errors.push(`Invalid session_issued_at: ${String(sessionIssuedAt)}`);
+      return { verified: false, errors, warnings, details };
+    }
+    if (sessionIssued > now + SESSION_CLOCK_SKEW_MS) {
+      errors.push(`session_issued_at ${String(sessionIssuedAt)} is in the future`);
+      return { verified: false, errors, warnings, details };
+    }
+    if (sessionExpires !== undefined && sessionIssued > sessionExpires) {
+      errors.push('session_issued_at is after session_expires_at');
+      return { verified: false, errors, warnings, details };
+    }
+  }
+
+  if (policy.max_session_duration_seconds && policy.max_session_duration_seconds > 0 && sessionExpires === undefined) {
+    errors.push('Policy max_session_duration_seconds requires session_expires_at in the manifest');
+    return { verified: false, errors, warnings, details };
+  }
   if (policy.max_session_duration_seconds && policy.max_session_duration_seconds > 0 && sessionExpires !== undefined) {
-    const created = signature.created_at ? new Date(signature.created_at).getTime() : Date.now();
-    const durationSec = (sessionExpires - created) / 1000;
+    if (sessionIssued === undefined) {
+      errors.push('Policy max_session_duration_seconds requires session_issued_at in the manifest');
+      return { verified: false, errors, warnings, details };
+    }
+    const durationSec = (sessionExpires - sessionIssued) / 1000;
     if (durationSec > policy.max_session_duration_seconds) {
       errors.push(
         `Session duration ${durationSec}s exceeds policy max of ${policy.max_session_duration_seconds}s`,
@@ -420,10 +730,14 @@ export async function verifySignedBundleV2(
 
   // Canonicalization profile: per spec/CANONICALIZATION_PROFILE.md § 4,
   // a missing field defaults to 'dcp-jcs-v1' (the only profile defined
-  // today). An unknown value is rejected; a future profile (dcp-jcs-v2)
-  // will register its own canonicalizer here.
-  const profile = bundle.manifest.canonicalization_profile;
-  if (profile !== undefined && profile !== 'dcp-jcs-v1') {
+  // today). An unknown value is rejected. The experimental candidate
+  // dcp-jcs-v2 is accepted only when the original bytes were routed to it.
+  const profile: string | undefined = bundle.manifest.canonicalization_profile;
+  if (
+    acceptedProfile === 'dcp-jcs-v1'
+      ? profile !== undefined && profile !== 'dcp-jcs-v1'
+      : profile !== acceptedProfile
+  ) {
     errors.push(`Unknown canonicalization_profile: ${profile}`);
   }
 
@@ -452,6 +766,7 @@ export async function verifySignedBundleV2(
   if (bundle.manifest.audit_merkle_root !== expectedMerkleRoot) {
     errors.push(`Manifest audit_merkle_root mismatch`);
   }
+  errors.push(...secondaryRootErrors(bundle.manifest as unknown as Record<string, unknown>, bundle.audit_entries));
 
   if (bundle.manifest.audit_count !== bundle.audit_entries.length) {
     errors.push(
@@ -461,6 +776,13 @@ export async function verifySignedBundleV2(
 
   details.manifest_valid = errors.length === 0;
   if (!details.manifest_valid) {
+    return { verified: false, errors, warnings, details };
+  }
+
+  // ── 4a. Cross-artifact consistency (V2-14) ──
+
+  errors.push(...consistencyErrors(bundle, expectedIntentHash, now));
+  if (errors.length > 0) {
     return { verified: false, errors, warnings, details };
   }
 
@@ -477,6 +799,7 @@ export async function verifySignedBundleV2(
   const tier = computeSecurityTier(
     bundle.intent.payload as IntentV2,
     bundle.policy_decision.payload as PolicyDecisionV2,
+    tierFloor,
   );
   const mode = effectiveVerificationMode(policyMode, tier);
   details.resolved_tier = tier;
@@ -494,6 +817,8 @@ export async function verifySignedBundleV2(
   }
 
   // ── 6. Bundle composite signature over the manifest (V2-6, V2-7, V2-10) ──
+  // The signer is the principal: only the RPR binding_keys verify it. The agent
+  // signs its own passport, so its keys cannot vouch for the principal.
 
   const allKeys = passport.keys;
   const rprPayload = bundle.responsible_principal_record.payload as { binding_keys?: KeyEntry[] };
@@ -501,11 +826,34 @@ export async function verifySignedBundleV2(
 
   const bundleCheck = await checkCompositeSig(
     registry, policy, mode, DCP_CONTEXTS.Bundle, bundle.manifest, signature.composite_sig,
-    [...allKeys, ...rprKeys], 'passport or RPR',
+    rprKeys, 'RPR binding_keys',
   );
+  // The unsigned signer block must not contradict the signature (V2-4).
+  const signer = (isObject(signature.signer) ? signature.signer : {}) as Record<string, unknown>;
+  const sig = signature.composite_sig;
+  const signedKids: unknown[] = [sig?.classical?.kid, ...(sig?.pq ? [sig.pq.kid] : [])];
+  const signerKids = signer.kids;
+  if (!sameId(signer.id, (rprPayload as { human_id?: unknown }).human_id)) {
+    bundleCheck.errors.push(`signature signer id ${String(signer.id)} is not the RPR human_id`);
+  }
+  if (
+    !Array.isArray(signerKids) ||
+    signerKids.length !== signedKids.length ||
+    signerKids.some((k: unknown, i: number) => k !== signedKids[i])
+  ) {
+    bundleCheck.errors.push('signature signer kids do not name the bundle signature keys');
+  }
+  if (signature.manifest_hash !== `sha256:${payloadHashHex(bundle.manifest)}`) {
+    bundleCheck.errors.push('signature manifest_hash is not the hash of the manifest');
+  }
+  if (signature.hash_alg !== 'sha256' && signature.hash_alg !== 'sha256+sha3-256') {
+    bundleCheck.errors.push(`signature hash_alg ${String(signature.hash_alg)} is not sha256 or sha256+sha3-256`);
+  }
+  if (bundleCheck.errors.length > 0) bundleCheck.valid = false;
   errors.push(...bundleCheck.errors.map((e) => `bundle: ${e}`));
   warnings.push(...bundleCheck.warnings.map((w) => `bundle: ${w}`));
   details.signature_valid = bundleCheck.valid;
+  signerKeys.push(...bundleCheck.keys.map((k) => ({ signature: 'bundle', ...k })));
 
   // ── 7. Per-artifact composite signatures (V2-8) ──
   // The principal signs the RPR with its binding_keys; the agent signs the
@@ -525,7 +873,14 @@ export async function verifySignedBundleV2(
     );
     errors.push(...check.errors.map((e) => `${name}: ${e}`));
     warnings.push(...check.warnings.map((w) => `${name}: ${w}`));
+    signerKeys.push(...check.keys.map((k) => ({ signature: name, ...k })));
   }
+
+  // ── 7a. PQ checkpoints (V2-12) ──
+
+  const checkpointErrors = await checkPQCheckpoints(registry, policy, mode, bundle, allKeys, signerKeys);
+  errors.push(...checkpointErrors);
+  details.pq_checkpoints_valid = checkpointErrors.length === 0;
 
   details.policy_satisfied = errors.length === 0;
   if (!details.policy_satisfied) {
@@ -546,13 +901,13 @@ export async function verifySignedBundleV2(
     const canonical = canonicalizeV2(entry);
     prevHashExpected = `sha256:${sha256Hex(Buffer.from(canonical, 'utf8'))}`;
   }
+  errors.push(...secondaryChainErrors(bundle.audit_entries, bundle.intent.payload));
 
   details.hash_chain_valid = errors.length === 0;
 
   // ── 9. Key validity checks ──
   // Every key that can sign: the passport keys and the RPR binding_keys (V2-13).
 
-  const now = new Date();
   for (const key of [...allKeys, ...rprKeys]) {
     if (key.status === 'revoked' || key.status === 'expired') {
       errors.push(`Key ${key.kid} is ${key.status}`);
@@ -561,13 +916,13 @@ export async function verifySignedBundleV2(
       const expires = parseRfc3339(key.expires_at);
       if (expires === undefined) {
         errors.push(`Key ${key.kid} has an invalid expires_at: ${String(key.expires_at)}`);
-      } else if (expires < now.getTime()) {
+      } else if (expires < now) {
         errors.push(`Key ${key.kid} has expired`);
       }
     }
     if (policy.max_key_age_days > 0) {
       const createdAt = new Date(key.created_at);
-      const ageDays = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      const ageDays = (now - createdAt.getTime()) / (1000 * 60 * 60 * 24);
       if (ageDays > policy.max_key_age_days) {
         warnings.push(`Key ${key.kid} exceeds max age of ${policy.max_key_age_days} days`);
       }

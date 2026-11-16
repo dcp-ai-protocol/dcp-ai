@@ -1,0 +1,273 @@
+# Differential fuzzer for the V2 bundle verifiers
+
+`run.mjs` feeds the same mutated V2 signed bundle to the four SDK verifiers
+(`verifySignedBundleV2` in TypeScript, `verify_signed_bundle_v2` in Python,
+`VerifySignedBundleV2At` in Go, `verify_signed_bundle_v2_at` in Rust), under one explicit policy and one
+verification instant. A disagreement, a verdict that contradicts what the shared vectors declare, a key
+reorder that changes a verdict, and any error, crash or timeout is a finding. The security round closed by
+v2.10.0 was almost entirely disagreements between the four verifiers; this tool is how they are found
+before a release. The driver is the module `fuzz.mjs`, which `run.mjs` and the self-tests share. With `--sdks five`
+the Rust SDK compiled to WASM is a fifth verifier ([Five SDKs](#five-sdks-wasm)). A second harness,
+`run-mandates.mjs`, does the same for DCP-09 mandate chains ([Mandate chains](#mandate-chains)).
+
+## Setup
+
+Every SDK is run from this checkout, never from a published package:
+
+```bash
+(cd sdks/typescript && npm install && npm run build) # shims/ts imports sdks/typescript/dist
+pip install -e sdks/python                            # dependencies of shims/py (pynacl, pqcrypto>=1.0)
+npm ci --ignore-scripts                               # root lock: tweetnacl and @noble/post-quantum for run-mandates.mjs
+```
+
+Go (version from `sdks/go/go.mod`) and a stable Rust toolchain must be on `PATH`. The driver builds
+`shims/go` (a module that `replace`s the SDK with `../../../../sdks/go`) with `-mod=readonly`, and
+`shims/rust` (a path dependency on `../../../../sdks/rust`) with `--locked`, both into the run's own private
+temporary directory (Cargo's `CARGO_TARGET_DIR` included), so concurrent runs never share a binary; the Rust
+shim is therefore built from scratch on every run. Nothing changes a manifest or a lockfile. With
+`--offline`, Go runs with `GOPROXY=off` and Cargo with `--offline`, so the module and crate caches must
+already hold the dependencies. The build has its own deadline.
+
+The report's `build.artifacts` records what the run measured, by content: the four shims, the two built
+binaries (their hashes, never their ephemeral paths), the TypeScript `src` and `dist` trees, its
+`package-lock.json` and the directory of each direct runtime dependency Node resolves for it, the Python SDK
+source and the interpreter with five distribution versions, and the Go and Rust SDK sources and the Rust lock.
+`inputs` records the driver (`fuzz.mjs`, `run.mjs`) and the fixtures. Both are checked again at the end of the
+run; a change is exit 3. `provenance_limits` states what the hashes do not prove: that `dist` was built from
+that `src`, and the transitive dependencies, are not verified.
+
+## Usage
+
+```bash
+node tools/difffuzz/run.mjs                       # 200 iterations, seed 1
+node tools/difffuzz/run.mjs --iterations 2000 --seed 7 --report /tmp/difffuzz.json
+node tools/difffuzz/run.mjs --replay tools/difffuzz/findings/<file>.json
+node --test tools/difffuzz/difffuzz.test.mjs      # self-tests of the harness (no SDK)
+node --test tools/difffuzz/real-shims.test.mjs    # bounded diagnostic tests with all four SDKs
+node tools/difffuzz/run.mjs --sdks five --iterations 60 --report /tmp/difffuzz-five.json
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--iterations N` | `200` | mutants to generate (0 to 1,000,000) |
+| `--seed S` | `1` | PRNG seed; the same seed and fixtures give the same mutants |
+| `--modes a,b` | `default,hybrid_required` | policies every seed and mutant runs under (see Policies) |
+| `--sdks four\|five` | `four` | the SDK set of the run; `five` adds the WASM build (see Five SDKs) |
+| `--timeout MS` | `60000` | deadline of one batch process (`--timeout-ms` is the same) |
+| `--python PATH` | `$DIFFFUZZ_PYTHON` or `python3` | interpreter with the Python SDK's dependencies |
+| `--out DIR` | `tools/difffuzz/findings` | where findings are written |
+| `--report FILE` | none | the full run report (JSON): an `incomplete` report is written first and replaced on every path, a usage error included; a missing, option-like or repeated value writes nothing |
+| `--offline` | off | build from local caches only |
+| `--build-timeout-ms MS` | `600000` | one deadline for building the shims |
+| `--batch-cases N`, `--batch-bytes B`, `--case-bytes B` | `64`, 16 MiB, 4 MiB | cases per batch, the exact UTF-8 size of a whole request, raw bytes of one input. A seed that does not fit is exit 3; a mutant that does not fit is skipped and counted |
+| `--stdout-bytes B` | 8 MiB | output limit of one batch process |
+| `--max-findings N` | `50` | findings recorded; once reached, no further batch runs (baseline included) and the run cannot pass |
+| `--max-retries N` | `200` | single-case reruns that isolate failed batches; exhausting it is exit 3 |
+| `--minimize-steps N`, `--minimize-total N` | `24`, `96` | minimization budget per finding and per run |
+
+Every value is checked before anything is built: an unknown, repeated, missing or out-of-range argument is
+exit 2. Exit codes: 0 no finding, no failed batch and a complete baseline; 1 at least one finding, a failed
+batch or an incomplete baseline; 2 usage; 3 infrastructure or harness fault (a build failure, inputs that
+changed during the run, a shim that cannot start or answers outside the protocol or as unsupported, in a batch
+or alone, an exhausted retry budget, no seed declared valid in the first mode while there are iterations). The
+commands are always exactly the shims of the run's SDK set.
+
+### Policies and time
+
+Every request carries the policy and the instant explicitly: `now_ms` is 2026-10-22T00:00:00Z, the instant of
+the external conformance kit, so a verdict never depends on the day it runs. `default` is the vectors'
+`default_verifier_policy` (the TypeScript `DEFAULT_VERIFIER_POLICY`) for every SDK; any other mode name is
+applied to `default_mode` and to every risk tier, as the vectors build each mode's policy. A seed's
+`verifier_policy_overrides` replace those fields in every mode. (Before this protocol, `default` was each
+SDK's own default policy and every shim read its own system clock.)
+
+### Seeds and expectations
+
+Seeds are the bundles of `tests/interop/v2/bundle_vectors.json`, with what its `_description` declares:
+`signed_bundle` verifies; every `must_reject` mutation of it and every `must_reject_bundles` entry is
+rejected whatever the mode; every `must_accept_bundles` entry verifies in every mode;
+`classical_only_routine_bundle` gets `verified_by_mode` (it declares no verdict for `default`). The default
+policy resolves to one of the four modes, so "every" and "any" mode cover it. A verdict that contradicts a
+declared expectation is an `expectation` finding even when the four SDKs agree: agreement is never the
+oracle. If such an expectation turns out to contradict the specification itself, keep the reproducer and stop
+using that interpretation; do not replace it with the majority. The signed bundles of
+`tests/interop/v2/cross_sdk_vectors.json` and `tests/conformance/examples/` declare nothing and are
+differential-only.
+
+Every odd iteration (so at least half of them, rounded up) starts from a seed declared valid in the first mode,
+picked at random; the others start from any seed. With iterations and no such seed, the run stops with exit 3.
+
+### Mutators
+
+Each iteration applies one mutation (70%) or two (30%) at a random slot: delete a key, set a value to
+`null`, swap a value's type, swap two sibling values, flip one character of a base64 string, replace an
+enumerated string with a prototype key (`constructor`, `__proto__`, `toString`, `valueOf`, ...), rename a key
+to a prototype key, add an unknown key, duplicate an artifact (or its `payload`, `payload_hash` or
+`composite_sig`) into another slot, rewrite a number as `1.0`, `1e2`, `-0`, `0.1`, `2^64`, `1e400`, ...,
+rewrite an RFC 3339 timestamp with another offset, malformed or far in the past or future, an oversized string
+(64 KiB or 1 MiB), a 100-deep nested value, and a recursive key reorder, which must never change a verdict:
+each SDK's result is compared with its own baseline for the seed. Numbers that JavaScript cannot represent are
+spliced into the serialized text verbatim, so every parser sees the same bytes. The key reorder keeps an own
+`__proto__` key (it used to drop it).
+
+## Judgement
+
+Each shim answers one of: `verdict` (`verified` and `errors`), `parse_rejected` (its JSON parser refused the
+document), `error` (the SDK threw or panicked) or `unsupported`; the driver adds `crash` (an exit other than 0
+or a signal), `timeout`, `output_limit` and `protocol` (an answer outside the protocol). The SDKs are compared
+on acceptance: a verdict `true` accepts; a verdict `false` or a parser rejection rejects, as before; any other
+category is never a vote. A batch whose process fails is recorded and each of its cases is rerun alone to find
+the culprit; the failed batch keeps the run from passing whatever the reruns give, and a failure that no single
+case reproduces is also a finding (`batch_failure_not_reproduced`). Every shim run of a batch is awaited, whichever
+fails first, before the run ends.
+
+## Findings
+
+Every finding is written to `findings/<seed>-<iteration>-<mode>-<n>.json` (the directory is git-ignored
+except for `.gitkeep`): its classes, the seed, the mode, the explicit policy and `now_ms`, the mutations,
+every SDK's outcome, and the exact input bytes (`input_b64`, `input_sha256`). A finding is a lead, not yet a
+bug. Replay it first with `--replay`: the recorded bytes (and the minimized input, when there is one) run through
+the shims of the finding's own SDK set at the finding's own `now_ms` and under its own policy, in one batch with the finding's own
+recorded control: the original bytes of the unmutated seed (hash, policy, declared expectation and baseline
+outcomes), never the current fixture of that name. The finding is checked first, fully typed: its kind, a set of
+known classes equal to the classes its own outcomes give, one typed outcome per SDK of its set, its hashes and its control. The
+current build, driver, fixtures and seed are compared with the recorded ones and every difference is reported as
+a provenance difference. Replay exit codes: 0 the recorded decisions reproduce and the control reproduces its
+baseline, 1 they do not reproduce, 3 the finding, the control or the infrastructure does not allow a judgement.
+
+Disagreements and errors or crashes of a mutant are then minimized within a budget (an expectation finding is
+an unmutated seed already), and only against a positive control: the unmutated seed passed its own baseline in
+that mode, verified `true` by every SDK of the selected set (a seed correctly rejected is no control). The differences from the
+seed are reduced while every SDK keeps the same decision and the seed, run alongside, keeps its baseline. Raw tokens such as `1e400` are kept as bytes; the text is
+never re-parsed. The result is minimal for that search and budget, not globally; key-order findings and
+timeouts are not minimized.
+
+Decide which SDK is right from the normative requirements (`spec/VERIFICATION.md`, the canonicalization
+profile) and the shared fixtures (`tests/interop/v2/`). When they do not settle the case, it is an open
+question for the specification, not a fix to pick: record it rather than adopting the fail-closed verdict by
+default. Fix the wrong SDK test-first with a unit test in that SDK, and never weaken a verifier to reach
+agreement.
+
+## Shims
+
+`--batch` is the driver's protocol (`dcp-difffuzz/3`), one finite process per batch, run through the external
+conformance kit's process runner (`runProcess` in `tools/conformance/external.js`: one deadline, its own
+process group, SIGTERM then SIGKILL, bounded output and cleanup). The request on stdin is
+`{protocol, run_id, nonce, now_ms, cases: [{id, policy, bundle_b64}]}` with random ids and no expectation or
+seed name; the response on stdout is one JSON document `{protocol, run_id, nonce, results}` with exactly one
+result per case, then exit 0. A malformed request exits 2. The Go shim writes nil `errors` as `[]`; the Rust
+shim decodes base64 with `std` only.
+
+In this internal harness protocol, batch verdict diagnostics keep at most 8 `errors`, each a literal prefix
+of at most 256 Unicode code points. A shortened list or string carries `truncated` with `original_count` (original
+count), `kept` (retained count), `original_code_points` (original total) and `sha256` (digest of the original list).
+Ordinary diagnostics within those bounds remain unchanged. Malformed diagnostic types remain protocol
+failures; they never become valid rejections. This does not change DCP wire formats or verifier decisions.
+
+The digest hashes each original diagnostic in order as its 4-byte big-endian UTF-8 byte length followed by
+its UTF-8 bytes. TypeScript and Python replace lone surrogates with U+FFFD for this hash; the diagnostic
+prefix itself is not normalized. Go replaces each invalid UTF-8 byte with U+FFFD for the hash; Rust strings
+are valid UTF-8. Diagnostic text differs
+between SDKs, so these digests identify diagnostics from a particular shim, not cross-SDK equivalence.
+
+The driver checks the bounds and marker coherence, including evidence that something was actually omitted.
+The marker travels with recorded outcomes. It cannot authenticate the original text without that text, or
+prove that a shim did not silently shorten an otherwise valid short message. Historical findings from
+`dcp-difffuzz/2` remain replayable, including their original unbounded diagnostics; live responses must use
+`dcp-difffuzz/3` and meet its bounds. Manual and loop output retain their previous behavior.
+
+`stats.truncated_diagnostic_observations` counts bounded diagnostic observations per SDK, including repeated observations
+from isolation retries and minimization; it is not a count of distinct inputs. The caps limit diagnostic
+transport, not SDK computation or internal memory. Existing output limits still apply: a smaller configured
+`--stdout-bytes` may legitimately yield `output_limit`, and a failed batch still prevents a passing run.
+
+Without `--batch`, each of the four historical shims keeps its earlier form for manual use (the WASM shim takes only
+`--batch` or `--bound-selftest`): one document on stdin (or one per line
+with `--loop`), `{"valid": bool, "errors": [string]}` per document, an optional mode as first argument, each
+SDK's own default policy and the system clock.
+
+## Five SDKs: WASM
+
+`--sdks five` adds the Rust SDK compiled to WebAssembly as a fifth verifier (`shims/wasm/verify.mjs`).
+
+- **Build.** `wasm-pack build sdks/rust --target web -- --features wasm --locked` runs into the run's own directory,
+  within the same build deadline (`--offline`: `--mode no-install` and `--offline`). The shared
+  `tools/conformance/wrappers/.build` is never touched. The `.wasm`, its JavaScript glue and the wasm-pack version are
+  recorded; that the toolchain reproduces those bytes is not verified.
+- **Runtime.** Node-hosted WebAssembly, not a browser. `wasm_verify_signed_bundle_v2` reads the host clock: each call
+  sees the request's `now_ms` through `Date.now`, restored in `finally`.
+- **Bytes.** The shim passes the decoded UTF-8 text exactly as received, a leading byte order mark included (decoded
+  with `ignoreBOM`), never parsed or re-serialized in JavaScript. Only the export's documented JSON parser rejection
+  (one error starting `JSON parse error: `) is `parse_rejected`; bytes that are not UTF-8 are `parse_rejected` as in
+  the TypeScript shim; any other in-band error, an unreadable policy or a trap is `error`.
+- **TypeScript shim boundary.** The historical TypeScript shim decodes with `TextDecoder` without `ignoreBOM`, which
+  strips a leading byte order mark before `JSON.parse`. A verdict difference on such input is a boundary of that shim's
+  parser, not of the SDKs; the bundle mutators add no byte order mark.
+- **Sets.** Every report and new finding records `sdks`. A finding without one, as every `/2` and `/3` file written
+  before five existed, is four and is replayed with exactly the four shims. A replay always uses the finding's own
+  set; an explicit `--sdks` that names another set is refused (exit 3), and so is a set whose outcomes are not exactly
+  its SDKs. No omission silently reduces the set.
+
+## Mandate chains
+
+`run-mandates.mjs` sends the same signed DCP-09 mandate chain to the TypeScript, Python, Go and Rust chain verifiers,
+through the external kit's contract `/4` (`verify_mandate_chain`) and its four wrappers, run by the kit's process
+runner (format `dcp-mandatefuzz/1`). WASM exports no mandate chain function; that boundary is documented and tested by
+the kit (`tools/conformance/README.md`), not probed here.
+
+```bash
+node tools/difffuzz/run-mandates.mjs --iterations 120 --seed 1 --report /tmp/mandates.json
+node tools/difffuzz/run-mandates.mjs --replay tools/difffuzz/findings/mandates/<file>.json
+node tools/difffuzz/run-mandates.mjs --transport-probe --report /tmp/mandates-transport.json
+node --test tools/difffuzz/mandate-fuzz.test.mjs  # self-tests of the harness (no SDK)
+```
+
+- **Signing.** Chains are signed by the harness, with no SDK: tweetnacl and `@noble/post-quantum` over
+  `context || 0x00 || dcp-jcs-v1(mandate without its signature fields)`, `pq_over_classical`, ML-DSA-65 with
+  `extraEntropy: false` (checked deterministic with the installed library). Keys are TEST-ONLY, derived from fixed
+  labels: a human and one agent per mandate of the deepest chain, plus an intruder. Before a run the harness verifies
+  every signature of `mandate_chain_vectors.json` with its own message construction. Its canonicalizer of exact
+  integers (up to 20 digits) is a limit of this signer, not a rule of `dcp-jcs-v1`.
+- **Cases.** 73 variants in 11 families: roles and contexts, links, depth, attenuation, raw numbers, domains, time,
+  signer key validity, tier floor, revocation, JSON encoding. Depth counts edges (0 to 2). Every run first executes
+  the coverage sweep (each variant at each depth it applies to, once: 167 cases), then `--iterations` random mutants.
+  Coverage is guaranteed, not probabilistic; a run whose sweep did not complete never passes.
+- **Signing categories.** A semantic change is re-signed under the normative signer and context, so a bad signature
+  never masks the rule exercised. Deliberately wrong signers or contexts and stale signatures are separate
+  categories, each checked as built.
+- **Expectations.** Only where DCP-09 §3.5.2 (with its clarification of 05/11/2026), the canonicalization profile or
+  RFC 8259 decides. Otherwise the case is an observation. Attribution is `isolated`, `masked_by_signature` (a value
+  that cannot be signed, such as `0.5`) or `representation_dependent` (2^53 and beyond: signed exactly, but whether
+  each parser reproduces the signed bytes depends on its number representation). An observation or a limited
+  attribution never hides a disagreement or a fault; the report counts rule evidence apart from agreement without
+  expectation and from agreement with limited attribution.
+- **Controls.** Every batch carries the positive and the stale-signature control of each base. A mutant counts only
+  if the controls of its depth passed in the same batch.
+- **Bounds.** Cases and bytes per batch, bytes per case, output, deadlines (the build deadline is checked before
+  each step), retries, findings written and minimization steps are all limited. Findings beyond `--max-findings` are
+  counted, not written or kept, and the run still fails. Batch ids never change during isolation.
+- **Stop.** The run stops after the batch that gives the first finding or failure, preserved for review, and says so.
+- **Minimization.** Only for re-signed semantic mutants: each candidate is re-signed, checked with primitives, keeps
+  the four decisions and runs with a passing positive control. Never for deliberate or stale signatures; minimal for
+  the search and budget only.
+- **Replay.** A finding records its input, its positive control and any minimized input, each bound by a hash over
+  chain bytes, key bytes, revoked ids and clock, with its four outcomes and the build provenance. Replay checks all of
+  it first (canonical base64, fatal UTF-8 that keeps a byte order mark, RFC 3339 clock, decisions and classes derived
+  again), runs each input alone, requires the control's exact recorded baseline, and reports provenance differences.
+- **Wrappers.** TypeScript and Python run from the checkout; Go and Rust are built into the run's directory, or
+  given with `--go-wrapper` and `--rust-wrapper` and recorded by content only. Exit codes: 0 no finding, every control
+  passed and the sweep complete; 1 otherwise; 2 usage; 3 infrastructure.
+
+**Transport probe.** Contract `/4` does not carry every input to every SDK: each wrapper reads the chain as UTF-8 JSON
+first and exits 2 on what it cannot read. `--transport-probe` sends a signed control, a `NaN` token, a leading byte
+order mark and the literal `1e400` alone to each wrapper and records what each component did. Measured on 05/11/2026:
+every wrapper refuses `NaN` and the byte order mark; the TypeScript and Python SDKs receive `1e400` and reject the
+chain, while the Go and Rust wrappers refuse it. It is an observation with stated limits, never a conformance result,
+and a refusal is never counted as an SDK rejection; campaigns never send these inputs.
+
+## CI
+
+`.github/workflows/difffuzz.yml` runs the self-tests of both harnesses and the bounded diagnostic tests with the five
+shims, then, on every pull request, 300 iterations with four SDKs, 60 with five and the mandate sweep with 120 random
+mutants; nightly, 3000, 1000 and 600. It takes `iterations` and `seed` inputs on `workflow_dispatch`. Findings and the
+reports are uploaded as the `difffuzz-findings` artifact when the job fails.

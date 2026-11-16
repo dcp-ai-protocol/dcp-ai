@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/internal/ed25519ped1"
 	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
 )
 
@@ -52,7 +53,8 @@ func (p *Ed25519Provider) Verify(message []byte, signature []byte, publicKeyB64 
 	if len(pk) != ed25519.PublicKeySize {
 		return false, fmt.Errorf("invalid public key length: got %d, want %d", len(pk), ed25519.PublicKeySize)
 	}
-	return ed25519.Verify(ed25519.PublicKey(pk), message, signature), nil
+	// P-ED-1: rejected before crypto/ed25519 when S >= L, or A or R is non-canonical or of small order.
+	return !ed25519ped1.Rejects(signature, pk) && ed25519.Verify(ed25519.PublicKey(pk), message, signature), nil
 }
 
 // Ensure Ed25519Provider satisfies v2.CryptoProvider at compile time.

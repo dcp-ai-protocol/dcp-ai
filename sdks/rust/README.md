@@ -1,30 +1,54 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>**English** · [中文](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/zh-CN/sdks/rust/README.md) · [Español](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/es/sdks/rust/README.md) · [日本語](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/ja/sdks/rust/README.md) · [Português](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/pt-BR/sdks/rust/README.md)</sub>
 
 # dcp-ai — Rust SDK
 
+**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](../../docs/RUST_RELEASE.md).
+
 Official Rust SDK for the Digital Citizenship Protocol (DCP v2.0). Serde-based types, hybrid post-quantum cryptography (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), composite signatures with `pq_over_classical` binding, dual hash chains, OpenTelemetry observability, DCP-04..09 behavior, and optional WebAssembly support.
+
+Verification checks integrity and signatures; it does not establish principal trust, admission or authorization to act. The V2 verifier checks the primary audit chain and, from 2.11.1, the optional secondary SHA3-256 links, intent hashes and Merkle root that are present (absent ones are not required); 2.11.0 does not check the secondary fields. See [the documented verification limit](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) and use the admission APIs below when trust is required.
 
 ## Installation
 
-Add to `Cargo.toml`:
+**Rust SDK.** Since 2.11.0 this SDK includes V2 bundle building and signing, admission with explicit principal trust and `strict-v1`, delegation chains, verifier corrections and experimental opt-in `dcp-jcs-v2` APIs. `dcp-jcs-v1` remains the normative default. Invalid evidence accepted by older versions may now be rejected. Rust A2A session encryption and its replay window are not implemented; discovery and handshake helpers remain available.
+
+**Rust SDK 2.11.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.11.0 does not check these fields.
+
+**Rust SDK 2.13.0.** Published on crates.io on 05/11/2026. The 2.12.0 prepared on 30/10/2026 was never published and is superseded. Compared with 2.11.1:
+
+- **V2-2 schema validation.** `verify_signed_bundle_v2`, `…_with_policy` and `…_at`, the WASM build included, validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
+- **`RawAuditEventV2` and `RawAuditEventError`** (new) keep a received audit entry as the decoded value (see Received audit entries below).
+- **`wasm_dual_merkle_root`** (with the `wasm` feature) computes the dual Merkle root of V2-11 and returns an error for a leaf that is not a 32-byte hex digest.
+- **Mandates.** `verify_mandate_validity` compares the window as instants, no longer as text, and `verify_mandate_validity_at` (new) takes the verification time. `verify_mandate_chain` rejects a root mandate that repeats a domain.
+
+In 2.13.0, telemetry reports `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the 2.13.0 crate is the one prepared before its publication and reads "prepared, not published"; a published crate cannot change.
+
+**Rust SDK 2.14.0.** The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with 2.13.0:
+
+- **Added (opt-in).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` and `evaluate_delegation_activation_v2` in `dcp_ai::v2`; no default calls them (see [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Acceptance change: Ed25519 P-ED-1.** V1 object verification and the default V2 Ed25519 provider also reject a public key or R that is not a canonical encoding or is of order dividing 8. Keep failing evidence as it is; sign again with the same key when it meets P-ED-1, rotate a non-canonical public key and replace a key of small order.
+- **`wasm` feature.** The new raw export `wasm_canonicalize_v2_result` returns a tagged result, and the `{"error": …}` the exports return is escaped JSON.
+- **`otlp` feature.** It requires `anyhow` 1.0.103 or later and `tokio` 1.53.3 or later (RUSTSEC-2026-0190, RUSTSEC-2026-0386); the default and `wasm` builds select neither crate. A project whose own `Cargo.lock` enables `otlp` updates them with `cargo update -p anyhow -p tokio`. The minimum also leaves out the fixed tokio 1.51.x line (1.51.6 or later) when `otlp` is enabled; that does not make 1.51.6 vulnerable, Cargo just cannot allow both lines.
+
+Telemetry reports `2.14.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged.
 
 ```toml
 [dependencies]
-dcp-ai = "2.10"
+dcp-ai = "2.14.0"
 ```
 
 With OpenTelemetry/OTLP export:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.14.0", features = ["otlp"] }
 ```
 
 For WebAssembly support:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["wasm"] }
+dcp-ai = { version = "2.14.0", features = ["wasm"] }
 ```
 
 ## Features
@@ -36,18 +60,21 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | Canonical JSON v2 + domain separation | Yes |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
 | Bundle verification (V1 + V2; V2 under a verifier policy and the security tier, `verify_signed_bundle_v2_with_policy`) | Yes |
+| V2 bundle building & signing (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; the `wasm` feature's `wasm_build_bundle` / `wasm_sign_bundle` call them; no PQ checkpoints yet) | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | Yes |
 | DCP-08 rights + obligations + compliance | Yes |
-| DCP-09 delegation + awareness threshold + principal mirror | Yes |
+| DCP-09 delegation + verifiable delegation chains (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + awareness threshold + principal mirror | Yes |
 | DCP-04 A2A discovery + handshake + session id derivation | Yes |
 | DCP-04 A2A AES-256-GCM session encryption | _Deferred to a follow-up release_ |
-| Session nonce helpers, security tier engine (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2), emergency revocation | Yes |
+| Session nonce helpers, security tier engine (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2; `compute_security_tier_with_floor` adds a delegation chain's tier), emergency revocation | Yes |
 | Lazy PQ checkpoints + `PQCheckpointManager` | Yes |
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
 | Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
 | OpenTelemetry / OTLP exporter (optional `otlp` feature) | Yes |
+| Admission: trusted principals and the `strict-v1` profile | Yes |
+| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | Experimental and opt-in; not normative |
 
 ## Quickstart
 
@@ -80,6 +107,7 @@ fn main() {
 ### Verify a Signed Bundle
 
 ```rust
+// Needs citizenship_bundle.signed.json in the working directory and the signer's public key in place of BASE64_PUBLIC_KEY.
 use dcp_ai::verify::verify_signed_bundle;
 use serde_json;
 use std::fs;
@@ -90,8 +118,8 @@ fn main() {
 
     let result = verify_signed_bundle(&signed_bundle, Some("BASE64_PUBLIC_KEY"));
     println!("Verified: {}", result.verified);
-    if !result.errors.is_empty() {
-        println!("Errors: {:?}", result.errors);
+    if let Some(errors) = &result.errors {
+        println!("Errors: {:?}", errors);
     }
 }
 ```
@@ -112,6 +140,7 @@ fn main() {
 ### Verification (`dcp_ai::verify`)
 
 ```rust
+// Signature (not runnable)
 fn verify_signed_bundle(
     signed_bundle: &Value,
     public_key_b64: Option<&str>,
@@ -123,6 +152,7 @@ Verifies: Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, 
 ### Types (`dcp_ai::types`)
 
 ```rust
+// Declarations, fields elided (not runnable)
 pub struct ResponsiblePrincipalRecord { ... }
 pub struct AgentPassport { ... }
 pub struct Intent { ... }
@@ -158,16 +188,126 @@ Domain separation constants: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `
 
 All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[serde(rename_all = "snake_case")]`. Optional fields use `Option<T>` with `#[serde(skip_serializing_if = "Option::is_none")]`.
 
+**Received audit entries (from 2.13.0).** `AuditEventV2` and `AuditEvidenceV2` are for producing entries. Decoding a received entry into them and encoding it again loses an explicit `null` (in `evidence`, `prev_hash_secondary` and `intent_hash_secondary`) and any unknown member, and turns an absent `pq_checkpoint_ref` into `null`. That changes the entry's canonical bytes and may break the `prev_hash` chain or the audit Merkle root. To keep a received entry, use `RawAuditEventV2`: it holds the decoded `serde_json::Value`, so every member at every depth keeps its presence and `null`-ness, unknown members included, and it serializes that value as it is. It refuses only what is not a JSON object (`RawAuditEventError`). It keeps what `serde_json` decoded, not the original text, never repairs or re-signs, and keeps invalid evidence as it is, so a verifier rejects it for the same reason. `typed()` is a lossy view for reading fields. To keep a received bundle, keep it as received and verify that.
+
+<a id="bundles-dcp_aiv2bundle-unreleased"></a>
+
+### Bundles (`dcp_ai::v2::bundle`)
+
+| Function | Description |
+|----------|-------------|
+| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Builds the V2 bundle from the four `SignedPayload`s and the audit trail. It checks each `payload_hash` and the `session_nonce` of every artifact and audit entry, and writes the manifest with both audit Merkle roots; an empty trail gets roots of 64 zeros |
+| `sign_bundle_v2(bundle, &classical, &pq)` | Composite-signs the manifest under `CTX_BUNDLE` and returns `{bundle, signature}`, with `signer.id` the RPR's `human_id`. Put `session_expires_at` or `intended_verifier` in the manifest before signing; with `session_expires_at` and no `session_issued_at`, it sets `session_issued_at` to the signing time |
+
+**Schema validation (V2-2; from 2.13.0).** `verify_signed_bundle_v2`, `…_with_policy` and `…_at` first validate the signed bundle envelope and the four payloads against `schemas/v2`, after the policy and clock checks and before the verifier checks the manifest, payload hashes, keys and signatures; `admit_signed_bundle_v2`, which verifies first, and the experimental candidate verifier go through the same gate, while `evaluate_admission_v2` takes an earlier result and does not run it. A bundle that fails returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`) and no cryptographic details. Unknown members of closed objects are rejected; in open objects, such as the intent `target`, the declared members keep their constraints and only additional members are not inspected. The manifest's `session_issued_at` and `session_expires_at` must be strings when present, not `null`. `date-time` follows the ajv-formats 3.0.1 check of the reference verifier, which is not strict RFC 3339. They take a parsed `serde_json::Value`: what serde_json refuses to parse (a lone surrogate, `1e400`) is the caller's parse error. **Acceptance change:** schema-invalid bundles that verified before are now rejected. There is no schema-only API. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
+
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
+
+### Delegation Chains (`dcp_ai::v2::delegation`, DCP-09 §3.5)
+
+| Function | Description |
+|----------|-------------|
+| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | Root mandate signed by the human, with optional `sub_delegation` and `minimum_security_tier` |
+| `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Sub-mandate signed by the parent's agent under the `DCP-AI.v2.SubMandate` context |
+| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | One mandate's `mandate_id`, local revocation and validity window at `now` (RFC 3339 instants in milliseconds, both limits included); a missing, malformed or inverted window is invalid. No signature, scope or chain check, and no authorization. From 2.13.0 |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifies the chain root first and offline (signatures back to the human, links and depth, `sub_delegation`, nested validity, attenuation of actions, `data_classes` and `limits`, tier floor, revocation); returns `MandateChainResult { valid, errors, depth, effective_tier }`. Times are RFC 3339 instants in whole milliseconds, as in the other SDKs; `None` is the current time. A domain repeated in one mandate's `authority_scope`, the root included, rejects the chain; domains are compared as exact strings, with no case folding, trimming or Unicode normalization (from 2.13.0) |
+
+<a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
+
+### Admission (`dcp_ai::v2`, spec/profiles/admission)
+
+Whether a verified V2 bundle is admitted as evidence from a principal the operator already trusts, optionally under the `strict-v1` profile. The trust set, the profile and the revocation source come from the operator, never from the bundle or the request.
+
+| Function | Description |
+|----------|-------------|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | `verify_signed_bundle_v2_with_policy` at `now_ms` (milliseconds since the Unix epoch), which every time check uses; the other two verify functions use the system clock. It returns `V2VerificationDetails`: the same `V2VerificationResult` as `result`, and `signer_keys`, which lists, for each composite signature checked, the key resolved for each component and whether it verified. `V2VerificationResult` retains its ten-field shape and the other two functions retain their signatures |
+| `PrincipalTrustStore::from_json(&json)` | Loads a trust set (`schemas/v2/principal_trust_set.schema.json`) |
+| `resolve_strict_v1_profile(&json)` | Loads a `strict-v1` profile (`schemas/v2/admission_profile.schema.json`); `policy()`, `verifier_id()`, `max_session_duration_seconds()` and `max_revocation_age_seconds()` are read-only |
+| `revocation_subjects(&b, &verification)` | The passport `agent_id` and the sorted kids of the verified signer keys, for the operator's revocation source |
+| `evaluate_admission_v2(&b, &verification, &AdmissionOptions { .. })` | Admission from a verification result, with no cryptography and no I/O |
+| `admit_signed_bundle_v2(&b, &AdmitOptions { .. })` | Verifies at `now_ms` (the system clock when `None`) under the profile's policy, or `policy` without a profile, then evaluates |
+
+A trust set or profile that cannot be loaded, a profile without a trust set and a profile with a caller policy return `AdmissionConfigError { code, message }`. `AdmissionResult` serializes with the keys of § 5.2 (`verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized`, `recorded_decision`, `trust_set_version`, `errors`); `action_authorized` is always `false`. A profile's `verifier_policy` may narrow `accepted_classical_algs` and `accepted_pq_algs`, which the verifier enforces; it fixes `min_classical`, `min_pq`, `accepted_hash_algs` and `max_key_age_days` at their defaults.
+
+```rust
+// Fragment, inside a function returning a Result: profile_json, trust_set_json, signed_bundle, now_ms and revocation_source come from your application.
+use dcp_ai::v2::{
+    evaluate_admission_v2, resolve_strict_v1_profile, revocation_subjects, verify_signed_bundle_v2_at,
+    AdmissionOptions, PrincipalTrustStore,
+};
+
+let profile = resolve_strict_v1_profile(&profile_json)?;
+let trust = PrincipalTrustStore::from_json(&trust_set_json)?;
+let verification = verify_signed_bundle_v2_at(&signed_bundle, profile.policy(), now_ms);
+// Ask the operator's revocation source about these; None when it cannot answer.
+let snapshot: Option<serde_json::Value> = revocation_source(&revocation_subjects(&signed_bundle, &verification));
+let result = evaluate_admission_v2(
+    &signed_bundle,
+    &verification,
+    &AdmissionOptions { profile: Some(&profile), trust: Some(&trust), revocation: snapshot.as_ref(), now_ms },
+)?;
+if result.admitted {
+    // Authentic evidence from a trusted principal; not an authorization to act.
+}
+```
+
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
+
+Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
+signer or verifier changes. These modules are available in 2.11.0 only to callers who explicitly opt in. A verified candidate bundle grants no trust or admission. Design and contract:
+[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
+(§15 ingress, §16 router, §17 verifier, §18 producers).
+
+| Module | API |
+|---|---|
+| `dcp_ai::v2::experimental_candidate_ingress` | `experimental_candidate_ingress(&[u8])`: `CandidateIngressOutcome::Accept { value, canonical, canonical_sha256 }` or `Reject { class, offset }` |
+| `dcp_ai::v2::experimental_candidate_router` | `CandidateRouter::new(CandidateRouterConfig { transport, accepted_profiles, historical })`; decoder `HistoricalAdapter::serde_json_from_slice()`, none a default |
+| `dcp_ai::v2::experimental_candidate_verify` | `CandidateVerifier::new(config)` and `verify_at(input, policy, now_ms)` |
+| `dcp_ai::v2::experimental_candidate_produce` | `sign_payload(context, &CandidateInput, &CandidateKeys)` and `sign_bundle(&BundleParts, &BundleSigner, &BundleOptions)`; `ProduceError::Reject` for the inputs' domain or form (before any signer runs), `Usage`, `Provider` |
+
+```rust
+use dcp_ai::providers::{ed25519::Ed25519Provider, ml_dsa_65::MlDsa65Provider};
+use dcp_ai::v2::composite_ops::CompositeKeyInfo;
+use dcp_ai::v2::crypto_provider::CryptoProvider;
+use dcp_ai::v2::experimental_candidate_ingress::{experimental_candidate_ingress, CandidateIngressOutcome};
+use dcp_ai::v2::experimental_candidate_produce::{sign_payload, CandidateInput, CandidateKeys};
+
+fn main() {
+    // The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+    if let Ok(CandidateIngressOutcome::Accept { canonical, .. }) = experimental_candidate_ingress(br#"{"b":1.0,"a":[]}"#) {
+        println!("{}", String::from_utf8(canonical).unwrap()); // {"a":[],"b":1}
+    }
+    if let Ok(CandidateIngressOutcome::Reject { class, offset }) = experimental_candidate_ingress(br#"{"a":1,"a":2}"#) {
+        println!("{} {}", class.as_str(), offset); // DUPLICATE_KEY 7
+    }
+
+    // A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+    let key = |p: &dyn CryptoProvider| {
+        let k = p.generate_keypair().unwrap();
+        CompositeKeyInfo { kid: k.kid, alg: p.alg().to_string(), secret_key_b64: k.secret_key_b64, public_key_b64: k.public_key_b64 }
+    };
+    let keys = CandidateKeys { classical: key(&Ed25519Provider), pq: Some(key(&MlDsa65Provider)) };
+    let input = CandidateInput::Bytes(br#"{"intent_id":"intent:1","risk":1.0}"#.to_vec());
+    let artifact = sign_payload("DCP-AI.v2.Intent", &input, &keys).unwrap();
+    println!("{}", artifact.signed_payload["payload_hash"]); // "sha256:..." of {"intent_id":"intent:1","risk":1}
+}
+```
+
 ### Feature `wasm`
 
 When the `wasm` feature is enabled, the crate exposes WebAssembly bindings:
 
 ```rust
+// Declarations of the wasm-bindgen exports, bodies elided (not runnable)
 // Available via wasm-bindgen
 fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
 fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
 fn wasm_hash_object(json: &str) -> String;
 fn wasm_generate_keypair() -> String;
+fn wasm_build_bundle(rpr_json: &str, passport_json: &str, intent_json: &str, policy_json: &str, audit_entries_json: &str, session_nonce: &str) -> String;
+fn wasm_sign_bundle(bundle_json: &str, classical_sk_b64: &str, classical_kid: &str, pq_sk_b64: &str, pq_kid: &str) -> String;
 ```
 
 Compile for WASM:
@@ -196,7 +336,9 @@ cargo build --target wasm32-unknown-unknown --features wasm
 
 - `serde` + `serde_json` — Serialization
 - `sha2` — SHA-256
+- `sha3` — SHA3-256 (dual hash chains)
 - `ed25519-dalek` — Ed25519 cryptography
+- `fips203` / `fips204` / `fips205` — ML-KEM-768, ML-DSA-65 and SLH-DSA-192f (FIPS 203 / 204 / 205)
 - `rand` — Random number generation
 - `base64` — Base64 encoding
 - `hex` — Hex encoding

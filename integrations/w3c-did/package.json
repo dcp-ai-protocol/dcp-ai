@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/w3c-did",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "DCP-AI bridge for W3C Decentralized Identifiers (DIDs) and Verifiable Credentials",
   "type": "module",
   "main": "index.js",

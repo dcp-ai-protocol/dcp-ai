@@ -26,6 +26,7 @@ from dcp_ai.v2 import (
     VerifierPolicy,
     canonicalize_v2,
     classical_only_sign,
+    create_pq_checkpoint,
     generate_session_nonce,
     prepare_payload,
     sign_bundle_v2,
@@ -228,7 +229,10 @@ class TestIntegrity:
     @pytest.mark.asyncio
     async def test_unknown_canonicalization_profile(self, registry, signed):
         signed["bundle"]["manifest"]["canonicalization_profile"] = "dcp-jcs-v2"
-        assert_error(await verify_signed_bundle_v2(signed, registry), "Unknown canonicalization_profile")
+        # V2-2 (const dcp-jcs-v1) refuses it before the profile check, which no input reaches on this path any more.
+        result = await verify_signed_bundle_v2(signed, registry)
+        assert result["verified"] is False
+        assert result["errors"] == ["schema: /bundle/manifest/canonicalization_profile const"]
 
     @pytest.mark.asyncio
     async def test_broken_prev_hash_chain(self, registry, signed, principal_keys):
@@ -252,24 +256,95 @@ class TestIntegrity:
         assert_error(result, error)
 
     @pytest.mark.asyncio
-    async def test_pq_checkpoints_bound_to_manifest(self, registry, signed, principal_keys):
-        nonce = signed["bundle"]["manifest"]["session_nonce"]
-        signed["bundle"]["pq_checkpoints"] = [{"checkpoint_id": "ckpt-1", "session_nonce": nonce}]
-        with_checkpoint = await resign(registry, signed, principal_keys)
-        result = await verify_signed_bundle_v2(with_checkpoint, registry)
+    @pytest.mark.parametrize(
+        ("created_at", "warned", "schema_error"),
+        [
+            ("2020-01-01T00:00:00Z", True, None),
+            ("2026-10-21t00:00:00z", False, None),  # lowercase separators
+            ("2016-12-31T23:59:60Z", False, None),  # a leap second
+            ("2020-01-01 00:00:00Z", False, None),  # a space separator: schema-valid, unreadable by the parser
+            # V2-2: key_entry.created_at is a required date-time, so these two no longer verify (acceptance change).
+            ("not a time", None, "schema: /bundle/agent_passport/payload/keys/0/created_at format"),
+            (None, None, "schema: /bundle/agent_passport/payload/keys/0 required created_at"),  # absent
+        ],
+    )
+    async def test_key_created_at_is_advisory(self, registry, signed, agent_keys, principal_keys, created_at, warned, schema_error):
+        """The key-age warning reads created_at with the strict RFC 3339 parser; a schema-valid value it
+        cannot read gives no warning and never fails the bundle."""
+        passport = signed["bundle"]["agent_passport"]["payload"]
+        if created_at is None:
+            del passport["keys"][0]["created_at"]
+        else:
+            passport["keys"][0]["created_at"] = created_at
+        signed["bundle"]["agent_passport"] = await sign_payload(
+            registry, passport, DCP_CONTEXTS["AgentPassport"], agent_keys
+        )
+        result = await verify_signed_bundle_v2(await resign(registry, signed, principal_keys), registry)
+        if schema_error:
+            assert result["verified"] is False
+            assert result["errors"] == [schema_error]
+            return
         assert result["verified"] is True, result["errors"]
+        assert any("exceeds max age" in w for w in result["warnings"]) is warned, result["warnings"]
+
+    @pytest.mark.asyncio
+    async def test_pq_checkpoints_bound_to_manifest(self, registry, signed, agent_keys, principal_keys):
+        """V2-12: the bundle carries exactly the listed checkpoints, each signed by the agent."""
+        bundle = signed["bundle"]
+        nonce = bundle["manifest"]["session_nonce"]
+        checkpoint = await create_pq_checkpoint(registry, bundle["audit_entries"], nonce, *agent_keys)
+        bundle["pq_checkpoints"] = [checkpoint]
+        with_checkpoint = await resign(registry, signed, principal_keys)
+        for policy in (None, PQ_ONLY_VERIFIER_POLICY):
+            result = await verify_signed_bundle_v2(with_checkpoint, registry, policy)
+            assert result["verified"] is True, result["errors"]
+            assert result["details"]["pq_checkpoints_valid"] is True
 
         checkpoints = with_checkpoint["bundle"]["pq_checkpoints"]
-        checkpoints.append({"checkpoint_id": "ckpt-injected", "session_nonce": nonce})
-        assert_error(await verify_signed_bundle_v2(with_checkpoint, registry), "Manifest pq_checkpoints")
+        checkpoints.append({**checkpoint, "checkpoint_id": "ckpt-injected"})
+        assert_error(await verify_signed_bundle_v2(with_checkpoint, registry), "ckpt-injected is not listed in the manifest")
         checkpoints.clear()
-        assert_error(await verify_signed_bundle_v2(with_checkpoint, registry), "Manifest pq_checkpoints")
+        assert_error(await verify_signed_bundle_v2(with_checkpoint, registry), "which the bundle does not carry")
+
+    @pytest.mark.asyncio
+    async def test_pq_checkpoint_contents_are_verified(self, registry, signed, agent_keys, principal_keys):
+        """V2-12: a listed checkpoint without a matching range, root and agent signature fails."""
+        bundle = signed["bundle"]
+        nonce = bundle["manifest"]["session_nonce"]
+        entries = bundle["audit_entries"]
+        unsigned = {"checkpoint_id": "ckpt-1", "session_nonce": nonce}
+        by_principal = await create_pq_checkpoint(registry, entries, nonce, *principal_keys)
+        wrong_count = await create_pq_checkpoint(registry, entries[:2], nonce, *agent_keys)
+        wrong_count["event_range"]["count"] = 3
+        cases = [
+            (by_principal, "not found in passport keys"),
+            (wrong_count, "event_range does not match the audit entries"),
+        ]
+        for checkpoint, error in cases:
+            bundle["pq_checkpoints"] = [checkpoint]
+            result = await verify_signed_bundle_v2(await resign(registry, signed, principal_keys), registry)
+            assert_error(result, f"pq_checkpoints[{checkpoint['checkpoint_id']}]: ")
+            assert_error(result, error)
+        # A checkpoint without its range, root and signature now fails V2-2 (required members) before V2-12.
+        bundle["pq_checkpoints"] = [unsigned]
+        result = await verify_signed_bundle_v2(await resign(registry, signed, principal_keys), registry)
+        assert result["verified"] is False
+        assert sorted(result["errors"]) == [
+            "schema: /bundle/pq_checkpoints/0 required composite_sig",
+            "schema: /bundle/pq_checkpoints/0 required event_range",
+            "schema: /bundle/pq_checkpoints/0 required merkle_root",
+        ]
 
     @pytest.mark.asyncio
     async def test_malformed_input_fails_without_raising(self, registry):
-        for bad in ({}, {"bundle": {"dcp_bundle_version": "2.0"}, "signature": {}}):
-            result = await verify_signed_bundle_v2(bad, registry)
-            assert_error(result, "Malformed signed bundle")
+        # V2-2 now rejects them as results (required members), before the code that used to raise and report
+        # "Malformed signed bundle"; nothing raises.
+        result = await verify_signed_bundle_v2({}, registry)
+        assert result["verified"] is False
+        assert result["errors"] == ["schema: / required bundle", "schema: / required signature"]
+        result = await verify_signed_bundle_v2({"bundle": {"dcp_bundle_version": "2.0"}, "signature": {}}, registry)
+        assert result["verified"] is False
+        assert result["errors"] and all(e.startswith("schema: ") for e in result["errors"]), result["errors"]
 
 
 class TestSignatures:
@@ -282,6 +357,18 @@ class TestSignatures:
         result = await verify_signed_bundle_v2(signed_medium, registry)
         assert result["details"]["verification_mode"] == "hybrid_preferred"
         assert_error(result, "PQ signature invalid")
+
+    @pytest.mark.asyncio
+    async def test_unsigned_artifact_is_named(self, registry, signed_medium):
+        # Without any composite_sig the error names the artifact. V2-2 (composite_sig is required in the envelope and
+        # in the signature) now names it, before the V2-8 branch, which no input reaches any more.
+        del signed_medium["bundle"]["intent"]["composite_sig"]
+        result = await verify_signed_bundle_v2(signed_medium, registry)
+        assert result["verified"] is False
+        assert result["errors"] == ["schema: /bundle/intent required composite_sig"]
+        del signed_medium["signature"]["composite_sig"]
+        result = await verify_signed_bundle_v2(signed_medium, registry)
+        assert sorted(result["errors"]) == ["schema: /bundle/intent required composite_sig", "schema: /signature required composite_sig"]
 
     @pytest.mark.asyncio
     async def test_invalid_artifact_pq_sig_rejected_under_hybrid_preferred(self, registry, signed_medium):
@@ -358,28 +445,125 @@ class TestSessionAndAudience:
         assert_error(await verify_signed_bundle_v2(expired, registry), "Session expired")
 
     @pytest.mark.asyncio
-    async def test_max_session_duration_with_unsigned_created_at(self, registry, signed, principal_keys):
-        """signature.created_at is not signed. Clamping it to now narrows the gap, not closes it."""
+    async def test_max_session_duration_is_measured_from_session_issued_at(self, registry, signed, principal_keys):
+        """V2-4: the maximum bounds session_expires_at minus the signed session_issued_at.
+        signature.created_at is not signed, so no value of it changes the verdict."""
         now = datetime.now(timezone.utc)
         one_hour = {"max_session_duration_seconds": 3600}
 
-        # A 2 h session signed now. Moving created_at up to the expiry is clamped to now,
-        # so the check still sees 2 h.
+        async def sign_session(expires_at: datetime, issued_at: datetime | None) -> dict:
+            bundle = rebuild(signed["bundle"])
+            if issued_at is not None:
+                bundle["manifest"]["session_issued_at"] = iso(issued_at)
+                return await sign_bundle_v2(
+                    bundle, registry, "human", "human-cross-sdk", *principal_keys,
+                    dual_hash=True, session_expires_at=iso(expires_at),
+                )
+            # Signed without session_issued_at, as a signer that predates it would: the
+            # SDK signers now stamp one whenever the manifest has an expiry.
+            bundle["manifest"]["session_expires_at"] = iso(expires_at)
+            manifest = await sign_payload(registry, bundle["manifest"], DCP_CONTEXTS["Bundle"], principal_keys)
+            return {
+                "bundle": bundle,
+                "signature": {
+                    "hash_alg": "sha256+sha3-256",
+                    "created_at": iso(now),
+                    "signer": {"type": "human", "id": "human-cross-sdk", "kids": [k.kid for k in principal_keys]},
+                    "manifest_hash": manifest["payload_hash"],
+                    "composite_sig": manifest["composite_sig"],
+                },
+            }
+
+        # sign_bundle_v2 writes session_issued_at (now) with session_expires_at, and keeps one already set.
         fresh = await resign(registry, signed, principal_keys, session_expires_at=iso(now + timedelta(hours=2)))
+        issued = datetime.fromisoformat(fresh["bundle"]["manifest"]["session_issued_at"].replace("Z", "+00:00"))
+        assert abs((issued - now).total_seconds()) < 60
+        old_start = now - timedelta(hours=9, minutes=30)
+        kept = await sign_session(now + timedelta(minutes=30), old_start)
+        assert kept["bundle"]["manifest"]["session_issued_at"] == iso(old_start)
+
+        # A 2 h session: within a 3 h maximum, over a 1 h one.
         ok = await verify_signed_bundle_v2(fresh, registry, {"max_session_duration_seconds": 3 * 3600})
         assert ok["verified"] is True, ok["errors"]
-        assert_error(await verify_signed_bundle_v2(fresh, registry, one_hour), "exceeds policy max")
-        fresh["signature"]["created_at"] = iso(now + timedelta(hours=2))
-        assert_error(await verify_signed_bundle_v2(fresh, registry, one_hour), "exceeds policy max")
+        # A 10 h session with 30 min left is over a 1 h maximum: it is measured from its start.
+        # A 30 min session is within it.
+        short = await resign(registry, signed, principal_keys, session_expires_at=iso(now + timedelta(minutes=30)))
+        for created_at in (iso(old_start), iso(now - timedelta(minutes=20)), iso(now + timedelta(hours=2)), None):
+            for bundle in (fresh, kept, short):
+                if created_at is None:
+                    bundle["signature"].pop("created_at", None)
+                else:
+                    bundle["signature"]["created_at"] = created_at
+            if created_at is None:
+                # signature.created_at is required by V2-2, so an absent one is refused before any session check.
+                for bundle in (fresh, kept, short):
+                    result = await verify_signed_bundle_v2(bundle, registry, one_hour)
+                    assert result["errors"] == ["schema: /signature required created_at"], result["errors"]
+                continue
+            assert_error(await verify_signed_bundle_v2(fresh, registry, one_hour), "Session duration")
+            assert_error(await verify_signed_bundle_v2(kept, registry, one_hour), "Session duration")
+            result = await verify_signed_bundle_v2(short, registry, one_hour)
+            assert result["verified"] is True, (created_at, result["errors"])
 
-        # A 10 h session signed 9.5 h ago is rejected as signed, but a created_at rewritten to
-        # 20 min ago shrinks the check to the 50 min that remain, which passes. Closing this
-        # needs a signed session start in the manifest.
-        old = await resign(registry, signed, principal_keys, session_expires_at=iso(now + timedelta(minutes=30)))
-        old["signature"]["created_at"] = iso(now - timedelta(hours=9, minutes=30))
-        assert_error(await verify_signed_bundle_v2(old, registry, one_hour), "exceeds policy max")
-        old["signature"]["created_at"] = iso(now - timedelta(minutes=20))
-        assert (await verify_signed_bundle_v2(old, registry, one_hour))["verified"] is True
+        # Without session_issued_at a bundle verifies as before, but not under a maximum.
+        unstarted = await sign_session(now + timedelta(minutes=30), None)
+        assert "session_issued_at" not in unstarted["bundle"]["manifest"]
+        ok = await verify_signed_bundle_v2(unstarted, registry)
+        assert ok["verified"] is True, ok["errors"]
+        assert_error(
+            await verify_signed_bundle_v2(unstarted, registry, one_hour),
+            "Policy max_session_duration_seconds requires session_issued_at",
+        )
+        # Nor without session_expires_at: a maximum needs both ends of the session.
+        endless = await resign(registry, signed, principal_keys)
+        assert "session_expires_at" not in endless["bundle"]["manifest"]
+        assert (await verify_signed_bundle_v2(endless, registry))["verified"] is True
+        assert_error(
+            await verify_signed_bundle_v2(endless, registry, one_hour),
+            "Policy max_session_duration_seconds requires session_expires_at",
+        )
+
+    @pytest.mark.asyncio
+    async def test_signers_stamp_session_issued_at_with_any_expiry(self, registry, signed_medium, principal_keys):
+        """V2-4: both signers stamp session_issued_at whenever the manifest has session_expires_at."""
+        expires_at = iso(datetime.now(timezone.utc) + timedelta(hours=1))
+        for classical_only in (False, True):
+            bundle = rebuild(signed_medium["bundle"])
+            bundle["manifest"]["session_expires_at"] = expires_at  # not through the signer's argument
+            if classical_only:
+                out = await sign_bundle_v2_classical_only(bundle, registry, "human", "human-cross-sdk", principal_keys[0])
+            else:
+                out = await sign_bundle_v2(bundle, registry, "human", "human-cross-sdk", *principal_keys)
+            assert out["bundle"]["manifest"]["session_issued_at"].endswith("Z")
+            policy = {**DEFAULT_VERIFIER_POLICY, "max_session_duration_seconds": 7200}  # medium: hybrid_preferred
+            result = await verify_signed_bundle_v2(out, registry, policy)
+            assert result["verified"] is True, (classical_only, result["errors"])
+        # Without an expiry there is no session to start.
+        unbounded = await sign_bundle_v2_classical_only(
+            rebuild(signed_medium["bundle"]), registry, "human", "human-cross-sdk", principal_keys[0]
+        )
+        assert "session_issued_at" not in unbounded["bundle"]["manifest"]
+
+    @pytest.mark.asyncio
+    async def test_session_issued_at_is_checked(self, registry, signed, principal_keys):
+        """V2-4: session_issued_at is an RFC 3339 timestamp, at most 30 s ahead, not after the expiry."""
+        now = datetime.now(timezone.utc)
+        cases = [
+            # Schema-valid (ajv-formats accepts lowercase t and z) but refused by the V2-4 parser: the check still runs.
+            ("2026-10-21t00:00:00z", now + timedelta(hours=1), "Invalid session_issued_at"),
+            # A date without a time fails V2-2 (format date-time) first.
+            ("2026-10-21", now + timedelta(hours=1), "schema: /bundle/manifest/session_issued_at format"),
+            (iso(now + timedelta(minutes=5)), now + timedelta(hours=1), "is in the future"),
+            (iso(now + timedelta(seconds=28)), now + timedelta(seconds=20), "session_issued_at is after session_expires_at"),
+        ]
+        for issued_at, expires_at, error in cases:
+            bundle = rebuild(signed["bundle"])
+            bundle["manifest"]["session_issued_at"] = issued_at
+            bad = await sign_bundle_v2(
+                bundle, registry, "human", "human-cross-sdk", *principal_keys,
+                dual_hash=True, session_expires_at=iso(expires_at),
+            )
+            assert_error(await verify_signed_bundle_v2(bad, registry), error)
 
     @pytest.mark.asyncio
     async def test_session_expiry_required(self, registry, signed):

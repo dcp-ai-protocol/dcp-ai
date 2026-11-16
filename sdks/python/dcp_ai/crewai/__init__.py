@@ -101,6 +101,9 @@ class DCPCrewAgent:
         self.rpr = rpr
         self.secret_key = secret_key
         self.session_nonce = session_nonce or _generate_session_nonce()
+        # The nonce the agent generated for itself when it was not given one: a
+        # crew replaces it with its own until the agent logs.
+        self._generated_session_nonce = "" if session_nonce else self.session_nonce
         self.goal = goal
         self.backstory = backstory
         self.lifecycle_state: str = "active"
@@ -266,7 +269,8 @@ class DCPCrew:
         self.session_nonce = session_nonce or _generate_session_nonce()
         self.verbose = verbose
         for agent in self.agents:
-            if not agent.session_nonce:
+            generated = getattr(agent, "_generated_session_nonce", "")
+            if generated and agent.session_nonce == generated and not agent.audit_trail:
                 agent.session_nonce = self.session_nonce
 
     def kickoff(self, task: str) -> dict[str, Any]:

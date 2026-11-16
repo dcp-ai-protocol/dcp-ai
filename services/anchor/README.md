@@ -1,6 +1,6 @@
 # Anchoring Service
 
-HTTP service for anchoring Citizenship Bundle hashes to L2 blockchains (Base, Arbitrum, Optimism). Supports individual anchoring or batch anchoring with a Merkle root.
+HTTP service meant to anchor Citizenship Bundle hashes to L2 blockchains (Base, Arbitrum, Optimism), individually or in batches under a Merkle root. Today it only records them locally (see the note below).
 
 > **On-chain submission is not implemented yet.** Hashes and batch roots are recorded locally with
 > `tx_hash: null` and `onchain: false`; the service never makes up a transaction hash.
@@ -10,11 +10,11 @@ HTTP service for anchoring Citizenship Bundle hashes to L2 blockchains (Base, Ar
 ## Quickstart
 
 ```bash
-# Start the service
-node index.js
+# Start the service, from the repo root after installing the root dependencies
+node services/anchor/index.js
 
-# Or with Docker
-docker compose up anchor
+# Or with Docker, from the repo root
+docker compose -f docker/docker-compose.yml up anchor
 ```
 
 The service listens on `http://localhost:3001` by default.
@@ -39,6 +39,9 @@ curl http://localhost:3001/health
 }
 ```
 
+`total_anchored` counts local records, one per batch, not hashes. A healthy answer says nothing about
+anything on chain.
+
 ### `POST /anchor`
 
 Submit a bundle hash for anchoring: `sha256:` followed by 64 lowercase hex characters (the prefix
@@ -47,15 +50,16 @@ is optional). Anything else, or a body over 1 MB, is a 400.
 ```bash
 curl -X POST http://localhost:3001/anchor \
   -H "Content-Type: application/json" \
-  -d '{"bundle_hash": "sha256:abc123..."}'
+  -d '{"bundle_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"}'
 ```
 
-**Individual mode** — Anchors immediately:
+**Individual mode** — Records the hash at once, locally: `anchored: true` means recorded by this
+service, not on chain (`onchain: false`, `tx_hash: null`):
 
 ```json
 {
   "anchored": true,
-  "hash": "sha256:abc123...",
+  "hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
   "count": 1,
   "timestamp": "2025-01-01T00:00:00.000Z",
   "tx_hash": null,
@@ -69,9 +73,9 @@ curl -X POST http://localhost:3001/anchor \
 ```json
 {
   "accepted": true,
-  "bundle_hash": "sha256:abc123...",
+  "bundle_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
   "position": 3,
-  "hint": "Batch will flush in ~60s or POST /flush"
+  "hint": "Will be anchored in next batch (interval: 60000ms)"
 }
 ```
 
@@ -80,13 +84,13 @@ curl -X POST http://localhost:3001/anchor \
 Query the status of an anchored hash.
 
 ```bash
-curl http://localhost:3001/status/sha256:abc123...
+curl http://localhost:3001/status/sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 ```
 
 ```json
 {
   "anchored": true,
-  "hash": "sha256:abc123...",
+  "hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
   "count": 1,
   "timestamp": "2025-01-01T00:00:00.000Z",
   "tx_hash": null,
@@ -103,6 +107,12 @@ If not anchored but pending:
   "pending": true
 }
 ```
+
+A record is found only by the hash it stores. In individual mode, and for a batch of one hash, that is
+the submitted hash (with the `sha256:` prefix). For a batch of several hashes it is only their Merkle
+root, so each of those hashes then answers `{"anchored": false, "pending": false}`; there is no
+per-hash inclusion proof yet. While pending, a hash is matched as it was submitted (with or without
+the prefix). Records are in memory and a restart loses them.
 
 ### `GET /anchored`
 
@@ -150,9 +160,9 @@ curl -X POST http://localhost:3001/flush -H "Authorization: Bearer $OPERATOR_TOK
 
 ### Operating Modes
 
-**Individual (`ANCHOR_MODE=individual`):** Each hash is anchored immediately in an independent on-chain transaction.
+**Individual (`ANCHOR_MODE=individual`):** Each hash gets its own local record at once. Once on-chain submission is wired in, each would be a separate transaction.
 
-**Batch (`ANCHOR_MODE=batch`):** Hashes are accumulated and periodically anchored as a Merkle root, reducing gas costs. The flush occurs every `BATCH_INTERVAL_MS` milliseconds or manually via `POST /flush`.
+**Batch (`ANCHOR_MODE=batch`):** Hashes are accumulated and recorded as one Merkle root every `BATCH_INTERVAL_MS` milliseconds, or at once with `POST /flush`. Once on-chain submission is wired in, each batch would be one transaction.
 
 ## Integration with DCPAnchor.sol
 
@@ -166,8 +176,8 @@ See [contracts/ethereum/README.md](../../contracts/ethereum/README.md) for contr
 ## Development
 
 ```bash
-# Start in development mode
-PORT=3001 ANCHOR_MODE=batch node index.js
+# Start in development mode, from the repo root
+PORT=3001 ANCHOR_MODE=batch node services/anchor/index.js
 
 # Test with curl
 curl http://localhost:3001/health

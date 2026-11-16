@@ -46,6 +46,11 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "session_issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the session began. Signed with the manifest; a verifier with a maximum session duration measures it from here (spec/VERIFICATION.md V2-4)."
+    },
     "session_expires_at": {
       "type": "string",
       "format": "date-time",

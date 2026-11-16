@@ -176,6 +176,8 @@ export interface BundleManifest {
   audit_merkle_root_secondary?: string;
   audit_count: number;
   pq_checkpoints?: string[];
+  /** When the session began, signed with the manifest (spec/VERIFICATION.md V2-4). */
+  session_issued_at?: string;
   session_expires_at?: string;
   intended_verifier?: string;
   canonicalization_profile?: 'dcp-jcs-v1';
@@ -624,6 +626,13 @@ export interface AuthorityScopeEntry {
   limits?: Record<string, unknown>;
 }
 
+/** Whether a delegate may sub-delegate, and the greatest delegation_depth any descendant may reach (DCP-09 §3.5). */
+export interface SubDelegationPolicy {
+  permitted: boolean;
+  max_depth: number;
+}
+
+/** A root mandate: the human principal's delegation to an agent. The chain fields are absent on a mandate that permits no sub-delegation. */
 export interface DelegationMandate {
   dcp_version: '2.0';
   mandate_id: string;
@@ -635,7 +644,32 @@ export interface DelegationMandate {
   valid_until: string;
   revocable: boolean;
   timestamp: string;
+  /** Never present on a root mandate; typed so a chain can be read as DelegationMandate[]. */
+  parent_mandate_id?: string;
+  /** 0 on a root mandate when present. */
+  delegation_depth?: number;
+  sub_delegation?: SubDelegationPolicy;
+  minimum_security_tier?: SecurityTier;
   human_composite_sig: CompositeSignature;
+}
+
+/** A sub-mandate (DCP-09 §3.5): a delegate agent's strictly narrower delegation to another agent, signed by the delegating agent. */
+export interface SubMandate {
+  dcp_version: '2.0';
+  mandate_id: string;
+  session_nonce: string;
+  human_id: string;
+  agent_id: string;
+  authority_scope: AuthorityScopeEntry[];
+  valid_from: string;
+  valid_until: string;
+  revocable: boolean;
+  timestamp: string;
+  parent_mandate_id: string;
+  delegation_depth: number;
+  sub_delegation?: SubDelegationPolicy;
+  minimum_security_tier?: SecurityTier;
+  delegator_composite_sig: CompositeSignature;
 }
 
 export interface AdvisoryDeclaration {

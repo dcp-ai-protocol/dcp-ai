@@ -1,0 +1,69 @@
+{
+  "contract": "dcp-ai-mp05-rehearsal",
+  "contract_version": 1,
+  "test_only": true,
+  "scope": "Application conventions of the MP-05 rehearsal kit. They are not part of the DCP protocol, its profiles, its schemas or dcp-jcs-v1.",
+  "verifier_id": "verifier:mp05-rehearsal",
+  "domain": "orders.example.com",
+  "routes": {
+    "direct": { "method": "POST", "path": "/v1/direct/actions/{action}", "max_body_bytes": 65536 },
+    "delegated": {
+      "method": "POST",
+      "path": "/v1/delegated/actions/{action}",
+      "max_body_bytes": 262144
+    }
+  },
+  "actions": {
+    "quote": {
+      "action_type": "api_call",
+      "channel": "api",
+      "data_classes": ["company_confidential"],
+      "single_use": false
+    },
+    "order": {
+      "action_type": "api_call",
+      "channel": "api",
+      "data_classes": ["financial_data"],
+      "single_use": true
+    },
+    "refund": {
+      "action_type": "api_call",
+      "channel": "api",
+      "data_classes": ["financial_data"],
+      "single_use": true
+    }
+  },
+  "args": {
+    "members": ["amount", "currency", "sku"],
+    "sku_pattern": "^[A-Za-z0-9._-]{1,64}$",
+    "amount": {
+      "type": "integer, never boolean",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "unit": "minor units of currency"
+    },
+    "currencies": ["EUR"]
+  },
+  "intent_binding": {
+    "target_members": ["channel", "domain", "url", "x_rehearsal"],
+    "x_rehearsal_members": ["action", "args_sha256"],
+    "args_sha256": "sha256: followed by the lowercase hex SHA-256 of dcp-jcs-v1(args), through the SDK canonicalizer"
+  },
+  "data_classes_rule": "intent.data_classes is required and equals the action's data_classes as a set, without repeats. The scope entry of every mandate of the chain for the domain lists all of them; an entry without data_classes permits none.",
+  "limits_rule": "DCP-09 section 3.5.2 rule 5 (attenuation, checked by the SDK) makes every limits key of a parent entry reappear in the sub-mandate entry with a numeric value not greater, or an identical value. What max_amount caps is a convention of this application only: args.amount, in the same unit. The application applies the operator cap and the max_amount of every mandate of the chain that declares it (defense in depth: in an admitted chain the leaf's is already the smallest); without it a mandate adds no amount cap.",
+  "ledger": {
+    "key": "lowercase hex SHA-256 of UTF-8(tenant) || 0x00 || UTF-8(payload_hash of the signed intent, as the SDK verified it)",
+    "semantics": "At most one attempt. No exactly-once execution and no transaction with external systems. A short write fails closed."
+  },
+  "codes": {
+    "APP_ARGS_INVALID": "args members, types or units",
+    "APP_INTENT_MISMATCH": "the signed intent does not match the route, the action, the args or the action's data classes",
+    "APP_ACTION_NOT_AUTHORIZED": "the operator policy does not allow the action for this agent (direct) or principal (delegated), or the action is unknown",
+    "APP_DELEGATION_NOT_ACTIVE": "the composition is admitted but the delegation is not active",
+    "APP_DOMAIN_OUT_OF_SCOPE": "a mandate of the chain has no single scope entry for the domain",
+    "APP_ACTION_OUT_OF_SCOPE": "a mandate of the chain does not permit the action",
+    "APP_DATA_CLASS_OUT_OF_SCOPE": "a mandate of the chain does not permit the action's data classes",
+    "APP_ARGS_OUT_OF_SCOPE": "the amount exceeds the operator cap or the max_amount of a mandate of the chain, or a max_amount is not a safe integer",
+    "APP_ALREADY_CONSUMED": "the signed intent was already reserved in the ledger"
+  }
+}

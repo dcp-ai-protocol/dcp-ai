@@ -10,6 +10,8 @@ pub mod verify;
 pub mod v2;
 pub mod providers;
 pub mod observability;
+mod clock;
+mod ed25519_ped1;
 
 pub use types::*;
 pub use crypto::{
@@ -73,8 +75,10 @@ pub mod wasm {
         PopChallenge, generate_registration_pop, verify_registration_pop,
     };
 
+    /// The in-band error `{"error": "<msg>"}`, escaped by serde_json. Double quotes still become apostrophes, as they
+    /// always have, so a message without a backslash or a control character keeps its exact former bytes.
     fn json_err(msg: &str) -> String {
-        format!("{{\"error\":\"{}\"}}", msg.replace('"', "'"))
+        json!({ "error": msg.replace('"', "'") }).to_string()
     }
 
     // ── V1 Compatibility ──────────────────────────────────────────────────
@@ -107,6 +111,332 @@ pub mod wasm {
         match crate::detect_dcp_version(&val) {
             Some(v) => format!("\"{}\"", v),
             None => "null".to_string(),
+        }
+    }
+
+    // ── EXPERIMENTAL, opt-in: candidate dcp-jcs-v2 ingress of one unit (phase 1) ──
+
+    /// EXPERIMENTAL, opt-in: the candidate ingress of one unit from its original bytes. Returns
+    /// {"status":"accept","canonical":<text>,"canonical_sha256":<hex>} or
+    /// {"status":"reject","class":<class>,"offset":<byte offset>}; {"error":...} only for an
+    /// internal error, never for the data. It verifies, signs or admits nothing.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_ingress(input: &[u8]) -> String {
+        use crate::v2::experimental_candidate_ingress::{experimental_candidate_ingress, CandidateIngressOutcome};
+        match experimental_candidate_ingress(input) {
+            Ok(CandidateIngressOutcome::Accept { canonical, canonical_sha256, .. }) => match String::from_utf8(canonical) {
+                Ok(text) => json!({"status": "accept", "canonical": text, "canonical_sha256": canonical_sha256}).to_string(),
+                Err(_) => json_err("canonical bytes are not UTF-8"),
+            },
+            Ok(CandidateIngressOutcome::Reject { class, offset }) => {
+                json!({"status": "reject", "class": class.as_str(), "offset": offset}).to_string()
+            }
+            Err(e) => json_err(&e.to_string()),
+        }
+    }
+
+    // ── EXPERIMENTAL, opt-in: candidate dcp-jcs-v2 router (phase 2) ──
+    //
+    // Stateless: `route` either ends or returns the decision point where the JS historical decoder must
+    // be consulted; `resume` recomputes everything from its own arguments, accepts the decoder's result
+    // only at that same point, and can only end in a rejection or a v1 delegation, never `candidate`.
+    // A misuse is {"usage_error": ...}, never a result for the data. The point checks coherence; it is
+    // not authentication: a caller can always lie about what its decoder returned.
+
+    use crate::v2::experimental_candidate_router::{
+        CandidateExtraction, CandidateHistorical, CandidateRoute, CandidateRouter, CandidateRouterConfig,
+        HistoricalAdapter, HistoricalDecode, HistoricalPoint,
+    };
+
+    fn candidate_router(config_json: &str) -> Result<CandidateRouter, String> {
+        let config: Value = serde_json::from_str(config_json)
+            .map_err(|_| json!({"config_error": {"code": "CONFIG_INVALID", "detail": "CONFIG"}}).to_string())?;
+        let name = config.get("historical").and_then(Value::as_str).unwrap_or("").to_string();
+        CandidateRouter::new(CandidateRouterConfig {
+            transport: config.get("transport").and_then(Value::as_str).unwrap_or("").into(),
+            accepted_profiles: config.get("accepted_profiles").cloned().unwrap_or(Value::Null),
+            historical: Some(HistoricalAdapter::custom(name, |_| {
+                Err(HistoricalDecode::Adapter("the wasm binding consults the JS decoder through resume".into()))
+            })),
+        })
+        .map_err(|e| json!({"config_error": {"code": e.code, "detail": e.detail}}).to_string())
+    }
+
+    fn normalized_config(router: &CandidateRouter) -> Value {
+        let (transport, profiles, historical) = router.configuration();
+        json!({"transport": transport, "accepted_profiles": profiles, "historical": historical})
+    }
+
+    fn point_json(router: &CandidateRouter, point: &HistoricalPoint, unit: &[u8]) -> Value {
+        use sha2::Digest;
+        json!({
+            "step": point.step,
+            "unit": [point.start, point.end],
+            "unit_sha256": hex::encode(sha2::Sha256::digest(unit)),
+            "diagnosis": point.diagnosis.as_ref().map(|d| json!({"class": d.class, "offset": d.offset})),
+            "scanner_profile": point.scanner_profile.map(|(p, o)| json!({"profile": p, "offset": o})),
+            "config": normalized_config(router),
+        })
+    }
+
+    fn route_json(route: &CandidateRoute) -> Value {
+        let attempts = route.attempts();
+        match route {
+            CandidateRoute::Reject { class, detail, offset, transport_offset, unit, profile } => json!({
+                "outcome": "reject", "class": class, "detail": detail, "offset": offset, "transport_offset": transport_offset,
+                "unit": unit.map(|(s, e)| json!({"start": s, "end": e})), "profile": profile, "attempts": attempts, "warnings": [],
+            }),
+            CandidateRoute::V1Path { unit, profile_source, warnings, historical } => json!({
+                "outcome": "v1_path", "unit": {"start": unit.start, "end": unit.end}, "profile": "dcp-jcs-v1",
+                "profile_source": profile_source, "attempts": attempts,
+                "warnings": warnings.iter().map(|w| json!({"class": w.class, "offset": w.offset, "transport_offset": w.transport_offset})).collect::<Vec<_>>(),
+                "historical": match &historical.decoded {
+                    Some(v) => json!({"adapter": historical.adapter, "decoded": v}),
+                    None => json!({"adapter": historical.adapter, "failed": historical.failed}),
+                },
+            }),
+            CandidateRoute::Candidate { unit, canonical, canonical_sha256, .. } => json!({
+                "outcome": "candidate", "unit": {"start": unit.start, "end": unit.end}, "profile": "dcp-jcs-v2",
+                "attempts": attempts, "warnings": [], "canonical": String::from_utf8_lossy(canonical), "canonical_sha256": canonical_sha256,
+            }),
+        }
+    }
+
+    enum CandidateStop {
+        Needs(Value),
+        Usage(String),
+        Internal(String),
+    }
+
+    impl From<crate::v2::experimental_candidate_ingress::CandidateIngressInternalError> for CandidateStop {
+        fn from(e: crate::v2::experimental_candidate_ingress::CandidateIngressInternalError) -> Self {
+            CandidateStop::Internal(e.to_string())
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in: validates a router configuration before any input. Returns the normalized
+    /// configuration, or {"config_error": {"code", "detail"}}.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_config(config_json: &str) -> String {
+        match candidate_router(config_json) {
+            Ok(router) => normalized_config(&router).to_string(),
+            Err(e) => e,
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in: the unit of a transport (T1–T5), as offsets in the input.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_extract(input: &[u8], transport: &str) -> String {
+        match crate::v2::experimental_candidate_router::extract_unit(input, transport) {
+            Ok(CandidateExtraction::Unit { start, end }) => json!({"status": "unit", "start": start, "end": end}).to_string(),
+            Ok(CandidateExtraction::Reject { class, detail, transport_offset }) => {
+                json!({"status": "reject", "class": class, "detail": detail, "transport_offset": transport_offset}).to_string()
+            }
+            Err(e) => json!({"usage_error": e}).to_string(),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in: the route, or {"needs_historical": point} where the JS decoder must be
+    /// consulted (once) before `wasm_experimental_candidate_resume`.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_route(input: &[u8], config_json: &str) -> String {
+        let router = match candidate_router(config_json) {
+            Ok(r) => r,
+            Err(e) => return e,
+        };
+        let result = router.route_internal(input, &mut |point, unit| Err(CandidateStop::Needs(point_json(&router, point, unit))));
+        match result {
+            Ok(route) => route_json(&route).to_string(),
+            Err(CandidateStop::Needs(point)) => json!({"needs_historical": point}).to_string(),
+            Err(CandidateStop::Usage(m)) => json!({"usage_error": m}).to_string(),
+            Err(CandidateStop::Internal(m)) => json_err(&m),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in: finishes a route with the JS decoder's result: {"json": text} (the
+    /// wrapper's object path), {"text": text} (a text path) or {"failed": reason}. Everything is
+    /// recomputed from these arguments; the decoder's result is used only at the same decision point
+    /// (step, unit, unit hash, diagnosis, scanner reading and normalized configuration).
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_resume(input: &[u8], config_json: &str, point_json_text: &str, historical_json: &str) -> String {
+        let router = match candidate_router(config_json) {
+            Ok(r) => r,
+            Err(e) => return e,
+        };
+        let (given, historical): (Value, Value) = match (serde_json::from_str(point_json_text), serde_json::from_str(historical_json)) {
+            (Ok(p), Ok(h)) => (p, h),
+            _ => return json!({"usage_error": "the point and the historical result must be JSON"}).to_string(),
+        };
+        let mut consulted = false;
+        let result = router.route_internal(input, &mut |point, unit| {
+            consulted = true;
+            if point_json(&router, point, unit) != given {
+                return Err(CandidateStop::Usage("the decision point does not match this input and configuration".into()));
+            }
+            let (_, _, adapter) = router.configuration();
+            let parsed = |text: &str| match serde_json::from_str::<Value>(text) {
+                Ok(v) => CandidateHistorical { adapter: adapter.clone(), decoded: Some(v), failed: None },
+                Err(e) => CandidateHistorical { adapter: adapter.clone(), decoded: None, failed: Some(e.to_string()) },
+            };
+            let fields = (
+                historical.get("json").and_then(Value::as_str),
+                historical.get("text").and_then(Value::as_str),
+                historical.get("failed").and_then(Value::as_str),
+            );
+            match fields {
+                (Some(text), None, None) | (None, Some(text), None) => Ok(parsed(text)),
+                (None, None, Some(reason)) => Ok(CandidateHistorical { adapter: adapter.clone(), decoded: None, failed: Some(reason.into()) }),
+                _ => Err(CandidateStop::Usage("the historical result must be one of {json}, {text} or {failed}".into())),
+            }
+        });
+        match result {
+            Ok(_) if !consulted => json!({"usage_error": "resume without a historical step"}).to_string(),
+            Ok(CandidateRoute::Candidate { .. }) => json_err("resume produced a candidate"),
+            Ok(route) => route_json(&route).to_string(),
+            Err(CandidateStop::Needs(_)) => json_err("resume asked for the historical decoder again"),
+            Err(CandidateStop::Usage(m)) => json!({"usage_error": m}).to_string(),
+            Err(CandidateStop::Internal(m)) => json_err(&m),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in (phase 3): the route of `input` and, for a candidate, its verification
+    /// with today's verifier accepting exactly dcp-jcs-v2, on the exact value the router extracted from
+    /// `input` itself, the policy parsed and the clock read as `wasm_verify_signed_bundle_v2` does.
+    /// Returns {"route", "entered", "verification"} for a rejection (no verifier) or a candidate, or
+    /// {"needs_historical": point} unchanged: the decoder is consulted in JS, `resume` (which never
+    /// verifies) ends in a rejection or a delegation, and JS delegates the decoder's own string.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_verify(input: &[u8], config_json: &str, policy_json: Option<String>) -> String {
+        let router = match candidate_router(config_json) {
+            Ok(r) => r,
+            Err(e) => return e,
+        };
+        let result = router.route_internal(input, &mut |point, unit| Err(CandidateStop::Needs(point_json(&router, point, unit))));
+        match result {
+            Ok(route @ CandidateRoute::Reject { .. }) => {
+                json!({"route": route_json(&route), "entered": "none", "verification": null}).to_string()
+            }
+            Ok(CandidateRoute::V1Path { .. }) => json_err("a delegation without a decision point"),
+            Ok(ref route @ CandidateRoute::Candidate { ref value, .. }) => {
+                let policy: crate::v2::types::VerifierPolicy = match policy_json.as_deref().map(serde_json::from_str) {
+                    None => Default::default(),
+                    Some(Ok(p)) => p,
+                    Some(Err(e)) => {
+                        return json!({
+                            "route": route_json(route), "entered": "dcp-jcs-v2",
+                            "verification": {"verified": false, "errors": [format!("Policy parse error: {}", e)]},
+                        })
+                        .to_string()
+                    }
+                };
+                let now = crate::v2::lifecycle::unix_now_millis() as i64;
+                match crate::v2::experimental_candidate_verify::verify_candidate(value, &policy, now, &mut |_| {}) {
+                    Ok(details) => json!({"route": route_json(route), "entered": "dcp-jcs-v2", "verification": details}).to_string(),
+                    Err(e) => json_err(&e.to_string()),
+                }
+            }
+            Err(CandidateStop::Needs(point)) => json!({"needs_historical": point}).to_string(),
+            Err(CandidateStop::Usage(m)) => json!({"usage_error": m}).to_string(),
+            Err(CandidateStop::Internal(m)) => json_err(&m),
+        }
+    }
+
+    // ── EXPERIMENTAL, opt-in: candidate producers (phase 4) ─────────────────
+    // Every piece arrives as its own bytes (a range of one buffer), never nested in a request: the
+    // ingress sees each piece's original bytes and the depth budget is the final unit's. Keys, signer
+    // and options are small JSON objects of labels, validated by the JS wrapper first.
+
+    fn candidate_keys(v: &Value) -> Result<crate::v2::experimental_candidate_produce::CandidateKeys, String> {
+        use crate::v2::composite_ops::CompositeKeyInfo;
+        let one = |k: &Value| -> Result<CompositeKeyInfo, String> {
+            let field = |name: &str| k.get(name).and_then(Value::as_str).map(String::from).ok_or_else(|| format!("key {} must be a string", name));
+            Ok(CompositeKeyInfo { kid: field("kid")?, alg: field("alg")?, secret_key_b64: field("secret_key_b64")?, public_key_b64: field("public_key_b64")? })
+        };
+        let classical = one(v.get("classical").ok_or("keys.classical is required")?)?;
+        let pq = match v.get("pq") {
+            None | Some(Value::Null) => None,
+            Some(k) => Some(one(k)?),
+        };
+        Ok(crate::v2::experimental_candidate_produce::CandidateKeys { classical, pq })
+    }
+
+    fn candidate_produce_error(e: crate::v2::experimental_candidate_produce::ProduceError) -> String {
+        use crate::v2::experimental_candidate_produce::ProduceError;
+        match e {
+            ProduceError::Reject(r) => json!({"reject": {"class": r.class, "part": r.part, "path": r.path, "offset": r.offset}}).to_string(),
+            ProduceError::Usage(m) => json!({"usage_error": m}).to_string(),
+            ProduceError::Provider(m) => json_err(&format!("provider: {}", m)),
+            ProduceError::Internal(m) => json_err(&m),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in (phase 4): signs one artifact over `payload` (the payload's own bytes)
+    /// under `context`. Returns {"canonical": artifact text} or {"reject": …} / {"usage_error": …}.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_sign_payload(payload: &[u8], context: &str, keys_json: &str) -> String {
+        use crate::v2::experimental_candidate_produce::{sign_payload, CandidateInput};
+        let keys = match serde_json::from_str::<Value>(keys_json).map_err(|e| e.to_string()).and_then(|v| candidate_keys(&v)) {
+            Ok(k) => k,
+            Err(m) => return json!({"usage_error": m}).to_string(),
+        };
+        match sign_payload(context, &CandidateInput::Bytes(payload.to_vec()), &keys) {
+            Ok(p) => json!({"canonical": String::from_utf8_lossy(&p.bytes)}).to_string(),
+            Err(e) => candidate_produce_error(e),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in (phase 4): assembles and signs a candidate bundle. `pieces` holds every
+    /// part's own bytes; `layout_json` gives their ranges: {"rpr": [s, e], "passport", "intent",
+    /// "policy_decision", "audit_entries": [[s, e], …], "pq_checkpoints": [[s, e], …]}.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_sign_bundle(pieces: &[u8], layout_json: &str, signer_json: &str, options_json: &str) -> String {
+        use crate::v2::experimental_candidate_produce::{sign_bundle, BundleOptions, BundleParts, BundleSigner, CandidateInput};
+        let parsed = (|| -> Result<(BundleParts, BundleSigner, BundleOptions), String> {
+            let layout: Value = serde_json::from_str(layout_json).map_err(|e| e.to_string())?;
+            // A range is exactly [start, end], converted to usize without truncation, inside the pieces.
+            let piece = |r: &Value| -> Result<CandidateInput, String> {
+                let bound = |v: &Value| v.as_u64().and_then(|n| usize::try_from(n).ok());
+                match r.as_array().map(Vec::as_slice) {
+                    Some([s, e]) => match (bound(s), bound(e)) {
+                        (Some(s), Some(e)) if s <= e && e <= pieces.len() => Ok(CandidateInput::Bytes(pieces[s..e].to_vec())),
+                        _ => Err("a piece range is outside the pieces".into()),
+                    },
+                    _ => Err("a piece range must be [start, end]".into()),
+                }
+            };
+            let list = |name: &str| -> Result<Vec<CandidateInput>, String> {
+                match layout.get(name) {
+                    None => Ok(vec![]),
+                    Some(Value::Array(a)) => a.iter().map(piece).collect(),
+                    Some(_) => Err(format!("layout.{} must be a list", name)),
+                }
+            };
+            let part = |name: &str| layout.get(name).ok_or(format!("layout.{} is required", name)).and_then(piece);
+            let parts = BundleParts { rpr: part("rpr")?, passport: part("passport")?, intent: part("intent")?, policy_decision: part("policy_decision")?,
+                audit_entries: list("audit_entries")?, pq_checkpoints: list("pq_checkpoints")? };
+            let s: Value = serde_json::from_str(signer_json).map_err(|e| e.to_string())?;
+            let text = |v: &Value, name: &str| v.get(name).and_then(Value::as_str).map(String::from).ok_or(format!("{} must be a string", name));
+            let signer = BundleSigner { signer_type: text(&s, "signer_type")?, signer_id: text(&s, "signer_id")?, keys: candidate_keys(s.get("keys").ok_or("signer.keys is required")?)? };
+            let o: Value = serde_json::from_str(options_json).map_err(|e| e.to_string())?;
+            let optional = |name: &str| -> Result<Option<String>, String> {
+                match o.get(name) {
+                    None => Ok(None),
+                    Some(Value::String(v)) => Ok(Some(v.clone())),
+                    Some(_) => Err(format!("options.{} must be a string", name)),
+                }
+            };
+            let options = BundleOptions { session_nonce: text(&o, "session_nonce")?, session_issued_at: optional("session_issued_at")?,
+                session_expires_at: optional("session_expires_at")?, intended_verifier: optional("intended_verifier")?, created_at: optional("created_at")?,
+                dual_hash: match o.get("dual_hash") { None => false, Some(Value::Bool(b)) => *b, Some(_) => return Err("options.dual_hash must be a bool".into()) } };
+            Ok((parts, signer, options))
+        })();
+        let (parts, signer, options) = match parsed {
+            Ok(p) => p,
+            Err(m) => return json!({"usage_error": m}).to_string(),
+        };
+        match sign_bundle(&parts, &signer, &options) {
+            Ok(b) => json!({"canonical": String::from_utf8_lossy(&b.bytes)}).to_string(),
+            Err(e) => candidate_produce_error(e),
         }
     }
 
@@ -340,10 +670,12 @@ pub mod wasm {
     /// Full V2 bundle verification with cryptographic signature checks.
     ///
     /// `policy_json` is a `VerifierPolicy` for V2 bundles, with every field but
-    /// the optional Phase 3 ones; without it the
-    /// default policy applies. The mode is the stricter of the policy mode and
+    /// the optional ones (the Phase 3 fields, `max_session_duration_seconds`,
+    /// `require_session_expiry`, `require_audience_binding`, `verifier_id`);
+    /// without it the default policy applies. The mode is the stricter of the policy mode and
     /// the security tier's mode (spec §14.3). The V1 verifier cannot apply a
-    /// policy, so with one a V1 bundle is rejected.
+    /// policy, so with one a V1 bundle is rejected. A V2 result also lists the
+    /// signer keys (`signer_keys`), from the same verification.
     #[wasm_bindgen]
     pub fn wasm_verify_signed_bundle_v2(signed_bundle_json: &str, policy_json: Option<String>) -> String {
         let policy: crate::v2::types::VerifierPolicy = match policy_json.as_deref().map(serde_json::from_str) {
@@ -369,7 +701,8 @@ pub mod wasm {
                 serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string())
             },
             Some("2.0") => {
-                let result = crate::v2::verify_bundle::verify_signed_bundle_v2_with_policy(&val, &policy);
+                let now = crate::v2::lifecycle::unix_now_millis() as i64;
+                let result = crate::v2::verify_bundle::verify_signed_bundle_v2_at(&val, &policy, now);
                 serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string())
             },
             _ => serde_json::to_string(&json!({
@@ -389,15 +722,28 @@ pub mod wasm {
         crate::v2::crypto_provider::derive_kid(alg, &pk_bytes)
     }
 
+    fn canonicalize_v2_text(json_str: &str) -> Result<String, String> {
+        let val: Value = serde_json::from_str(json_str).map_err(|e| format!("JSON parse: {}", e))?;
+        canonicalize_v2(&val)
+    }
+
+    /// The canonical form, or `{"error": …}`, which a valid input whose canonical form is that object also gives:
+    /// kept as it is for existing callers. `wasm_canonicalize_v2_result` tells the two apart.
     #[wasm_bindgen]
     pub fn wasm_canonicalize_v2(json_str: &str) -> String {
-        let val: Value = match serde_json::from_str(json_str) {
-            Ok(v) => v,
-            Err(e) => return json_err(&format!("JSON parse: {}", e)),
-        };
-        match canonicalize_v2(&val) {
+        match canonicalize_v2_text(json_str) {
             Ok(s) => s,
             Err(e) => json_err(&e),
+        }
+    }
+
+    /// `{"ok": true, "canonical": "<canonical form>"}` or `{"ok": false, "error": "<message>"}`, with the messages
+    /// of `wasm_canonicalize_v2`: the outcome is the tag, never read from the canonical text.
+    #[wasm_bindgen]
+    pub fn wasm_canonicalize_v2_result(json_str: &str) -> String {
+        match canonicalize_v2_text(json_str) {
+            Ok(s) => json!({ "ok": true, "canonical": s }).to_string(),
+            Err(e) => json!({ "ok": false, "error": e.replace('"', "'") }).to_string(),
         }
     }
 
@@ -429,7 +775,10 @@ pub mod wasm {
     }
 
     /// Compute dual Merkle root from an array of dual-hash leaves.
-    /// Input: JSON array of {"sha256":"...","sha3_256":"..."} objects.
+    /// Input: JSON array of {"sha256":"...","sha3_256":"..."} objects, each a 32-byte digest in hex.
+    /// Delegates to v2::dual_hash::dual_merkle_root, the reduction of spec/VERIFICATION.md V2-11 that the
+    /// bundle verifier uses (raw digests concatenated, the last node duplicated on an odd layer). A leaf
+    /// that is not a 32-byte hex digest is an error, never hashed as text.
     #[wasm_bindgen]
     pub fn wasm_dual_merkle_root(leaves_json: &str) -> String {
         let leaves: Vec<dual_hash::DualHash> = match serde_json::from_str(leaves_json) {
@@ -439,40 +788,17 @@ pub mod wasm {
         if leaves.is_empty() {
             return json_err("Empty leaves array");
         }
-
-        fn merkle_reduce(hashes: Vec<String>, use_sha3: bool) -> String {
-            if hashes.len() == 1 {
-                return hashes[0].clone();
-            }
-            let mut next = Vec::new();
-            let mut i = 0;
-            while i < hashes.len() {
-                if i + 1 < hashes.len() {
-                    let combined = format!("{}{}", hashes[i], hashes[i + 1]);
-                    if use_sha3 {
-                        next.push(dual_hash::sha3_256_hex(combined.as_bytes()));
-                    } else {
-                        next.push(dual_hash::sha256_hex(combined.as_bytes()));
-                    }
-                    i += 2;
-                } else {
-                    next.push(hashes[i].clone());
-                    i += 1;
-                }
-            }
-            merkle_reduce(next, use_sha3)
+        let is_digest = |h: &str| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit());
+        if let Some(i) = leaves.iter().position(|l| !is_digest(&l.sha256) || !is_digest(&l.sha3_256)) {
+            return json_err(&format!("Leaf {} is not a 32-byte hex digest", i));
         }
-
-        let sha256_leaves: Vec<String> = leaves.iter().map(|l| l.sha256.clone()).collect();
-        let sha3_leaves: Vec<String> = leaves.iter().map(|l| l.sha3_256.clone()).collect();
-
-        let sha256_root = merkle_reduce(sha256_leaves, false);
-        let sha3_root = merkle_reduce(sha3_leaves, true);
-
-        serde_json::to_string(&json!({
-            "sha256": sha256_root,
-            "sha3_256": sha3_root
-        })).unwrap()
+        match dual_hash::dual_merkle_root(&leaves) {
+            Some(root) => serde_json::to_string(&json!({
+                "sha256": root.sha256,
+                "sha3_256": root.sha3_256
+            })).unwrap(),
+            None => json_err("Empty leaves array"),
+        }
     }
 
     // ── Session Nonce ─────────────────────────────────────────────────────
@@ -570,8 +896,8 @@ pub mod wasm {
 
     // ── Bundle Building & Signing ─────────────────────────────────────────
 
-    /// Build a V2 CitizenshipBundle with manifest from signed artifacts: each
-    /// artifact is a SignedPayload from `wasm_sign_payload`.
+    /// Build a V2 CitizenshipBundle with `crate::v2::bundle::build_bundle_v2`:
+    /// each artifact is a SignedPayload from `wasm_sign_payload`.
     #[wasm_bindgen]
     pub fn wasm_build_bundle(
         rpr_json: &str,
@@ -585,65 +911,24 @@ pub mod wasm {
         for (name, artifact_json) in [
             ("RPR", rpr_json), ("Passport", passport_json), ("Intent", intent_json), ("Policy", policy_json),
         ] {
-            let sp: Value = match serde_json::from_str(artifact_json) {
-                Ok(v) => v, Err(e) => return json_err(&format!("{} parse: {}", name, e)),
-            };
-            let (Some(payload), Some(sig)) = (sp.get("payload"), sp.get("composite_sig")) else {
-                return json_err(&format!("{} must be a SignedPayload from wasm_sign_payload", name));
-            };
-            let canonical = match canonicalize_v2(payload) {
-                Ok(c) => c, Err(e) => return json_err(&format!("{}: {}", name, e)),
-            };
-            let hash = format!("sha256:{}", dual_hash::dual_hash_canonical(&canonical).sha256);
-            signed.push(json!({ "payload": payload, "payload_hash": hash, "composite_sig": sig }));
+            match serde_json::from_str::<signed_payload::SignedPayload>(artifact_json) {
+                Ok(sp) => signed.push(sp),
+                Err(e) => return json_err(&format!("{} must be a SignedPayload from wasm_sign_payload: {}", name, e)),
+            }
         }
         let audit_entries: Vec<Value> = match serde_json::from_str(audit_entries_json) {
             Ok(v) => v, Err(e) => return json_err(&format!("Audit entries parse: {}", e)),
         };
-
-        // Compute dual Merkle root over audit entries
-        let audit_hashes: Vec<dual_hash::DualHash> = audit_entries.iter()
-            .filter_map(|e| canonicalize_v2(e).ok())
-            .map(|c| dual_hash::dual_hash_canonical(&c))
-            .collect();
-
-        let (audit_merkle_sha256, audit_merkle_sha3) = if audit_hashes.is_empty() {
-            ("sha256:".to_string() + &"0".repeat(64), "sha3-256:".to_string() + &"0".repeat(64))
-        } else {
-            let sha256_leaves: Vec<String> = audit_hashes.iter().map(|h| h.sha256.clone()).collect();
-            let sha3_leaves: Vec<String> = audit_hashes.iter().map(|h| h.sha3_256.clone()).collect();
-            (
-                format!("sha256:{}", crypto::merkle_root_from_hex_leaves(&sha256_leaves).unwrap_or_default()),
-                format!("sha3-256:{}", crypto::merkle_root_from_hex_leaves(&sha3_leaves).unwrap_or_default()),
-            )
-        };
-
-        let manifest = json!({
-            "session_nonce": session_nonce,
-            "rpr_hash": signed[0]["payload_hash"],
-            "passport_hash": signed[1]["payload_hash"],
-            "intent_hash": signed[2]["payload_hash"],
-            "policy_hash": signed[3]["payload_hash"],
-            "audit_merkle_root": audit_merkle_sha256,
-            "audit_merkle_root_secondary": audit_merkle_sha3,
-            "audit_count": audit_entries.len(),
-            "canonicalization_profile": "dcp-jcs-v1"
-        });
-
-        let bundle = json!({
-            "dcp_bundle_version": "2.0",
-            "manifest": manifest,
-            "responsible_principal_record": signed[0],
-            "agent_passport": signed[1],
-            "intent": signed[2],
-            "policy_decision": signed[3],
-            "audit_entries": audit_entries
-        });
-
-        serde_json::to_string(&bundle).unwrap_or_else(|_| json_err("serialize failed"))
+        match crate::v2::bundle::build_bundle_v2(
+            &signed[0], &signed[1], &signed[2], &signed[3], &audit_entries, session_nonce,
+        ) {
+            Ok(bundle) => serde_json::to_string(&bundle).unwrap_or_else(|_| json_err("serialize failed")),
+            Err(e) => json_err(&e),
+        }
     }
 
-    /// Sign a V2 bundle with composite signature (Ed25519 + ML-DSA-65).
+    /// Sign a V2 bundle with composite signature (Ed25519 + ML-DSA-65), with
+    /// `crate::v2::bundle::sign_bundle_v2`.
     #[wasm_bindgen]
     pub fn wasm_sign_bundle(
         bundle_json: &str,
@@ -656,61 +941,20 @@ pub mod wasm {
             Ok(v) => v,
             Err(e) => return json_err(&format!("Bundle parse: {}", e)),
         };
-
-        let manifest = match bundle.get("manifest") {
-            Some(m) => m,
-            None => return json_err("Missing manifest in bundle"),
-        };
-
-        let canonical = match canonicalize_v2(manifest) {
-            Ok(c) => c,
-            Err(e) => return json_err(&e),
-        };
-
-        let manifest_hash = {
-            let dh = dual_hash::dual_hash_canonical(&canonical);
-            format!("sha256:{}", dh.sha256)
-        };
-
-        let ed = Ed25519Provider;
-        let pq = MlDsa65Provider;
-        let classical_key = CompositeKeyInfo {
-            kid: classical_kid.to_string(),
-            alg: "ed25519".to_string(),
-            secret_key_b64: classical_sk_b64.to_string(),
+        let key = |kid: &str, alg: &str, sk: &str| CompositeKeyInfo {
+            kid: kid.to_string(),
+            alg: alg.to_string(),
+            secret_key_b64: sk.to_string(),
             public_key_b64: String::new(),
         };
-        let pq_key = CompositeKeyInfo {
-            kid: pq_kid.to_string(),
-            alg: "ml-dsa-65".to_string(),
-            secret_key_b64: pq_sk_b64.to_string(),
-            public_key_b64: String::new(),
-        };
-
-        let sig = match composite_sign(
-            &ed, &pq,
-            crate::v2::domain_separation::CTX_BUNDLE,
-            canonical.as_bytes(), &classical_key, &pq_key,
+        match crate::v2::bundle::sign_bundle_v2(
+            bundle,
+            &key(classical_kid, "ed25519", classical_sk_b64),
+            &key(pq_kid, "ml-dsa-65", pq_sk_b64),
         ) {
-            Ok(s) => s,
-            Err(e) => return json_err(&e.to_string()),
-        };
-
-        let signed_bundle = json!({
-            "bundle": bundle,
-            "signature": {
-                "hash_alg": "sha256",
-                "created_at": "",
-                "signer": {
-                    "type": "human",
-                    "kids": [classical_kid, pq_kid]
-                },
-                "manifest_hash": manifest_hash,
-                "composite_sig": sig
-            }
-        });
-
-        serde_json::to_string(&signed_bundle).unwrap_or_else(|_| json_err("serialize failed"))
+            Ok(signed) => serde_json::to_string(&signed).unwrap_or_else(|_| json_err("serialize failed")),
+            Err(e) => json_err(&e),
+        }
     }
 
     // ── Proof of Possession ───────────────────────────────────────────────
@@ -813,6 +1057,44 @@ pub mod wasm {
         match verify_registration_pop(provider.as_ref(), &challenge, &pop, pk_b64) {
             Ok(valid) => serde_json::to_string(&json!({ "valid": valid })).unwrap(),
             Err(e) => json_err(&e.to_string()),
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn json_err_keeps_former_bytes_and_escapes_the_rest() {
+            // The former format!, for messages it wrote as valid JSON.
+            let former = |m: &str| format!("{{\"error\":\"{}\"}}", m.replace('"', "'"));
+            for m in ["key 'a': Non-integer number in V2 canonical form: 0.5", "say \"hi\"", "ñandú", ""] {
+                assert_eq!(json_err(m), former(m), "{m:?}");
+            }
+            for m in ["line\nbreak", "slash\\q", "bs\\nkey", "tab\t", "nul\0", "us\u{1f}", "end\\"] {
+                let v: Value = serde_json::from_str(&json_err(m)).expect("valid JSON");
+                assert_eq!(v, json!({ "error": m }), "{m:?}");
+            }
+        }
+
+        #[test]
+        fn canonicalize_result_is_tagged() {
+            let parse = |s: &str| serde_json::from_str::<Value>(&wasm_canonicalize_v2_result(s)).unwrap();
+            assert_eq!(parse(r#"{"error":"x"}"#), json!({ "ok": true, "canonical": r#"{"error":"x"}"# }));
+            assert_eq!(parse(r#"{"z":1,"error":4}"#), json!({ "ok": true, "canonical": r#"{"error":4,"z":1}"# }));
+            assert_eq!(
+                parse("{\"line\\nbreak\":0.5}"),
+                json!({ "ok": false, "error": "key 'line\nbreak': Non-integer number in V2 canonical form: 0.5" })
+            );
+            let e = parse("{");
+            assert_eq!(e["ok"], json!(false));
+            assert!(e["error"].as_str().unwrap().starts_with("JSON parse: "));
+            // The historical export is unchanged where it was valid, ambiguity included.
+            assert_eq!(wasm_canonicalize_v2(r#"{"error":"x"}"#), r#"{"error":"x"}"#);
+            assert_eq!(
+                wasm_canonicalize_v2(r#"{"a":0.5}"#),
+                r#"{"error":"key 'a': Non-integer number in V2 canonical form: 0.5"}"#
+            );
         }
     }
 }

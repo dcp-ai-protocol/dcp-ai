@@ -53,5 +53,19 @@ const signed = {
   },
 };
 
-fs.writeFileSync(outPath, JSON.stringify(signed, null, 2));
+// A new file renamed over the output: a symlink or hard link at outPath is replaced, not written through.
+const tmp = `${outPath}.${process.pid}.${crypto.randomBytes(6).toString("hex")}.tmp`;
+const fd = fs.openSync(tmp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0), 0o644);
+try {
+  fs.writeFileSync(fd, JSON.stringify(signed, null, 2));
+} finally {
+  fs.closeSync(fd);
+}
+try {
+  fs.renameSync(tmp, outPath);
+} catch (err) {
+  fs.rmSync(tmp, { force: true });
+  console.error(`Cannot write ${outPath}: ${err.message}`);
+  process.exit(1);
+}
 console.log(`✅ Signed bundle written to ${outPath}`);

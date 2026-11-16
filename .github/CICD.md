@@ -1,12 +1,18 @@
 # GitHub Actions & CI
 
-Reusable GitHub Actions and CI workflow for the DCP ecosystem. Includes actions to verify bundles and run conformance tests in CI/CD pipelines.
+GitHub Actions and the CI workflow of this repository: two composite actions in `.github/actions/`, and the `ci.yml` workflow.
+
+> **The actions are not exercised by this repository's workflows** (25/10/2026), and they were not tested from another repository. Both run code from a checkout of this repository: `verify-bundle` loads `lib/verify.js`, which needs the workspace SDK (`sdks/typescript`) built, and `conformance-test` runs `tools/conformance.js` from the workspace, so it only works in a checkout of this repository. To verify bundles in your own pipeline, see [Verifying bundles in your project](#verifying-bundles-in-your-project).
 
 ## Available Actions
 
 ### `verify-bundle`
 
 Verifies a DCP Signed Bundle in a GitHub Actions workflow, using the reference verifier (`lib/verify.js`). V1 bundles get schema, Ed25519 signature, audit-chain and Merkle checks. Normative V2 bundles (`schemas/v2/signed_bundle.schema.json`) are schema-validated and then verified by `@dcp-ai/sdk`: manifest, composite Ed25519 + ML-DSA-65 signature, session binding and audit chain.
+
+It installs the root package of the checkout it runs from (`npm install --production`, with install errors ignored) and does not build the workspace SDK, so build `sdks/typescript` in an earlier step. It verifies under the default policy: there is no policy input.
+
+Use only trusted, literal path inputs: the action interpolates them into shell and JavaScript evaluated with `eval`, rather than passing them as data. Quotes or shell syntax in a path can change the command. Do not derive these inputs from an untrusted pull request, issue or artifact name. The reference CLI example below passes the path as an argument instead.
 
 ```yaml
 - uses: ./.github/actions/verify-bundle
@@ -35,6 +41,9 @@ Verifies a DCP Signed Bundle in a GitHub Actions workflow, using the reference v
 
 #### Usage Example
 
+A sketch for a checkout of this repository (not run for this page): the action and `lib/verify.js` come from the
+checkout, and `agent/citizenship_bundle.signed.json` and `agent/public_key.txt` stand for files the operator provides.
+
 ```yaml
 name: Verify Agent Bundle
 on: [push]
@@ -44,6 +53,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build the workspace SDK (the action does not)
+        run: (cd sdks/typescript && npm ci && npm run build)
 
       - name: Verify DCP Bundle
         id: verify
@@ -58,7 +74,7 @@ jobs:
 
 ### `conformance-test`
 
-Runs DCP conformance tests against a directory of examples.
+Runs `node tools/conformance.js` in the workspace: the repository's V1 + V2 conformance suite, on its own examples. It works only in a checkout of this repository, and its `test-dir` input is not used.
 
 ```yaml
 - uses: ./.github/actions/conformance-test
@@ -72,7 +88,7 @@ Runs DCP conformance tests against a directory of examples.
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `node-version` | No | `"20"` | Node.js version |
-| `test-dir` | No | `"tests/conformance/examples"` | Directory with test examples |
+| `test-dir` | No | `"tests/conformance/examples"` | Not used by the action |
 
 #### Outputs
 
@@ -82,6 +98,9 @@ Runs DCP conformance tests against a directory of examples.
 | `summary` | Test summary |
 
 #### Usage Example
+
+A sketch for a checkout of this repository (not run for this page). `tools/conformance.js` imports `@dcp-ai/sdk`, so
+the workspace SDK is built first:
 
 ```yaml
 name: DCP Conformance
@@ -93,6 +112,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build the workspace SDK (the action does not)
+        run: (cd sdks/typescript && npm ci && npm run build)
+
       - name: Run Conformance Tests
         id: conform
         uses: ./.github/actions/conformance-test
@@ -103,65 +129,33 @@ jobs:
 
 ## CI Workflow
 
-The `ci.yml` workflow runs on push and pull requests to `main`. It includes 5 jobs:
+The `ci.yml` workflow runs on pushes to `main` and on pull requests against any base branch. A `changes` job detects which parts changed (`dorny/paths-filter`), and the jobs below run for those parts:
 
-### Jobs
+| Job | What it runs |
+|-----|--------------|
+| `conformance` | Node.js 20 and 22: `npm install`, `npm run conformance`, the S-range tests of `tools/crypto.js` and the playground, `npm run examples:generate:v2`, `dcp verify-bundle` on the V1 and V2 examples (V2 under `hybrid_required`), and `dcp integrity` |
+| `typescript-sdk` | `sdks/typescript`: `npm install`, `npx tsc --noEmit`, `npm run build`, `npm run test`, coverage |
+| `integrations` | `anthropic-mcp`, `express`, `google-a2a`, `openclaw`: build the workspace SDK, `npm ci`, build, `vitest run` |
+| `cli` | Node.js 20 and 22: build the workspace SDK, install it into `cli/`, the CLI tests and their negative control, and a check of the packed files |
+| `python-sdk` | Python 3.12: `pip install -e ".[dev]"`, `pytest` with coverage |
+| `go-sdk` | Go from `sdks/go/go.mod`: `go build ./...`, `go test` with coverage |
+| `rust-sdk` | Rust stable: `cargo build`, `cargo build --features otlp`, coverage, `cargo test --all-features`, a `wasm32-unknown-unknown` build of the tests |
+| `wasm-sdk` | Rust stable and `wasm-pack`: `npm run build:wasm`, `npm test` in `sdks/wasm` |
 
-#### 1. `conformance`
+Other workflows cover the canonicalization candidate matrix and lab, the contracts, differential fuzzing, the interop matrix, labels, and publishing (npm, PyPI, Docker images, integrations, templates). Two cover the documentation, and neither translates anything automatically: `i18n-sync.yml` ("Documentation and i18n") checks, on pull requests and on pushes to `main` that touch Markdown or the documentation tooling, the coverage, reviewed hashes, structure and links of the five languages, runs the positive and negative controls of that gate and builds the site in the five languages; `docs.yml` builds the same site on `main` and deploys it to GitHub Pages.
 
-Protocol conformance tests with a Node.js matrix.
+To run the same documentation checks locally, see [Documentation and translations](../CONTRIBUTING.md#documentation-and-translations) in CONTRIBUTING.md:
 
-- **Matrix:** Node.js 18, 20, 22
-- **Steps:**
-  1. Checkout
-  2. Setup Node.js
-  3. `npm install`
-  4. `npm run conformance` — Run conformance tests
-  5. Verify example signed bundle (if it exists)
-  6. `node bin/dcp.js integrity` — Verify protocol integrity
+```bash
+pip install 'mkdocs==1.6.*' 'mkdocs-material==9.5.*' 'pymdown-extensions==10.*'
+python3 scripts/docs_i18n.py check
+python3 -m unittest discover -s scripts -p 'test_docs*.py' -v
+bash scripts/build-docs-site.sh
+```
 
-#### 2. `typescript-sdk`
+## Verifying bundles in your project
 
-Build and type-check of the TypeScript SDK.
-
-- **Directory:** `sdks/typescript/`
-- **Steps:**
-  1. `npm install`
-  2. `npx tsc --noEmit` — Type check
-  3. `npm run build` — Build ESM + CJS
-
-#### 3. `python-sdk`
-
-Python SDK tests.
-
-- **Directory:** `sdks/python/`
-- **Python:** 3.12
-- **Steps:**
-  1. `pip install -e ".[dev]"`
-  2. `pytest -v`
-
-#### 4. `go-sdk`
-
-Build and tests for the Go SDK.
-
-- **Directory:** `sdks/go/`
-- **Go:** 1.21
-- **Steps:**
-  1. `go build ./...`
-  2. `go test ./...`
-
-#### 5. `rust-sdk`
-
-Build, tests, and WASM for the Rust SDK.
-
-- **Directory:** `sdks/rust/`
-- **Rust:** stable
-- **Steps:**
-  1. `cargo build`
-  2. `cargo test`
-  3. `cargo build --target wasm32-unknown-unknown --features wasm`
-
-### Using the CI in Your Project
+A sketch that verifies a bundle with the reference CLI of a pinned checkout (not run for this page). `dcp verify-bundle` exits 0 when the bundle verifies and non-zero otherwise, and reads files only under the current directory:
 
 ```yaml
 # .github/workflows/dcp.yml
@@ -174,16 +168,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Verify your agent's bundle
-      - uses: ./.github/actions/verify-bundle
+      - uses: actions/checkout@v4
         with:
-          bundle-path: "my-agent/bundle.signed.json"
+          repository: dcp-ai-protocol/dcp-ai
+          ref: <full commit SHA you have reviewed>
+          path: dcp-ai
 
-      # Run conformance
-      - uses: ./.github/actions/conformance-test
+      - uses: actions/setup-node@v4
         with:
-          test-dir: "my-agent/test-fixtures"
+          node-version: "22"
+
+      - name: Build the reference verifier
+        run: |
+          (cd dcp-ai/sdks/typescript && npm ci && npm run build)
+          (cd dcp-ai && npm install)
+
+      - name: Verify the agent's bundle
+        run: node dcp-ai/bin/dcp.js verify-bundle --policy hybrid_required my-agent/bundle.signed.json
 ```
+
+A verified bundle is intact and signed by the keys it names; to accept bundles only from principals you trust, use admission (`dcp admit-bundle`, see [docs/ADMISSION.md](../docs/ADMISSION.md)).
 
 ## License
 

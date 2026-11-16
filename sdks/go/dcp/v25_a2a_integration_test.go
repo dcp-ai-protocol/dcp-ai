@@ -172,6 +172,101 @@ func TestA2ASessionRoundTrip(t *testing.T) {
 	}
 }
 
+func TestA2AEachSequenceAcceptedOnce(t *testing.T) {
+	left, right := pairSessions(t)
+	var msgs []map[string]interface{}
+	for i := 0; i < 3; i++ {
+		m, err := v2.EncryptMessage(left, map[string]interface{}{"n": i})
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		msgs = append(msgs, m)
+	}
+	for _, i := range []int{0, 2, 1} { // 1 arrives late, inside the window
+		if _, err := v2.DecryptMessage(right, msgs[i]); err != nil {
+			t.Fatalf("message %d: %v", i, err)
+		}
+	}
+	for i, m := range msgs {
+		if _, err := v2.DecryptMessage(right, m); err == nil || !strings.Contains(err.Error(), "already received") {
+			t.Fatalf("replay of message %d must be rejected, got %v", i, err)
+		}
+	}
+}
+
+func TestA2AForgedMessageDoesNotUseUpItsSequence(t *testing.T) {
+	left, right := pairSessions(t)
+	m0, _ := v2.EncryptMessage(left, map[string]interface{}{"n": 0})
+	forged := map[string]interface{}{}
+	for k, v := range m0 {
+		forged[k] = v
+	}
+	forged["tag"] = "AAAAAAAAAAAAAAAAAAAAAA=="
+	if _, err := v2.DecryptMessage(right, forged); err == nil {
+		t.Fatalf("forged message must be rejected")
+	}
+	if _, err := v2.DecryptMessage(right, m0); err != nil {
+		t.Fatalf("genuine message after a forged one: %v", err)
+	}
+}
+
+func TestA2AInvalidAndTooOldSequences(t *testing.T) {
+	left, right := pairSessions(t)
+	m0, _ := v2.EncryptMessage(left, map[string]interface{}{"n": 0})
+	for _, seq := range []interface{}{-1, 0.5, 1.5, "0", nil, true} {
+		bad := map[string]interface{}{}
+		for k, v := range m0 {
+			bad[k] = v
+		}
+		bad["sequence"] = seq
+		if _, err := v2.DecryptMessage(right, bad); err == nil || !strings.Contains(err.Error(), "invalid message sequence") {
+			t.Fatalf("sequence %v must be invalid, got %v", seq, err)
+		}
+	}
+	right.MessageCounterRecv = 1001
+	if _, err := v2.DecryptMessage(right, m0); err == nil || !strings.Contains(err.Error(), "too old") {
+		t.Fatalf("sequence older than the window must be rejected, got %v", err)
+	}
+	// A session restored without ReceivedSequences never accepts a sequence below its counter again.
+	left2, right2 := pairSessions(t)
+	var ms []map[string]interface{}
+	for i := 0; i < 4; i++ {
+		m, _ := v2.EncryptMessage(left2, map[string]interface{}{"n": i})
+		ms = append(ms, m)
+	}
+	for _, i := range []int{0, 1} {
+		if _, err := v2.DecryptMessage(right2, ms[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	right2.ReceivedSequences = nil
+	if _, err := v2.DecryptMessage(right2, ms[2]); err != nil {
+		t.Fatalf("new message on a restored session: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := v2.DecryptMessage(right2, ms[i]); err == nil || !strings.Contains(err.Error(), "already received") {
+			t.Fatalf("restored session must reject message %d, got %v", i, err)
+		}
+	}
+	if _, err := v2.DecryptMessage(right2, ms[3]); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestA2ASequenceAWindowAheadRejected(t *testing.T) {
+	left, right := pairSessions(t)
+	left.MessageCounterSend = 1000
+	m, _ := v2.EncryptMessage(left, map[string]interface{}{"n": 1000})
+	if _, err := v2.DecryptMessage(right, m); err == nil || !strings.Contains(err.Error(), "too far ahead") {
+		t.Fatalf("a sequence a window ahead must be rejected, got %v", err)
+	}
+	left.MessageCounterSend = 999
+	m, _ = v2.EncryptMessage(left, map[string]interface{}{"n": 999})
+	if _, err := v2.DecryptMessage(right, m); err != nil {
+		t.Fatalf("a sequence just inside the window: %v", err)
+	}
+}
+
 func TestA2ACannotSendOnClosed(t *testing.T) {
 	left, _ := pairSessions(t)
 	left.Status = "closed"

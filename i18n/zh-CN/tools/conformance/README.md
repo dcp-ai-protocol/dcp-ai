@@ -1,0 +1,703 @@
+<sub>[English](../../../../tools/conformance/README.md) · **中文** · [Español](../../../es/tools/conformance/README.md) · [日本語](../../../ja/tools/conformance/README.md) · [Português](../../../pt-BR/tools/conformance/README.md)</sub>
+
+<a id="dcp-ai-conformance-kit"></a>
+
+# DCP-AI 一致性测试套件
+
+> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+
+`tools/conformance.js` 针对仓库中已提交的 fixture 和向量，运行 [`catalog.json`](../../../../tools/conformance/catalog.json) 中声明的各个
+测试集。目录带有版本（`kit_version`），并为每个测试集固定其必须产生的确切用例 ID。该套件只读取 fixture：
+不会在检出目录中生成密钥或 fixture，也不会改动规范化、签名、配置文件、模式或向量。
+
+<a id="commands"></a>
+
+## 命令
+
+```bash
+npm run conformance                                    # every suite (same as node tools/conformance.js)
+node tools/conformance.js --list                       # suites, pinned case counts and inventory
+node tools/conformance.js --suite v1.integrity --suite v2.hashes
+node tools/conformance.js --report /tmp/conformance.json
+node --test tools/conformance/conformance.test.mjs     # runner self-tests (temporary copies only)
+```
+
+fixture、模式和目录的路径相对于脚本解析，而不是相对于当前目录。请在仓库根目录运行上述命令；在其他目录下，
+请用绝对路径调用脚本（`node /path/to/dcp-ai/tools/conformance.js`）。`--root <dir>` 让套件使用另一份
+fixture 副本（自测在临时副本上使用该选项）。
+
+<a id="contract"></a>
+
+## 约定
+
+| 退出码 | 含义 |
+|--------|------|
+| 0 | 所选用例全部通过 |
+| 1 | 至少一处不一致（某个值或判定与预期不同） |
+| 2 | 用法错误：未知参数，未知、重复或为空的测试集 ID，`--list` 与 `--report` 同时使用 |
+| 3 | 基础设施错误：fixture 缺失或格式错误、预期格式错误、未知的配置 `kind`、目录缺失或格式错误、异常、已固定的用例未产生或产生了未固定的用例，或没有执行任何检查 |
+
+- 用例缺失或多出都算错误，因此从仍有其他向量的集合中删除一个向量，不会悄无声息地降低覆盖范围。抛出异常的
+  测试集即使已经产生了全部固定用例，也判为失败。
+- 使用 `--report` 时，运行前先写入 `incomplete` 占位内容，再由最终报告替换；用法错误或目录错误同样会替换该文件。
+  这仅适用于套件能处理的错误且报告路径可写的情况：如果 Node 无法启动或文件无法写入，旧文件可能仍然存在，
+  因此使用方应检查退出码以及报告中的 `run.id` 和 `status`，而不是信任已有的文件。
+- 报告包含 `kit`（名称、版本、目录的 SHA-256）、`run`（uuid、时间戳、根目录、Node 版本）、`selection`、
+  `status`、`totals`（`cases`、`executed`、`pass`、`fail`、`error`）、每个测试集及其声明、限制和用例
+  （`status`，以及 `kind`：`discrepancy`、`fixture`、`expectation`、`exception` 或 `catalog`）、清单和
+  全局限制。
+
+<a id="suites"></a>
+
+## 测试集
+
+| 测试集 | 用例数 | 规范 | 模式 / 向量 | 通过能证明什么 |
+|--------|--------|------|-------------|----------------|
+| `v1.schema` | 7 | DCP-01、DCP-02、DCP-03、`BUNDLE.md` | `schemas/v1`、`tests/conformance/examples/*.json` | 仅模式有效性 |
+| `v1.integrity` | 9 | `VERIFICATION.md`（V1）、DCP-03 | `citizenship_bundle.signed.json`、`keys/public_key.txt`、`golden_vectors.json#v1_bundle_verification` | 一个 fixture 的 Ed25519 签名、bundle 哈希、Merkle 根、意图哈希、条目哈希和 `prev_hash` 链，并与 golden 值比较；密钥元数据一致 |
+| `v2.canonicalization` | 11 | `CANONICALIZATION_PROFILE.md` | `golden_vectors.json#canonicalization`、`#v2_canonicalization`、`interop_vectors.json#canonicalization` | 参考规范化器输出的 `dcp-jcs-v1` 字节 |
+| `v2.hashes` | 9 | DCP-AI-v2.0 §2.3、§10.3 | `golden_vectors.json#hash_vectors`、`#dual_hash_vectors` | SHA-256 / SHA3-256 值、双哈希和双 Merkle 根 |
+| `v2.signed_bundle` | 10 | `VERIFICATION.md`（V2） | `lib/verify.js`、在内存中构建的 bundle | 参考验证器对有效和被篡改 bundle 的判定；已验证不等于准入 |
+| `v2.secondary_sha3` | 51 | `VERIFICATION.md` 的 V2-11 及其勘误 | `secondary_sha3_vectors.json`、`lib/verify.js` | 参考验证器对存在的二级 SHA3-256 字段的判定，每个被拒绝的用例都有对照；不代表完整的二级链 |
+| `v2.schema` | 4 | DCP-AI-v2.0 | `schemas/v2`、`*_v2.json` 示例 | 仅模式有效性 |
+| `ext.dcp05_09.schema` | 18 | DCP-05 至 DCP-09 | `schemas/v2`、`<record>_v2.json` 示例 | 仅模式有效性 |
+| `ext.dcp05_09.wire` | 28 | DCP-05、DCP-08、DCP-09、`V2-WIRE-COMPATIBILITY.md` | `schemas/v2`、在内存中签名的记录、`interop_vectors.json#domain_separation_all_contexts` | 将这些记录的表示、模式有效性和签名作为不同层次分别检查；不代表功能合规 |
+| `admission.strict_v1` | 117 | `spec/profiles/admission` | `admission_vectors.json` | 预期的准入结果和错误码；`action_authorized` 始终为 false |
+
+<a id="limits"></a>
+
+## 限制
+
+- 通过部分测试集，只证明这些检查在这些 fixture 上成立，不证明完整的 DCP 实现、其他 SDK 或某个部署。模式
+  测试集只证明模式有效性；没有规范化、哈希和签名测试集，仅凭 V2 模式测试集不构成 V2 实现。
+- `verified` 和 `admitted` 从不授权任何操作。
+- 适配器（Express、FastAPI、OpenClaw、验证服务器）不属于该套件。
+- 协议问题（依据 `spec/V2-WIRE-COMPATIBILITY.md`）：DCP-09 的到期字段（`valid_until`）以及 DCP-05、DCP-08 和
+  DCP-09 的签名上下文已由勘误更正，并由 `ext.dcp05_09.wire` 测试。仍有待明确的、有版本的设计、套件不作裁定的有：
+  DCP-05 `vitality_report` 的小数指标（在 `dcp-jcs-v1` 下只能表示 0 和 1）、DCP-08 §4.3 中以反向域名表示的权利
+  （被 `right_type` 枚举拒绝），以及第二签名者或确认（DCP-05 §4.4、DCP-09 §3.3 和 §6.3）。DCP-04、DCP-06 和
+  DCP-07 的示例不在这些勘误范围内。
+
+<a id="inventory"></a>
+
+## 清单
+
+在 `--list` 和报告中列出，不计入总数：套件不执行这些内容，它们的存在也不等于测试通过。
+`interop_vectors.json` 中的攻击向量、规范化边界用例和其他类别以及 bundle 与授权（mandate）向量在各 SDK
+的测试套件中运行。`tests/nist-kat/` 包含已知答案向量和属性测试，各有其适用范围（见
+[其 README](../../tests/nist-kat/README.md)）；它们同样在各 SDK 的测试套件中运行。`dcp-jcs-v2` 候选方案属于实验性质，不在 `dcp-jcs-v1` 范围内，有自己的测试集
+（`tests/interop/candidate/`）。
+
+<a id="external-implementations"></a>
+
+## 外部实现
+
+`tools/conformance-external.js` 针对你在 `--` 之后以 argv 指定的实现，运行一个单独的目录
+[`external-catalog.json`](../../../../tools/conformance/external-catalog.json)（契约 `dcp-ai-conformance-external/1`）。实现可以用任何语言编写：
+它从 stdin 读取一个 JSON 请求，并向 stdout 写出一个 JSON 响应。运行器需要 Node 20 或更高版本，只使用内置模块。
+上文的命令、目录和报告保持不变。
+
+```bash
+node tools/conformance-external.js --list
+node tools/conformance-external.js --report /tmp/external.json -- node tools/conformance/wrappers/ts-sdk.mjs
+node tools/conformance-external.js -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --suite external.digest -- ./my-implementation --its-own-flag
+node --test tools/conformance/external.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 node --test tools/conformance/external.test.mjs
+```
+
+未设置 `DCP_EXTERNAL_PYTHON` 时，`node --test` 会跳过 Python 包装器并加以说明；设置
+`DCP_EXTERNAL_REQUIRE_PYTHON=1` 时，缺少解释器会算作失败。最后一条命令运行全部测试。
+
+| 套件 | 用例 | 向量 |
+|------|------|------|
+| `external.dcp-jcs-v1.canonicalize` | 30 | `golden_vectors.json#canonicalization`、`#v2_canonicalization`；`interop_vectors.json#canonicalization` 及其 19 个 `edge_cases`，其中 3 个必须被拒绝 |
+| `external.digest` | 8 | `golden_vectors.json#hash_vectors`；`#dual_hash_vectors` 的 raw 与 intent，SHA-256 和 SHA3-256 |
+
+一个最小的交互示例是零字节的 SHA-256，你可以针对 TypeScript 包装器运行它：
+
+```bash
+printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","cases":[{"id":"c1","op":"digest","alg":"sha256","input_b64":""}]}' | node tools/conformance/wrappers/ts-sdk.mjs
+```
+
+对该请求的一个有效响应（包装器还会加上 `resolved_from` 和 `runtime`）：
+
+```json
+{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","implementation":{"name":"example","version":"0.0.1"},"results":[{"id":"c1","status":"ok","hex":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}]}
+```
+
+- **封装：** 请求和响应都是 UTF-8 的 JSON。响应是 stdout 上恰好一个 JSON 文档，进程以退出码 0 结束。
+- **请求：** `contract`、`run_id`、`nonce` 和 `cases`，每个用例包含 `id`、`op`（`profile` 为 `dcp-jcs-v1` 的
+  `canonicalize`，或 `alg` 为 `sha256` 或 `sha3-256` 的 `digest`）和 `input_b64`。ID 每次运行随机生成，不发送任何
+  预期值。canonicalize 的输入是 JSON 文本：`input_json` 向量按提交时的原样发送，`input` 值按 `JSON.stringify`
+  的输出发送。
+- **响应：** 相同的 `contract`、`run_id` 和 `nonce`；`implementation`（`name`、`version`，以及可选的
+  `resolved_from` 和 `runtime`，均由实现自行声明）；以及 `results`，这是一个数组，每个用例恰好一个对象，每个对象
+  带有该用例的 `id` 和一个 `status`：带 `output_b64`（规范字节）或 `hex` 的 `ok`，`code` 为 `parse` 或
+  `profile` 的 `rejected`，带 `message` 的 `error`，或 `unsupported`。不接受其他任何字段。
+- **编码：** `input_b64` 和 `output_b64` 是使用标准字母表、带填充且不换行的 RFC 4648 base64 规范形式；`hex`
+  恰好是 64 个小写十六进制字符。
+- **判定：** 字节按完全相等比较；必须被拒绝的向量只有被拒绝时才通过。`error` 或 `unsupported` 结果，格式错误、
+  缺失、重复或多余的结果，过时的 `run_id` 或 `nonce`，无效输出，非零退出码或信号，超时，以及超过 4 MiB 的 stdout
+  都是错误，绝不算通过。退出码与[契约](#contract)相同。
+- **进程：** 不经 shell 启动，在 POSIX 上放入独立的进程组。只有一个期限（`--timeout-ms`，默认 30 000），用单调
+  时钟计时；之后发送 SIGTERM，2 秒后发送 SIGKILL，并最多等待 2 秒让管道关闭（否则标记 `cleanup_incomplete`）。
+  stderr 最多保留 64 KiB，且从不解析。
+- **目录和测试数据** 会先经过校验：ID 唯一、指针存在、预期值与向量一致，并且每个集合的每个成员按操作和算法
+  各固定一次。存在缺陷时退出码为 3。报告记录目录、测试数据和请求的哈希，并把实现自行声明的身份与运行器观察到的
+  内容分开记录。
+- **报告：** `--report` 的值缺失、看起来像选项或重复出现时，属于用法错误（退出码 2），并且由于路径不明确，不会写入
+  任何报告。与上文的命令一样，如果 Node 无法启动、无法写入报告或运行器被终止，旧报告也可能保留。请始终先检查
+  退出码，再检查报告中的 `run.id` 和 `status`。
+- **包装器：** `wrappers/ts-sdk.mjs`（`@dcp-ai/sdk`；`--sdk <path>` 可选）和 `wrappers/python_sdk.py`（已安装的
+  `dcp_ai`；请用 `-I` 运行）。二者都只调用一次真正的规范化函数，并且只对 SDK 文档所述的非整数拒绝返回
+  `rejected`/`profile`。SDK 没有稳定的错误码，因此按类型和消息识别：如果它们变化，正确的拒绝会显示为错误，绝不会
+  算作通过。CI 会运行这两个包装器。
+- **限制：** 通过表明所运行的 argv 经由其使用的解析器通过了这 38 个用例；它不代表完整的 `dcp-jcs-v1` 实现或
+  DCP 符合性，身份也只是自行声明。这不是沙箱：实现以你的权限和环境运行，离开进程组的后代进程（`setsid`）无法
+  看到，在 Windows 上只会终止直接子进程。
+
+<a id="go-rust-and-wasm-wrappers"></a>
+
+### Go、Rust 和 WASM 包装器
+
+另外三个包装器针对本检出副本中的 Go SDK、Rust SDK 以及 Rust SDK 的 WASM 构建，运行同样的 38 个用例和
+同样的契约。`build.mjs` 把它们编译到 `tools/conformance/wrappers/.build/`（被 Git 忽略）；需要 Go 1.26 或更高
+版本、Cargo，以及带 `wasm32-unknown-unknown` 目标的 `wasm-pack`，它不安装也不发布任何 DCP 软件包，也不改变 SDK 的清单或锁定
+文件。不带 `--offline` 时，Cargo 和 `wasm-pack` 可能会把构建工具和固定的依赖下载到各自的缓存中；`--offline` 使用
+`GOPROXY=off`、Cargo `--offline` 和 `wasm-pack --mode no-install`，并要求这些缓存已经准备好。
+
+```bash
+node tools/conformance/wrappers/build.mjs all
+node tools/conformance/wrappers/build.mjs --offline go rust wasm
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test.mjs
+```
+
+- **构建：** Go 以 `-mod=readonly` 针对包装器的 `go.mod` 和 `go.sum` 构建，其版本是 SDK 自身版本的子集；Cargo
+  以 `--locked` 构建，原生包装器使用它自己的 `Cargo.lock`（SDK 锁定文件的副本，离线解析，固定的版本相同），WASM
+  产物使用 SDK 的 `Cargo.lock`。`--offline` 只使用本地缓存。SDK 的清单和锁定文件不会改变。
+- **Go**（`wrappers/go`）：输入必须是 UTF-8（先检查，因为 `encoding/json` 会替换无效字节），然后像 SDK 自己的
+  interop 测试那样 `json.Unmarshal` 到 `interface{}`，再调用一次 `v2.CanonicalizeV2`；只有文档所述的拒绝
+  （`non-integer float at`、`non-finite float at`）才是 `rejected`/`profile`。摘要：`v2.SHA256Hex`、
+  `v2.SHA3256Hex`。版本报告为本地检出副本。
+- **Rust**（`wrappers/rust`）：严格的 UTF-8 解码、`serde_json::from_str`，然后调用一次
+  `dcp_ai::v2::canonicalize::canonicalize_v2`；只有文档所述的拒绝（路径前缀之后的 `Non-integer number in V2 canonical form:`、`Non-finite number in V2 canonical form:`）才是 `rejected`/`profile`。摘要：`sha256_hex`、
+  `sha3_256_hex`。版本为 `DCP_SDK_VERSION`。
+- **WASM**（`wrappers/wasm.mjs`）：加载 `wasm-pack` 以 `wasm` 特性（`--target web`）从 `sdks/rust` 编译出的真实
+  `.wasm`，并报告其 SHA-256。原始 JSON 文本直接传给一次 `wasm_canonicalize_v2` 调用，JavaScript 中不使用
+  `JSON.parse` 或 `JSON.stringify`（调用之前）；调用之后只检查输入和输出以标记歧义，不会重新计算
+  字节。该导出函数在结果中以 `{"error": "…"}` 报告错误，而有效输入也可能产生同样的
+  结果，因此当输入本身是唯一键为 `error` 的根对象（无论其值是什么类型）时，单键的 `{"error": string}` 结果是一个有歧义的 `error`；其他情况下，
+  只有文档所述的消息才算拒绝。摘要导出函数接收文本：8 个摘要输入都是文本，不是 UTF-8 的字节是 `error`，绝不会
+  被替换。
+- **错误：** 在三者中，类型错误的请求（例如 `input_b64` 为数字或 `null`，或 `cases` 不是数组）都是无效的，包装器
+  以 2 退出；文档所述拒绝之外的任何错误都是 `error`。在 Rust 和 WASM 中，文档所述的数字拒绝通过一次线性扫描
+  识别，不使用会回溯的正则表达式；UTF-8 长度超过 1 MiB 的消息是 `error`，绝不算拒绝（该上限只适用于这一判定，
+  不适用于解析错误）。未设置 `DCP_EXTERNAL_REQUIRE_NATIVE=1` 时，`node --test`
+  会跳过未构建的部分并加以说明；设置后，缺少工具或产物即为失败。CI 从检出副本构建这三个包装器，并用每个包装器
+  运行 38 个用例，因此在 CI 中五个包装器都是必需的。
+- **限制：** WASM 包装器在 Node 中调用 wasm-bindgen 的原始导出函数：它不覆盖 `@dcp-ai/wasm` 软件包的
+  JavaScript API（`DcpWasm`），也不覆盖浏览器，二者由[浏览器包装器](#browser-wrapper-dcpwasm-in-chrome)覆盖。由于 SDK 没有稳定的错误码，拒绝的判定依赖消息文本；通过 WASM 时，根为单键的 `{"error": …}` 输入只有在导出
+  函数返回 `{"error": string}` 封装时才是有歧义的错误（`{"error":5}` 仍为 `ok`）。通过只表明这 38 个用例在每个包装器上通过，仅此而已。
+
+<a id="browser-wrapper-dcpwasm-in-chrome"></a>
+
+### 浏览器包装器：Chrome 中的 DcpWasm
+
+`wrappers/wasm-browser.mjs` 响应约定 `/1`、约定 `/2` 及使用它的目录，以及约定 `/5`。它在 Chrome 中经过
+`@dcp-ai/wasm` 的公开 JavaScript API（`initDcp` 和 `DcpWasm`），而不是原始导出。由于该包没有准入或授权书链的 API，
+它拒绝 `/3` 和 `/4`（exit 2）。它不安装任何东西：需要该包的一个构建（由 `wasm-pack --target web` 和 `tsc` 生成的
+`dist/` 和 `pkg/`）以及已经安装的 Chrome。
+
+```bash
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm --browser-report /tmp/browser-1.json
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm
+node tools/conformance/wrappers/browser/direct-sections.mjs --report /tmp/direct.json --root sdks/wasm
+DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conformance/external-browser.test.mjs
+```
+
+- **运行方式：**
+  - 包装器像 WASM 包装器一样验证请求。
+  - 它从内存在 127.0.0.1 上提供页面和工件，每次运行使用一个随机路径，允许列表严格，没有 CORS，且内容安全策略不从
+    其他来源加载任何内容。
+  - 它用临时配置文件以无头模式启动 Chrome，并在结束时关闭。
+  - 页面调用 `initDcp()`，并用每个用例对应的 `DcpWasm` 方法作答：`canonicalize`、`dualHash`、`sha3_256`、
+    `dualMerkleRoot`、`compositeVerify` 或 `verifyBundle`。规范化用例、bundle 和复合负载会先对其字节执行
+    `JSON.parse`；摘要使用用例的文本，Merkle 用例使用其十六进制叶子。页面只提交一次结果，运行器像对待任何包装器一样
+    评判它们。
+- **导致运行失败的情况**（exit 1，无响应）：
+  - 页面报告初始化失败，或同时报告 `done` 和错误；
+  - 它的导出与由源代码推导出的 `browser/expected-api.json` 不同；
+  - 页面获取的工件与提供的字节不同；
+  - 时钟没有恢复；
+  - 结果不属于本次运行，或到达两次；
+  - 本次运行路径下的请求超出允许列表，或带有其他 Host 或 Origin；
+  - Chrome 先行退出，或超过期限；
+  - 无法写入所请求的 `--browser-report`；
+  - 清理不完整：本次运行的 Chrome 没有退出、其进程组在 SIGKILL 之后仍未清空，或其临时配置文件没有删除。即使其他一切都
+    通过也是如此。
+
+  `--manifest <SHA256SUMS>` 还会把提供的工件固定到一个哈希列表。
+- **时间：** `verifyBundle` 读取 `Date.now`。页面只在那一次调用期间把它设为用例的 `verification_time`，之后恢复，调用
+  抛出异常时也会恢复。页面无法解析的 bundle 不经调用就答复 `rejected`/`parse`，页面会指明是哪一个。
+- **直接部分：** `wrappers/browser/direct-sections.mjs` 发送一个内部请求（`dcp-ai-browser-direct/1`，不是套件的约定）。
+  它对照现有夹具评判页面的原始观察结果：
+  - `domainSeparatedMessage`（20）；
+  - `computeSecurityTier`（79）；
+  - P-ED-1 的 2 个复合原像，以 `classical_only` 绑定经 `compositeVerify`；
+  - 2 次混合往返（`generateHybridKeypair`、`compositeSign`、`compositeVerify`），带有负载、上下文和签名反例。密钥在
+    页面中生成，从不离开页面。
+
+  共 103 个用例，独立于目录的 590 个用例。
+- **手动运行：** 使用 `--manual --url-file <file>` 时，包装器不启动浏览器。它把 URL 写入文件，等待有人打开；为此请
+  调大 `--deadline-ms` 和运行器的 `--timeout-ms`。运行器以同样方式评判结果。
+- **自检：** `external-browser.test.mjs` 有 23 项测试：
+  - 一个正向对照；
+  - 三个时刻的时钟；
+  - 一个无法解析的 bundle；
+  - 直接部分及其评判器自身的反例；
+  - 绝不能通过的对照：通过 `DCP_CONFORMANCE_WRAPPER_FAULT` 注入的故障（仅用于自检；注入故障的响应会注明这一点），
+    以及服务器必须拒绝的请求；
+  - 清理（使用 Chrome 的替身 `external-browser-fake-chrome.mjs`）：留在本次运行自身进程组中的进程会收到信号，
+    已离开该组的进程不会；清理不完整（Chrome 的退出、其进程组或临时配置文件）时，即使其他方面已响应，运行也会失败。
+
+  设置 `DCP_EXTERNAL_REQUIRE_BROWSER=1` 时，缺少 Chrome 或构建会导致失败而不是跳过。CI 在它构建的包上运行目录、直接
+  部分和自检。
+- **不属于本包装器：** `sdks/rust/tests/wasm_ped1_vectors.rs` 在 Node 上的 wasm32 中以提供方层级运行 P-ED-1 语料库，
+  不经过包的 API。它有 3 项测试：67 个提供方用例、4 个 V1 对象，以及使用真实 ML-DSA-65 密钥的 2 个复合用例。
+- **限制：**
+  - 只有一个引擎，即 Chrome，且不测量性能。
+  - 规范化用例、bundle 和复合负载在页面中经过 `JSON.parse`，因此通过不能说明它们的原始字节，也不能说明
+    [准入 § 11](../../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)的入口检查。
+  - 通过只表明这些用例在此浏览器中经由此 API 通过，仅此而已。
+
+<a id="evidence-catalog-merkle-and-signature-verification"></a>
+
+### 证据目录：Merkle 与签名验证
+
+`--catalog evidence` 选择一个可选目录 [`external-evidence-catalog.json`](../../../../tools/conformance/external-evidence-catalog.json)
+（契约 `dcp-ai-conformance-external/2`，241 个用例），针对同类 argv 运行。默认目录、契约 `/1` 及其 38 个用例不变；
+目录的 `contract` 决定其加载和判定方式。五个包装器都接受两种契约，并以请求的契约作答。
+只使用已提交的公开 fixture：不生成任何密钥，也不签署任何内容。
+
+```bash
+node tools/conformance-external.js --catalog evidence --list
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence --assessment verdict -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
+```
+
+| 套件 | 用例数 | 向量 |
+|------|--------|------|
+| `external.merkle.dual_root` | 6 | `tests/conformance/v2/merkle_vectors.json`：1、2、3、5 个叶子以及重新排序的叶子（`spec/VERIFICATION.md` V2-11），用 Python 标准库离线生成 |
+| `external.signature.composite` | 24 | `interop_vectors.json`：复合签名和仅经典签名、已提交的攻击，以及对每个正例的确定性改动 |
+| `external.v2.bundle_vectors` | 131 | `bundle_vectors.json`：已签名 bundle、其 38 个已提交的变异、9 个被接受的 bundle 和 79 个单独构建的被拒绝 bundle，以及 4 种模式下的仅经典例行 bundle |
+| `external.v2.secondary_sha3` | 80 | `secondary_sha3_vectors.json`：被接受和被拒绝的用例，以及每个被拒绝用例已提交的对照 |
+
+- **操作：** `dual_merkle_root` 接收 `leaves`（由小写 64 位十六进制字符串组成的 `{sha256, sha3_256}` 非空数组），
+  以带 `sha256` 和 `sha3_256`（小写 64 位十六进制）的 `ok` 作答。
+  `composite_verify` 接收 `context`、`payload_b64`（payload 的规范字节）、按原样提交的 `composite_sig`、
+  `classical_public_key_b64` 和 `pq_public_key_b64`（或 `null`），以带 `valid` 和 `classical_valid`（布尔值）
+  及 `pq_valid`（布尔值或 `null`）的 `ok` 作答。
+  `verify_signed_bundle_v2` 接收 `bundle_b64`（已签名 bundle 的 JSON）、`policy`（验证器策略对象）和
+  `verification_time`（带 `Z` 或偏移量的 RFC 3339），以带 `verified`（布尔值）和 `errors`（字符串数组）的 `ok` 作答。
+  形状错误的请求（空叶子或大写叶子、不是字符串的叶子、没有时区的时间、未知字段）会使包装器以 2 退出。
+- **判定：** 复合签名用例只比较 fixture 提交的字段；bundle 的结论必须一致，拒绝必须包含已提交的 `error_contains`
+  （不区分大小写，针对拼接后的错误）。带错误的 `verified: true` 是 `contradictory_result` 错误。
+  由于所有已提交的输入都能解析，`code` 为 `parse` 的 `rejected` 判为失败；`error` 和 `unsupported` 永远不算通过。
+- **对照：** 反例只有在其对照通过时才计入，否则为 `control_failed`，属于错误。基准已签名 bundle 是其 38 个变异的对照；
+  同一 payload 的正例是其改动和已提交攻击的对照；仅经典 bundle 的一个有效模式是其拒绝模式的对照；
+  每个被拒绝的二级用例都有其已提交的对照。79 个 `must_reject_bundles` 没有逐用例对照：只有在基准和 9 个被接受的
+  bundle 通过时才计入（套件级对照，保证较弱），并按其已提交的 `error_contains` 判定。
+  报告给出每个用例的 `source`、`input_sha256` 和 `controls`。
+- **缺少 PQ 签名：** 对没有 PQ 部分的 `pq_over_classical` 签名，Rust 的 `composite_verify` 返回错误，
+  WASM 导出函数返回带内错误 `Signature error: pq_over_classical binding requires PQ signature`。
+  这两个包装器只有在出现这一确切错误、且输入具有该绑定和 `pq: null` 时，才将其报告为 `code` 为
+  `missing_pq_signature` 的 `rejected`。运行器只在 fixture 仅提交 `valid: false` 的位置（`stripping_pq_removal`）
+  且其正例对照通过时接受它；对有效签名或任何其他反例给出同一代码都判为失败。
+  TypeScript、Python 和 Go 对该用例以布尔值作答。
+- **payload 改动**修改规范 payload 中第一个字符串值的最后一个字符，使 payload 仍是有效的规范 JSON
+  （WASM 导出函数接收 payload 的 JSON），解析器错误永远不会被计为密码学失败。
+- **时间：** 每个 bundle 用例都发送 `verification_time`：位于基准 bundle 及每个应通过验证的 bundle 有效期内的 2026-10-22T00:00:00Z（部分反例在该时刻有意处于已过期或尚未生效的状态），
+  或二级向量已提交的时间。TypeScript 传入 `{ now }`，Python 传入 `now_ms`，Go 使用 `VerifySignedBundleV2At`，
+  Rust 使用 `verify_signed_bundle_v2_at`。WASM 导出函数读取 `Date.now`，因此 WASM 包装器只在同步调用期间把
+  `Date.now` 替换为该时刻，并在 `finally` 中恢复，调用抛出异常时也是如此；其 `runtime` 会说明这一点。
+  自测表明每个包装器在 2020-01-01 拒绝基准 bundle、在 2026-10-22 接受、在 2100-01-01 拒绝，并表明异常之后的恢复。
+- **经 WASM 的 Merkle：** 包装器使用从本 checkout 构建的 `wasm_dual_merkle_root`，它委托给 Rust 核心；
+  `@dcp-ai/wasm` 2.1.1 及更早版本中发布的辅助函数在多叶子用例上失败（见 CHANGELOG）。
+- **V2-2 与已提交的措辞：** `main` 上的 SDK 验证器先执行 V2-2，因此在带有 `error_contains` 的 146 个拒绝用例中，有 16 个
+  （7 个签名编码的 `must_reject` 行和 9 个 `must_reject_bundles`）现在得到的是模式诊断，而不是更深层检查的措辞。因此在
+  `legacy` 下，每个 SDK 包装器通过 225 个用例，并把这 16 个判为判定正确但措辞不符的失败，这不算通过；在 `verdict` 下全部
+  241 个用例通过，其中 130 个措辞为 `matched`，这 16 个为 `differs`。CI 以 `verdict` 评估五个 SDK 包装器。fixture、其中的
+  `error_contains` 字符串和默认评估都不变。
+- **自测：** `external-evidence.test.mjs` 用五个包装器运行 241 个用例、时间证明、格式错误的请求，以及一个由
+  TypeScript 包装器真实回答构建的伪实现：全部验证通过、全部拒绝、矛盾结果、错误的错误文本、忽略顺序或对十六进制文本
+  做哈希的 Merkle 归约、失败的基准、在正确与错误位置出现的 `missing_pq_signature`，以及反例上的错误或 `unsupported`。
+  被篡改的 fixture 和目录属于基础设施错误（退出码 3）。该目录的默认超时为 300 000 ms（`--timeout-ms`）。
+  设置两个 `REQUIRE` 变量后，缺少包装器会判为失败而不是跳过；CI 运行全部五个。通过包装器的每次运行都会在两种评估下检查：`legacy` 必须恰好让上述 16 行以措辞差异失败，
+  `verdict` 必须通过全部 241 个用例。
+- **局限：** 通过只表明所运行的 argv 通过这 241 个用例，仅此而已。策略为应用每个用例已提交的 `verifier_policy_overrides` 的
+  `default_verifier_policy`，外加仅经典 bundle 的 4 种模式；不尝试其他策略。
+  `composite_verify` 是给定绑定和密钥的原语，bundle 的结论不是准入、对委托人的信任或对行为的授权。
+  `stripping_pq_with_downgrade` 按 `classical_valid` 和 `pq_valid` 判定；拒绝它属于 `hybrid_required` 策略。
+  二级字段只在存在时检查，因此通过并不表明二级链完整。经 WASM 时，时间是被替换的宿主时钟。
+  `error_contains` 字符串是 SDK 的诊断措辞，不具规范效力：`spec/VERIFICATION.md` 没有定义错误代码。
+  这 146 个用例通过只表明与该措辞一致；判定相同但消息不同的验证器会在这些用例上失败，而仅凭该失败并不能说明判定错误。[按判定评估](#verdict-assessment)只按判定评判这些用例。
+
+<a id="verdict-assessment"></a>
+
+#### 按判定评估
+
+`spec/VERIFICATION.md` 规定的是 bundle 何时验证不通过，而不是错误的措辞。`--assessment verdict` 只按判定评判本目录，供使用自有消息的实现使用。
+不加该选项，或使用 `--assessment legacy` 时，评判、报告和退出码与上文完全相同。
+该选项只适用于 `/2` 目录（已提交的目录或你自己的文件）；对 `/1` 或 `/3` 目录，包括 `legacy` 在内都是用法错误，因为它们的代码属于契约或具有规范效力。
+
+```bash
+node tools/conformance-external.js --catalog evidence --assessment verdict --list
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-verdict.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence-assessment.test.mjs
+```
+
+- **变化之处：** 只涉及带有 `error_contains` 的 146 个拒绝用例（38 个变异、79 个单独构建的 bundle、29 个二级用例）。
+  当结果为 `ok`、格式正确且不矛盾、给出 `verified: false`，并且其对照在同一次运行中通过时，该用例通过；不评判消息。
+  其余规则（包括对照）与原有评判相同。对同样的回答，在 `legacy` 下通过的用例在 `verdict` 下也通过，这 146 个之外的每个用例状态和类别都相同。
+- **锚点与前提：** 每个这样的用例都标出其在 `spec/VERIFICATION.md` 中的步骤（`anchor`）：bundle 向量的 `spec_step`（V2-1 至 V2-14），或二级分组对应的 V2-11 与勘误字段（`audit_merkle_root_secondary`、`prev_hash_secondary` 或 `intent_hash_secondary`）。
+  每个对照都必须是简单的正向用例：预期验证通过（或有效），没有 `error_contains`，也没有自己的对照，因此评估方式永远不会改变对照的结果。
+  两者都在运行前检查；不满足的计划在 `verdict` 下退出码为 3（在 `legacy` 下仍可能通过，例如使用自己的 `--root` 时），上述性质只对两种评估都有效的计划成立。
+- **诊断：** 通过的拒绝的措辞报告为 `matched`（包含已提交的 `error_contains`）、`differs` 或 `no_message`（`errors: []`）。
+  其他任何结果都是 `not_evaluated`，并给出其 `reason`：`run_error`、`missing`、`duplicate`、`malformed_result`、`implementation`、`unsupported`、`rejected`、`contradictory_result`、`wrong_verdict` 或 `control_failed`。
+  错误的判定无论消息如何都不会通过，措辞也永远不会改变状态、总数或退出码。
+- **报告：** `kit.contract` 仍为 `/2`；报告增加 `assessment`（其 `schema` 为 `dcp-ai-conformance-assessment/1`，独立于 wire 契约）和 `diagnostic_totals`。
+  其 `claim` 和 `limits` 说明本评估实际检查的内容，由运行器按套件设定，与目录的文字无关；该文字原样保留在 `catalog_claim` 和 `catalog_limits` 中，并不是已检查的结果。
+  146 个用例中的每一个都显示 `expect: {"verified": false}`、其 `anchor` 和其 `diagnostic`。legacy 报告没有任何新字段（`assessment`、`diagnostic_totals`、`catalog_claim`、`catalog_limits`、`anchor`、`diagnostic`），其 `claim`、`limits` 和 `expect`（含 `error_contains`）保持原样。
+  带 `--assessment` 的 `--list` 会注明模式；不带时输出不变。
+- **退出码与报告时效：** 与[契约](#contract)相同。只有状态 `pass`（退出码 0）表示运行通过；状态为 `fail` 或 `error` 的运行（例如有多余结果时）中的诊断只是部分细节，绝不表示符合。
+  每个 `--assessment` 错误（未知、重复或缺失的值，`/1` 或 `/3` 目录，缺失的锚点）都发生在占位内容写入之后，因此会用带新 `run.id` 的新错误替换旧报告；只有[命令](#external-implementations)中说明的例外不会留下报告。
+- **自测：** `external-evidence-assessment.test.mjs` 在两种评估下运行一个由 TypeScript 包装器的真实回答构建的 fake：判定正确且消息符合预期、中性或没有消息；判定错误但消息符合预期；全部验证通过或全部拒绝；错误、`unsupported`、缺失、重复、格式错误、被拒绝和多余的结果；对照失败、运行失败和超时；单独选择每个套件；所有模式下的上述性质（包括忽略顺序的 Merkle、旧的奇数节点提升，以及在正确位置和其他位置的 `missing_pq_signature`）；锚点与前提；在旧的通过报告之上写入的新报告；报告形态和 `--list`。
+  它还用五个包装器在 `verdict` 下运行 241 个用例；CI 在所有包装器都必需的情况下运行它。
+- **限制：** `verdict` 通过表明，在所运行的 argv 和相同策略下，这些用例的判定正确；它不评估消息是否准确或有用。
+  `/2` 的 wire 契约、目录、测试夹具和包装器都不变。
+
+<a id="schema-boundary-diagnostic-opt-in"></a>
+
+#### 模式边界诊断（明确选择）
+
+独立的 [`external-schema-catalog.json`](../../../../tools/conformance/external-schema-catalog.json) 使用契约 `/2`，运行新模式封闭性语料中的 15 个用例。它保留 V2-2 的规范预期：封闭对象的未知成员必须被拒绝，即使哈希和签名仍然有效。基础数据和允许的扩展是正向对照；未更新签名和承诺的扩展是另一种完整性负向用例。此诊断不改变默认证据目录的 241 个用例。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --report /tmp/schema-diagnostic.json -- ./my-implementation
+node --test tools/conformance/external-schema.test.mjs
+```
+
+`main` 上的 SDK 验证器执行 V2-2，五个 SDK 包装器都通过这 15 个用例；失败的实现仍是失败，绝不是可接受的例外。`schema-boundary.js` 分别报告参考模式校验、仅限此有限语料的完整性检查，以及在语料时间下组合模式与 TypeScript SDK 的检查。组合通过不能证明 SDK 自身执行 V2-2，也不代表向参考 API 注入时钟后运行。完整性辅助函数不是通用规范验证器。自测检查诊断工具、对照和预期；自测通过不能认证 SDK 的一致性。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md)和[实现者指南](../../docs/conformance/IMPLEMENTER_GUIDE.md)。
+
+<a id="schema-validation-catalog-v2-2-opt-in"></a>
+
+#### 模式校验目录（V2-2，明确选择）
+
+[`external-schema-validation-catalog.json`](../../../../tools/conformance/external-schema-validation-catalog.json) 对 [`wiring_cases.json`](../../../../tests/interop/v2/schema_validation/wiring_cases.json) 中的 57 个已签名用例使用契约 `/2`，每个用例都按 ID 固定：13 个正向用例和 44 个负向用例。每个负向用例只有在同一次运行中基础用例通过验证时才计入，每个用例都注明其 `spec/VERIFICATION.md` 步骤（V2-1 到 V2-14）。以文本形式保存的用例会按原字节发送。只评估判定：没有用例带有 `error_contains`，因此 `legacy` 和 `verdict` 的评估相同。默认目录不变。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report /tmp/schema-validation.json -- ./my-implementation
+node --test tools/conformance/external-schema-validation.test.mjs
+```
+
+自测检查套件构建的计划与 `tools/schema-ir/` 的语料读取器相同，检查目录和语料的完整性（缺失、多余或重复的 ID，同时以两种形式给出的用例，不是正向用例的基础用例），以及运行器的对照：全部接受恰好让 44 个负向用例失败，全部拒绝则一个也不计入，忽略某一约束的验证器恰好只在该用例上失败，缺失、重复或格式错误的结果都是错误。CI 用五个 SDK 包装器运行自测和该目录，每个包装器都是必需的。通过只覆盖这 57 个用例及其策略和验证时间，并不等于完整的 V2 符合性。
+
+<a id="verifier-policy-catalog-opt-in"></a>
+
+#### 验证器策略目录（显式选择）
+
+[`external-policy-catalog.json`](../../../../tools/conformance/external-policy-catalog.json)（版本 `2026-11-05.verifier-policy-2.0`）使用 `/2` 契约，在两个套件中测试固定时刻的 108 个用例。默认证据目录不变。每个负向用例要求其正向对照通过；不评估诊断措辞。
+
+- `external.v2.verifier_policy`：来自 `verifier_policy_vectors.json` 的 74 个用例。10 个正向对照、覆盖四种请求模式的 24 个存在但无效的 PQ 签名用例、14 个算法列表及安全通告用例，以及 26 个等级用例。
+- `external.v2.verifier_policy_clarification`：来自 `verifier_policy_clarification_vectors.json` 的 34 个用例，对应 [VERIFICATION.md](../../../../spec/VERIFICATION.md) 步骤 V2-10 的带日期澄清（05/11/2026）。
+  - Q1：在 `pq_only` 下，经典列表和安全通告的排除不会拒绝混合 bundle。
+  - Q2：在 `pq_only` 下，接受经典组件失败、而 PQ 组件对这些经典字节验证通过的 bundle、护照或检查点签名。不规范的经典 `sig_b64` 或未知的经典 kid 仍被拒绝。
+  - Q3：在 `classical_only` 和 `hybrid_preferred` 下，PQ 列表不会拒绝仅经典签名的 bundle；同一策略下的混合 bundle 被拒绝。
+  - 在其他模式下，Q1 的排除和 Q2 的签名都被拒绝。
+
+1.1 版（74 个用例）按字节原样存档为 [`external-policy-catalog-1.1.json`](../../../../tools/conformance/external-policy-catalog-1.1.json)，仍可按其路径运行；其报告仍是该版本的证据。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report /tmp/policy-conformance.json -- ./my-implementation
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog-1.1.json --assessment verdict --report /tmp/policy-1.1.json -- ./my-implementation
+node --test tools/conformance/external-policy.test.mjs
+```
+
+routine 混合签名正向用例达到实际生效的 `classical_only`；standard 正向用例将该请求提升为 `hybrid_preferred`。记录的等级与模式推导用于说明，不评估结果字段；[实际生效策略目录](#effective-policy-catalog-contract-5-opt-in)通过契约 `/5` 评估这些字段。等级用例使用分别签名的已版本控制 bundle，不是单一变化的配对。澄清用例使用两个 routine 基础 bundle，因此每个请求模式就是实际模式；其 Q2 变体只用已提交的 TEST-ONLY 密钥重新签名一个 PQ 组件。自测按原有不变量运行 1.1 版目录，并运行错误解读 Q1、Q2 或 Q3 的伪实现：在 `pq_only` 下应用经典列表、在 `pq_only` 下拒绝无效的经典组件、对没有 PQ 的 bundle 应用 PQ 列表，或忽略模式。每个伪实现恰好在其用例上失败。CI 执行语料及运行器自测，并通过五个 SDK 封装程序运行该目录；通过仅证明这些用例符合预期。
+
+<a id="structural-catalog-opt-in"></a>
+
+#### 结构目录（显式启用）
+
+[`external-structural-catalog.json`](../../../../tools/conformance/external-structural-catalog.json)通过 `/2` 和有效模式 `hybrid_preferred` 运行16个固定时间案例：2个正向对照和14个结构负向案例。每个负向案例都依赖基础对照，会话时间顺序颠倒的案例还依赖其对应的正向对照。默认目录保持不变。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report /tmp/structural-conformance.json -- ./my-implementation
+node --test tools/conformance/external-structural.test.mjs
+```
+
+仅评估判定结果。语料记录签名来源和缺陷隔离限制，尤其是含小数载荷中的旧证据，以及逆向范围不存在有效根的情况。CI运行语料和运行器自测以及全部5个SDK包装器。通过仅适用于这些案例和此策略，不代表完全符合V2规范。
+
+<a id="effective-policy-catalog-contract-5-opt-in"></a>
+
+### 实际生效策略目录（契约 /5，选择性启用）
+
+[`external-effective-policy-catalog.json`](../../../../tools/conformance/external-effective-policy-catalog.json)（契约 `dcp-ai-conformance-external/5`，版本 `2026-11-07.effective-policy-1.0`）运行 130 次已签名 bundle 的验证。请求与 `/2` 中的 `verify_signed_bundle_v2` 相同，这是它唯一的操作；`ok` 结果增加 `effective`：实现的验证器在同一次验证中解析出的验证模式和安全等级，每个都是 `{"exposed": false}` 或 `{"exposed": true, "value": <the JSON value as returned>}`。`/1` 到 `/4` 契约、它们的目录和报告，以及封装程序对它们的应答都不变。
+
+`ok` 结果恰好有 `id`、`status`、`verified`、`errors` 和 `effective` 这些键，`effective` 恰好有 `verification_mode` 和 `resolved_tier` 两个键。下面是 TypeScript 封装程序的两个结果：一个覆盖正向用例，以及一个在解析任何值之前就在 V2-2 被拒绝的观察用例：
+
+```json
+{"id":"c1","status":"ok","verified":true,"errors":[],"effective":{"verification_mode":{"exposed":true,"value":"hybrid_required"},"resolved_tier":{"exposed":true,"value":"elevated"}}}
+{"id":"c2","status":"ok","verified":false,"errors":["schema: /bundle/agent_passport/payload/risk_tier enum"],"effective":{"verification_mode":{"exposed":false},"resolved_tier":{"exposed":false}}}
+```
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --list
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report /tmp/effective.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-effective-policy.test.mjs
+```
+
+| 套件 | 用例 | 来源 |
+|-------|-------|--------|
+| `external.v2.effective.verifier_policy` | 74：60 个必需，14 个观察 | `verifier_policy_vectors.json`，其 `effective_mode` 和 `tier` |
+| `external.v2.effective.verifier_policy_clarification` | 34 个必需 | `verifier_policy_clarification_vectors.json`，其 `effective_mode` 及其 bundle 的 `tier` |
+| `external.v2.effective.coverage` | 17 个必需 | `effective_policy_vectors.json`：在每种请求模式下 elevated 和 maximum 的正向用例，`risk_score` 200、500、799 和 800，一个显式的和一个声明的 `security_tier`，在等级下限之前替换默认值的护照覆盖（一个更低，一个更高），以及一个因覆盖设定的模式而被拒绝的用例 |
+| `external.v2.effective.pre_resolution` | 5：1 个必需对照，4 个解析前用例 | `bundle_vectors.json`：已签名 bundle 及其在 V2-1、V2-3 或 V2-4 被拒绝的四个变体 |
+
+- **判定：** 判定结果与 `/2` 相同（不评估措辞）。必需用例还要求两个值都已解析、已知、一致（除 `pq_only` 外，模式不得低于其等级的下限），并等于期望值：缺失、部分、未知、格式错误（既不是字符串也不是 `null`）、矛盾或错误的值，即使判定结果正确也会失败；没有已解析值对的 `verified: true` 属于矛盾。观察用例（在已提交字节上未通过 V2-2 的 bundle）和解析前用例可以让两个值都保持未解析：缺失、`null` 或 `""`，各自按原样报告。报告的值仍必须已知且一致，并且在观察用例中等于期望值。格式错误的 `effective` 信封属于 `malformed_result` 错误。对照是简单的正向用例，必须在同一次运行中通过。
+- **期望值：** 取自已提交的向量，依据 spec/DCP-AI-v2.0.md § 14.2 和 § 14.3 以及 VERIFICATION.md V2-9 手工编写：护照 `risk_tier` 的覆盖替换 `default_mode`（可以更低），然后由等级下限提升。测试套件从不根据应答计算模式或等级。`effective_policy_vectors.json` 使用已提交的 TEST-ONLY 密钥签名；其 ML-DSA-65 签名带有随机性（hedged），因此重新生成只在这些签名上不同，已提交的文件就是成品。`node tools/conformance/effective-policy-catalog.mjs --check` 根据测试数据重建目录。
+- **封装程序：** 每个封装程序对每个用例调用一次验证，并复制该结果的两个字段：TypeScript 和 Python 来自 `details`（`details` 缺失或不是对象属于错误，绝不是未解析的应答），Go 和 Rust 来自结果的字符串字段（始终公开，未解析时为 `""`），WASM 来自 `wasm_verify_signed_bundle_v2` 返回的 JSON 的成员（为空时省略）。在 `/5` 下，任何其他操作都是 `unsupported`。各 SDK 在先前失败后是否解析模式和等级上有所不同；解析前套件记录这一点但不作判定。
+- **自测：** `external-effective-policy.test.mjs` 根据测试数据重建目录，用模式校验核对观察用例，用独立规则核对覆盖范围，并让加载器拒绝缺失、多余或重复的 ID、错误的解析分类、不一致的期望值，以及不是简单正向用例的对照。根据 TypeScript 封装程序真实应答构造的伪实现各自恰好在其用例上失败：缺失、`null`、`""`、部分、未知、格式错误、矛盾和错误的值，信封错误，以及报告请求模式、默认模式、仅等级下限、声明的 `security_tier` 或 `policy_decision.resolved_tier` 的封装程序。传输错误、超时和旧报告都经过运行器的 `/5` 分派。CI 通过五个封装程序运行自测和目录，每一个都是必需的。
+- **限制：** 通过只证明这些策略下的这 130 个用例，不是完整的 V2 符合性。为被拒绝的 bundle 报告的模式或等级只是诊断，不是准入或授权。不覆盖：DCP-09 委托链的等级下限（没有 bundle 字段携带该链）。`@dcp-ai/wasm` 的 JavaScript API（`DcpWasm`）通过[浏览器包装器](#browser-wrapper-dcpwasm-in-chrome)在 Chrome 中运行本目录；本目录不调用的 `computeSecurityTier` 是其直接部分之一。
+
+<a id="admission-catalog-strict-v1-admission"></a>
+
+### 准入目录：strict-v1 准入
+
+`--catalog admission` 选择第二个选择性启用的目录 [`external-admission-catalog.json`](../../../../tools/conformance/external-admission-catalog.json)
+（契约 `dcp-ai-conformance-external/3`，140 个用例），针对同类 argv 运行。它在已提交的
+[`admission_vectors.json`](../../../../tests/interop/v2/admission_vectors.json) 上判定
+[`spec/profiles/admission`](../../../../spec/profiles/admission/README.md) 的准入决定；目录用 SHA-256 固定该文件以及
+`bundle_vectors.json`。契约 `/1` 和 `/2` 及其目录不变。TypeScript、Python、Go 和 Rust 包装器通过各自的 SDK 应答
+`/3`；WASM 构建没有准入 API，因此其包装器拒绝 `/3`（exit 2），也没有任何东西模拟它。
+
+```bash
+node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog admission --report /tmp/admission-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog admission -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog admission -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog admission -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node --test tools/conformance/external-admission.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-admission-wrappers.test.mjs
+```
+
+| 套件 | 用例 | 来源 |
+|-------|-------|--------|
+| `external.admission.outcomes` | 65 | `admission_vectors.json` 的结果向量 |
+| `external.admission.config` | 71 | 其中 49 个被拒绝的配置、2 个带最大值的被接受配置文件，以及加载这些向量所用的 14 个信任集和 6 个配置文件 |
+| `external.admission.composed` | 4 | 依据向量的输入写在目录中：没有信任集的配置文件、带调用方验证器策略的配置文件，以及两个按字母顺序会把代码排错位置的组合 |
+
+- **操作：** `admit_signed_bundle_v2` 接收 `bundle_b64`、`now`、`profile`、`trust_set`、`verifier_policy` 和
+  `revocation`，六个总是全部给出；`load_admission_config` 接收 `kind`（`trust_set` 或 `profile`）和 `config`。
+  - `now` 必须正好是 `YYYY-MM-DDTHH:mm:ss.sssZ`，即 0001 年至 9999 年间真实存在的日期。这只是此传输的范围，不改变
+    协议的任何时间戳。
+  - `revocation` 在没有配置文件时为 `null`，否则为 `{"state": "unavailable"}`（没有快照，R1）或
+    `{"state": "snapshot", "snapshot": {…}}`，其中是一个由 SDK 判定的对象，完整与否均可。它恰好在有配置文件时给出。
+  - `profile`、`trust_set` 和 `verifier_policy` 是对象或 `null`。信任集和配置文件是运营方的配置，在请求中带外给出，
+    绝不取自 bundle。没有配置文件时，请求携带完整的验证器策略：`default_verifier_policy` 的 14 个字段，加上
+    `require_session_expiry: false`、`require_audience_binding: false` 和 `max_session_duration_seconds: 0`。有配置
+    文件时不携带策略，只有检查其拒绝的那个用例例外。
+  - 其他形式的请求会让包装器在调用 SDK 之前以 2 退出。
+- **应答：** `ok` 正好包含 `verified`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、
+  `action_authorized`、`recorded_decision`、`trust_set_version`、`codes`（`errors` 的代码，按发出顺序，保留重复）和
+  `verification_verified`；对于配置为 `accepted: true`，对于配置文件还有它的两个最大值。`rejected` 只有在 SDK 抛出其
+  带类型的配置错误时才携带 `CONFIG_*` 代码。`error` 和 `unsupported` 绝不算通过。
+- **判定**，按以下顺序：
+  - 字段类型（`malformed_result`）；
+  - 由 spec/profiles/admission 推出的规则（`contradictory_result`）：`action_authorized` 为 `false`；`admitted` 恰在
+    没有添加任何代码时成立；只有在有信任集且 bundle 通过验证时才评估委托人信任；
+  - 精确的字段和代码集合；
+  - 原始序列的顺序，按第 5.1 节和第 5.2 节的阶段，包括 P1、T1、R1 和 R2 的停止（`order`）；
+  - 重复（`cardinality`）：只有适用于多个组件或主体的 P4、T2、R4 和 R5 可以重复其代码。
+
+  被拒绝的配置以其 `allowed_codes` 之一通过：它自己的代码，或者对于有两个问题的三个信任集，两个适用代码中的任意一个
+  （第 2.2 节）。配置文件按其有效最大值判定（第 4.1 节）。
+- **对照：** 否定用例只有在其对照传递地通过时才计数；否则为 `control_failed`，即错误。
+  - 29 个结果否定用例以同一 bundle 上的肯定用例为对照。
+  - 19 个在其 bundle 上没有肯定用例，在套件层面对照，这是较弱的保证。
+  - 配置拒绝以加载有效的信任集或配置文件为对照。
+  - 组合用例以其组合的向量为对照。
+
+  `--suite` 也会运行所选用例需要的对照，并报告它们（`controls_included`、`included_for_controls`）。
+- **进程与错误：** 与 `/1` 和 `/2` 相同（run id、nonce、随机用例 id、进程组和限制）；此目录的默认超时为 300 000 ms。
+  启动失败、非零 exit、信号、超时、过期的 id，或者格式错误、缺失、重复或多余的结果都是错误，绝不算拒绝或“未准入”。
+  目录及其测试数据在加载时验证（固定的哈希、精确的键和类型、每个期望值与正文一致）；缺陷为 exit 3。
+- **包装器：** 每个用例调用一次 SDK 的组合函数或加载函数，使用请求的 `now`，绝不使用系统时钟：
+  `admitSignedBundleV2`、`createPrincipalTrustStore` 和 `resolveStrictV1Profile`（TypeScript）；
+  `admit_signed_bundle_v2`、`create_principal_trust_store` 和 `resolve_strict_v1_profile`（Python）；
+  `AdmitSignedBundleV2`、`NewPrincipalTrustStore` 和 `ResolveStrictV1Profile`（Go）；`admit_signed_bundle_v2`、
+  `PrincipalTrustStore::from_json` 和 `resolve_strict_v1_profile`（Rust），使用 Ed25519 和 ML-DSA-65 提供者。只有带
+  类型的错误才算拒绝：`AdmissionConfigError`（TypeScript、Python、Rust）或通过 `errors.As` 得到的
+  `*AdmissionConfigError`（Go）。`DCP_CONFORMANCE_WRAPPER_FAULT` 仅供自测使用，只能把应答变成错误。
+- **自测：**
+  - `external-admission.test.mjs` 判定依据目录自身期望值构造的合成应答，不使用 SDK：错误的决定、顺序、基数、配置
+    代码、基础设施失败，以及被篡改的目录和测试数据。
+  - `external-admission-wrappers.test.mjs` 通过各自的 SDK 运行四个包装器：每个 140 个用例、请求的时钟（一个用例在
+    三个时刻）、格式错误的请求、注入的失败、无法加载的实现、WASM 的拒绝，以及（通过 TypeScript）一个从 bundle 获取
+    信任的 SDK。
+
+  CI 运行这两者，四个包装器均为必需。
+- **局限：**
+  - **通过表明什么。** 所运行的 argv 通过这 140 个用例，仅此而已。准入绝不是授权：`action_authorized` 始终为
+    `false`。
+  - **一种投影。** 应答是准入结果的投影。其中内含的验证（其错误、警告、详情、`signer_keys`、模式和层级）不作判定；
+    `verification_verified` 由实现自己报告。
+  - **带类型的错误。** 拒绝按其代码判定。它是否来自 SDK 带类型的错误，由包装器而非运行器看到。
+  - **较弱的保证。** 19 个套件层面的对照，以及写在目录而非向量中的 4 个组合期望值。
+  - **此目录之外。** 适配器、信任与吊销来源、TLS、租户、缓存和一次性使用。语料是已提交的向量和这四个组合，而不是
+    任意输入。
+
+<a id="delegation-catalog-dcp-09-mandate-chains"></a>
+
+### 委托目录：DCP-09 委托书链
+
+`--catalog delegation` 选择第三个选择性启用的目录 [`external-delegation-catalog.json`](../../../../tools/conformance/external-delegation-catalog.json)
+（契约 `dcp-ai-conformance-external/4`，2.0.0 版，97 个规范性用例），针对同样形式的 argv 运行。它在目录以 SHA-256 固定的三个已提交语料上，
+判定委托书链的验证（[DCP-09 §3.5.2](../../../../spec/DCP-09.md)）。契约 `/1`、`/2` 和 `/3` 及其目录不变。TypeScript、Python、Go
+和 Rust 封装程序通过其 SDK 应答 `/4`。WASM 构建不导出任何委托书链函数，因此其封装程序像对 `/3` 一样拒绝 `/4`（exit 2），
+也没有任何东西模拟它。
+
+```bash
+node tools/conformance-external.js --catalog delegation --list
+node tools/conformance-external.js --catalog delegation --report /tmp/delegation-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog delegation -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog tools/conformance/external-delegation-catalog-1.0.0.json -- /path/to/implementation
+node --test tools/conformance/external-delegation.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-delegation-wrappers.test.mjs
+```
+
+| 套件 | 用例 | 来源 |
+|-------|-------|--------|
+| `external.delegation.chain` | 52 | [`mandate_chain_vectors.json`](../../../../tests/interop/v2/mandate_chain_vectors.json)：签名与角色、链接、深度、权限收窄、有效期窗口、层级下限、吊销 |
+| `external.delegation.chain_time` | 22（在 1.0.0 版中其中 10 个为参考性用例） | [`mandate_chain_time_vectors.json`](../../../../tests/interop/v2/mandate_chain_time_vectors.json)：规则 4 的有效期窗口、其嵌套与验证时间 |
+| `external.delegation.domains` | 23 | [`mandate_domain_vectors.json`](../../../../tests/interop/v2/mandate_domain_vectors.json)：同一委托书中重复的领域，任何深度 |
+
+- **操作：** `verify_mandate_chain` 接收四个字段。
+  - `chain_b64` 和 `keys_b64`：fixture 中该链及其 `{human_keys, agent_keys}` 原样字节的 base64。
+  - `revoked_mandate_ids`：字符串数组。
+  - `verification_time`：与提交内容完全相同的 RFC 3339 字符串。
+
+  运行器从不解析或重新序列化它们。大于 2^53 的整数（`9007199254740993`）、十进制形式 `9007199254740991.0` 以及每个时间戳，都按原样到达实现。
+- **应答：**
+  - `ok` 恰好带有 `valid`（布尔值）、`errors`（字符串数组）、`effective_tier`（`routine`、`standard`、`elevated`、`maximum` 或 `null`）和 `depth`（非负整数）。被拒绝的链是 `valid: false` 的 `ok`。
+  - 带 `message` 的 `error`，或 `unsupported`。
+
+  其他形式的请求会使封装程序以 2 退出。
+- **判定：** 只有判定结果是规范性的。`valid` 一致，且对于被接受的链 `effective_tier` 也一致时，用例通过（规则 6）。带有错误的 `valid: true` 是 `contradictory_result`。
+  - 错误文本（语料中的 `error_contains` 或精确的 `errors`）和 `depth` 是 SDK 的诊断。它们会被报告（`matched`、`differs`、`no_message`），但从不判定。
+  - 拒绝不需要消息，也不需要特定的 `depth` 或特定的层级。
+  - `--assessment` 不适用。
+- **版本：** 默认的 2.0.0 版按 DCP-09 §3.5.2 的澄清（05/11/2026）判定全部 97 个用例：规则 4 的时刻和签名密钥的 `expires_at` 以毫秒比较，每个签名密钥在验证时间必须处于活动状态且未过期。
+  - 1.0.0 版按字节原样存档为 [`external-delegation-catalog-1.0.0.json`](../../../../tools/conformance/external-delegation-catalog-1.0.0.json)，按该路径运行。它把 `chain_time` 中的十个用例保留为参考性用例：三个依赖以毫秒比较时刻，七个依赖签名密钥的 `expires_at`。它们会被发送，并在 `informative_totals`（`requested`、`completed`、`agrees`、`differs`、`error`）中报告，从不通过也从不失败；对其中任何一个的应答缺失、格式错误、为 `error` 或 `unsupported`，仍是运行错误。
+  - 运行器固定每个版本的分类，并固定 1.0.0 版的字节：重新标注版本、重新序列化或未知版本的目录会被拒绝，因此任何版本都不会按另一版本的分类判定。在这十个用例之一上结果不同的实现通过 1.0.0 版而在 2.0.0 版失败；1.0.0 版的报告只是 1.0.0 版的证据。
+  - 没有执行任何规范性用例的运行永不通过。
+- **锚点：** 每个规范性用例都标明其 §3.5.2 规则：`rule1` 至 `rule7`，未知、缺失或不可比较的输入为 `fail_closed`，被接受的链为 `all_rules`。
+- **对照：** 只有当其对照在同一次运行中通过时，拒绝才计入。对照是同一套件中规范性地被接受的链，`control_scope` 说明两者的关系：
+  - `same_chain`：链的字节相同，已吊销 ID、时间或密钥不同；
+  - `single_mandate`：整个委托书有一个不同，可能改变许多字段及其签名；
+  - `same_shape`：长度相同；
+  - `suite`：套件中所有被接受的链。
+
+  运行器在加载目录时按字节检查这种关系。它们都不声称两个用例只相差一个缺陷。选定的套件自带其对照。
+- **目录：** `delegation-catalog.mjs --check` 根据语料及其锚点表重新生成 2.0.0 版目录：根签名者的密钥对应规则 1，委托代理的密钥对应规则 2。对于遗漏、重复或重排语料用例、以不同于其版本的方式分类用例，或夸大对照的目录，运行器以 exit 3 拒绝。
+- **进程与封装程序：** 与 `/1` 至 `/3` 相同；本目录的默认超时为 300 000 ms。封装程序对每个用例调用一次，使用请求的时间，从不使用系统时钟，并且各自按其 SDK 自身语料测试的方式读取链：
+
+  | SDK | 链 | 时间 |
+  |-----|-------|------|
+  | TypeScript | `JSON.parse` | `verifyMandateChain`，时间由 `parseRfc3339` 读取 |
+  | Python | `json.loads` | `verify_mandate_chain`，`rfc3339_epoch_ms` 作为带时区的 UTC datetime |
+  | Go | `json.Unmarshal`（float64） | `VerifyMandateChain`，使用 `time.Parse(time.RFC3339Nano)`；拒绝 SDK 会读作当前时间的零时间 |
+  | Rust | `serde_json` | `verify_mandate_chain`，使用 `parse_rfc3339_millis` |
+- **自测：**
+  - `external-delegation.test.mjs` 判定根据语料预期构造的合成应答，不使用 SDK，并检查发送的字节是 fixture 的片段。它覆盖：
+    - 全部接受或全部拒绝、忽略一条规则的验证器，以及错误的层级；
+    - 矛盾、格式错误、`error` 和 `unsupported` 的应答；在 1.0.0 版下，结果不同或失败的参考性用例，在 2.0.0 版下，同样的应答恰好使这些用例失败；
+    - 缺失、重复、多余和截断的结果，过期的 ID，以及失败、被终止、挂起或延迟退出的进程；
+    - 新的报告、选择、被篡改的目录和 fixture，以及重新标注或重新序列化的版本。
+  - `external-delegation-wrappers.test.mjs` 通过各自的 SDK 运行四个封装程序：97 个用例、请求时钟的三个时刻、格式错误的请求以及注入的故障。它还检查 WASM 的拒绝，并检出四个被修改的 TypeScript SDK：一个忽略吊销，一个使用自己的时钟，一个忽略签名密钥的过期，一个以低于毫秒的精度比较有效期窗口。在 2.0.0 版下测得，第三个在七个密钥用例上失败，第四个在三个毫秒用例中的两个上失败（封装程序交给 SDK 的验证时间已经是毫秒）；在 1.0.0 版下两者都通过，只在这些用例上结果不同。它以异步方式调用封装程序并关闭 stdin；在带输入的同步执行中，曾观察到原生封装程序一直等待文件结束。
+
+  CI 运行这两者，四个封装程序均为必需。
+- **限制：** 通过只表明所运行的 argv 在这些已提交的链上给出这些判定，仅此而已。
+  - 密钥和已吊销 ID 在请求中给出。工具包不确认密钥属于谁，`valid` 也不代表对责任主体的信任、准入或对某个行为的授权。
+  - 有效性辅助函数（`verifyMandateValidity`）、`tier_floor` 以及其他 DCP-09 记录不在本目录范围内。
+
+<a id="performance-baseline"></a>
+
+## 性能基线
+
+`tools/conformance-perf.js` 用相同的输入字节、相同的策略和相同的验证时刻，测量本检出代码中五个 SDK 的规范性 V2 验证器（契约 `dcp-ai-perf/1`）。
+这是一个小规模、可复现的本地基线，不是对此测试工具的基准测试，不是安全排名，也不是速度要求：CI 从不检查速度。
+
+```bash
+node tools/conformance-perf.js --list
+node tools/conformance-perf.js --offline --warmup 5 --samples 20 --rounds 1 --python /path/to/python --report /tmp/perf-sanity.json
+node tools/conformance-perf.js --no-build --warmup 20 --samples 100 --rounds 3 --python /path/to/python --report /tmp/perf.json
+DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/perf.test.mjs
+```
+
+- **工作负载：** 六个已提交的 bundle，只读取、从不重新签名，使用 `default_verifier_policy`，时刻为 2026-10-22T00:00:00Z：`hybrid_ok`、`classical_sig_invalid`（RPR 的 Ed25519 签名）、`pq_sig_invalid`（bundle 的 ML-DSA-65 签名）、`secondary_root_ok`、`secondary_root_wrong` 和 `secondary_all_ok`。
+  二级这一对共享基础制品和条目，不同之处在于清单的 `audit_merkle_root_secondary` 以及覆盖它的 bundle 签名（`manifest_hash`、两个签名值、`signature.hash_alg`）：它不是隔离单个字段成本的实验。
+- **测量的内容：** 按每次调用、每个 SDK 一个进程测量，不为每个样本启动进程。TypeScript 为 `JSON.parse` 和 `await verifySignedBundleV2`（本地 `dist`，不是已发布的包）；Python 在一个持久的 `asyncio` 循环中执行 `json.loads` 和 `await verify_signed_bundle_v2`（检出代码中的 `dcp_ai`）；Go 为 `VerifySignedBundleV2At`，其字节 API 包含解析；Rust 为 `serde_json::from_slice` 和 `verify_signed_bundle_v2_at`（release 的 example）。
+  WASM 为解码、`wasm_verify_signed_bundle_v2` 以及对其结果的 `JSON.parse`，调用期间 `Date.now` 被替换为验证时刻；公开边界的成本包含在内并予以注明。注册表和策略只准备一次；不缓存任何结果。
+- **检查：** 预热和计时调用在各工作负载之间轮流执行，每次调用都会检查：判定符合预期、正向用例没有错误、负向用例有错误。检查失败会使该子进程停止：它返回不含任何时间的 `check_failed`，并以退出码 0 结束；运行器则将该次运行报告为失败（运行器的退出码 1）。报告保留其他子进程的结果，此时不是基线（`baseline: false`）；失败子进程的时间从不呈现。
+  子进程要么返回包含全部样本的成功，要么返回这样的失败；运行器检查契约、运行标识、SDK 和入口、计数，以及每个样本都是以纳秒为单位的正安全整数。
+- **统计：** 按顺序保留所有样本；按 SDK 和工作负载给出 `n`、`min`、中位数（`n` 为偶数时取中间两个值的平均）、按最近秩计算的 p90 和 p99、`max` 以及 IQR。不做排名，也不归因百分比；负向用例可能在第一次失败的检查处停止，其 `errors_first` 仅供诊断。
+- **来源：** 默认情况下，工具在一个有上限的构建期限内构建它所测量的内容（TypeScript 的 `dist`、用 `-o` 输出到 `.build` 下的 Go 子进程、release 的 Rust example 和 WASM，WASM 输出到自己的文件夹）。
+  随后为每个选定的 SDK 记录源码树、清单和锁文件、子进程、制品哈希（整个 `dist`、`.wasm` 及其 JS 胶水代码、二进制文件）、工具版本和构建选项，任何一项缺失都不进行测量。
+  `--no-build` 会为所请求的 SDK 重新计算这些内容，并拒绝任何差异或缺口；时间、提交和 dirty 标志仅供参考。每个子进程报告它加载的内容（TypeScript：从 `dist` 解析的每个 import 及其包清单和哈希；Python：检出代码中的 `dcp_ai` 和实际导入的模块）。
+  该记录将制品与本检出代码绑定；它不认证供应链。
+- **进程与报告：** 每个子进程都在外部工具包的运行器下运行（期限、进程组、输出上限）。报告先写入 `incomplete` 占位内容，在任何路径上都会被替换；含义不明确的 `--report`（缺失、形如选项或重复）不写任何内容。
+  运行器的退出码：0 通过，1 检查失败，2 用法错误，3 基础设施、构建或来源错误。`--child-argv` 仅为测试此工具而替换子进程；这样的报告永远不是基线。
+- **自测：** `perf.test.mjs` 运行五个子进程的必需冒烟运行（W=1、N=2、R=1）；伪造子进程（缺失、重复或未知的结果、错误的计数、格式错误或不安全的样本、错误的标识、矛盾、accept-all、预热和样本中的失败、格式错误的失败、有效输出后非零退出、挂起）；给定错误正向预期的真实子进程；在旧的通过报告之上写入的新报告；伪造、过期和不完整的来源；临时目录树中的选择；以及忽略 SIGTERM 的构建步骤。
+  CI 在原生 job 中运行它们，所有子进程均为必需。
+- **限制：** 单台机器、小样本：频率、热与电源状态以及后台负载不受控制（会记录 CPU 和操作系统）。每个 SDK 都按原样测量，包含其自身的密码库；Rust 的配置为默认 release。结果保留在本地：本节记录方法，而非数字。
+
+<a id="bounded-workload-scaling"></a>
+
+## 有界工作负载的规模变化
+
+`tools/conformance-perf-scale.js`（报告契约 `dcp-ai-perf-scale/1`）测量本检出中规范性验证器在一个小而有限的网格上如何随规模变化：四个维度各有三个大小，每个大小有三个对照。它是一个独立的工具：`dcp-ai-perf/1` 及其子进程和报告不变。它不是压力测试，不是寻找失败阈值，不是排名，也不是速度要求；CI 检查测试工具本身（判定、计数、单位和清理），不设任何速度或内存阈值。
+
+```bash
+node tools/conformance-perf-scale.js --list
+node tools/conformance-perf-scale.js --generate /tmp/scale-corpus
+node tools/conformance-perf-scale.js --corpus /tmp/scale-corpus --sizes small --warmup 1 --samples 2 --offline --python /path/to/python --report /tmp/scale-smoke.json
+node tools/conformance-perf-scale.js --corpus /tmp/scale-corpus --no-build --python /path/to/python --report /tmp/scale.json
+DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/perf-scale.test.mjs
+```
+
+- **准备：** `--generate` 用 TypeScript `dist` 签名并导入根目录的包，因此需要先完成[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#reproduce)中的本地准备：构建 TypeScript SDK，并用已提交的锁文件安装根目录依赖。之后的运行会自行构建它所测量的内容；使用 `--offline` 时，Go、Cargo 和 wasm-pack 的缓存中必须已有依赖。`--python`（或 `DCP_PERF_PYTHON`）指定一个带有 Python SDK 依赖和 pip 的解释器。
+- **维度：** 字节数（`intent.payload.target` 的开放成员中一个 ASCII 字符串，为 1、16 和 256 KiB）、嵌套（该成员中 4、16 和 64 个嵌套对象）、审计长度（1、16 和 256 个条目）以及授权书链长度（1、4 和 16 个 DCP-09 授权书；根的 `delegation_depth` 为 0）。bundle 通过未改动的 `dcp-ai-perf/1` 子进程在五个 SDK 中运行；链通过独立的 `dcp-ai-perf-mandate/1` 子进程在 TypeScript、Python、Go 和 Rust 中运行，因为 WASM 不提供授权书链 API。
+- **对照：** `valid` 在增长后重新签名，因此会到达完整的验证器；`stale` 是有效文档在签名后改动了增长部分中的一个字节；`schema` 是带有一个固定模式违规的有效文档（对于链，是根的形状错误）。负对照的首批错误必须显示其类别：模式对照中只有 `schema: …` 行；签名过期的对照中有 `intent: payload_hash mismatch`、`Manifest audit_merkle_root mismatch` 或 `mandate[i]: … does not verify`，且没有模式或形状错误。这是 SDK 报告的类别，并不证明只执行了某一条内部路径。
+- **语料：** 用 TEST-ONLY 密钥生成一次，并从其确切字节测量，这些字节及其哈希列在清单中。bundle 的 ML-DSA-65 签名是 hedged 的，因此重新生成会得到不同的字节。在启动任何子进程之前，工具检查语料：有上限的普通文件、恰好是代码所定义的计划条目、每个大小的量级、对照之间一个字节和一处改动的关系、用 Ajv 检查的模式，以及不依赖任何 SDK 的完整性和签名检查。期望值从不来自 SDK 之间的一致。
+- **延迟：** 与 `dcp-ai-perf/1` 相同，为进程内每次调用的时间（输入字节的解析和验证器）；生成、签名、构建、进程启动和请求解码不计在内。每个 SDK 和维度一个子进程，对其九个工作负载 round-robin；每个工作负载最多 10 次预热调用和 50 个样本，一轮。每次调用都会检查。
+- **内存：** 每个 SDK 和工作负载一个新的子进程（1 次预热调用和 3 个样本，全部检查），由 `tools/conformance/perf/rusage.py` 启动，它读取内核为该确切进程记录的 RSS 最高值（通过 `os.wait4` 读取 `ru_maxrss`：macOS 上为字节，Linux 上为 KiB，统一为字节；其他平台为带原因的 null，从不为 0）。这是整个进程在其生命周期内的峰值（运行时、import、请求副本、预热、验证和结果），不是验证器的分配，也不是采样值。不测量堆。内存从不与延迟比较。
+- **规模变化：** 仅在单个 SDK 内比较：每个大小的中位数与同一序列中最小大小相比，以及每个 RSS 峰值减去最小大小的峰值。不排名，不设阈值，不归因于某个原语。
+- **期限与进程：** 命令是一个监督进程。它以工作进程的形式在其自己的进程组中运行任务，到达 `--deadline-ms`（默认 60 分钟）时，停止工作进程及其启动的所有进程（通过 `/bin/ps` 找到，包括位于自己进程组中的子进程），然后写入错误报告。无法枚举进程时不启动任何东西；如果停止过程中枚举失败，仍会杀死已知的工作进程组，并在报告中说明清理不完整。在内部，工作进程遵守协作式预算：只有预留时间足够时才开始一个步骤。监督进程仅在 macOS 和 Linux 上测试过。`--generate` 写入本次运行自己创建的暂存目录，只有在语料检查之后才重命名。
+- **来源：** 五个 SDK 的 `dcp-ai-perf/1` 记录，加上从入口点传递找到的工具 JavaScript 模块、它们解析到的包、模式树、根目录的清单和锁文件、授权书子进程及其二进制文件，以及被测解释器的 `pip freeze`。在运行前后各计算一次；任何差异、缺失或语料字节的变化都是错误。构建与 `dcp-ai-perf/1` 共用。
+- **报告：** 只有在全部大小、两个阶段、通过且没有任何替换时，`baseline` 才为 true。`--child-argv`、`--launcher-argv` 以及任何 `DCP_PERF_SCALE_SELFTEST_*` 变量都会作为测试替换列出。退出码：0 通过，1 检查失败（判定或阶段），2 用法，3 基础设施、语料、构建、来源或期限。
+- **限制：** 单台机器、小样本；频率、热与电源状态以及后台负载不受控制。结果只留在本地：本节记录方法，而非数字。

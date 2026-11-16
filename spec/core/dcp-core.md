@@ -249,3 +249,31 @@ The currently defined profiles are:
 - [VERIFICATION](../VERIFICATION.md) — Verification checklist
 - [DCP-AI v2.0](../DCP-AI-v2.0.md) — Post-Quantum Normative Specification
 - [ROADMAP](../../ROADMAP.md) — Project evolution roadmap
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **Field names.** Some descriptions in §4 are conceptual and do not match the schemas field for field. Neither RPR
+  schema has a revocation-commitment field; the V2 passport has an optional `emergency_revocation_token`. No passport
+  schema has a name or an `owner_rpr_hash`: the passport points to the principal with
+  `principal_binding_reference`. The risk score is in the policy decision (`risk_score`), not in the intent, and the
+  policy decision refers to its intent by `intent_id` and lists conditions in `required_confirmation`. Audit entries
+  have an `audit_id` and an `outcome`, not an event type.
+- **V1 and V2.** The bundle of §4.6 and the checks of §5 are the V1 ones: one Ed25519 signature over the bundle and at
+  least one audit entry. A V2 bundle carries a signed manifest that commits to each artifact, `SignedPayload`
+  envelopes for the four primary artifacts, a session nonce and composite signatures, and may have an empty audit
+  trail ([VERIFICATION.md](../VERIFICATION.md), V2 checklist).
+- **Who signs the passport.** In V2 the agent signs its own passport with its passport `keys`; it is bound to the
+  principal by the principal's signature over the manifest, made with the RPR `binding_keys` (VERIFICATION.md V2-6).
+- **Audit evidence (§4.5, §6).** A verified audit trail shows that the recorded entries are intact and were committed
+  by the keys the bundle lists; it does not show that the actions really happened, and the chain is not immutable
+  against whoever holds those keys and signs a new one. Neither verification nor admission authorizes an action by
+  itself.
+- **Trust (§6.2).** A bundle that verifies proves that its signatures match the keys it lists; it does not prove who
+  the principal is, since anyone can create an RPR. Trust in a principal comes from the verifier's own trust set:
+  see [docs/ADMISSION.md](../../docs/ADMISSION.md) and the [admission profile](../profiles/admission/).
+- **Profiles (§7).** "Valid without any profile" concerns interoperability of the core artifacts. It does not exempt
+  an implementation from the core requirements, and a deployment still applies its own verifier policy and, where
+  it uses one, the admission profile.

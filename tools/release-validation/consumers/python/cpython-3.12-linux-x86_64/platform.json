@@ -1,0 +1,6 @@
+{
+  "implementation": "CPython",
+  "python": "3.12",
+  "sys_platform": "linux",
+  "machine": "x86_64"
+}

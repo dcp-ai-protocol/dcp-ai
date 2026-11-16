@@ -1,0 +1,38 @@
+{
+  "contract": "dcp-ai-conformance-external/2",
+  "catalog_version": "2026-10-31.structural-1.1 (opt-in)",
+  "suites": [
+    {
+      "id": "external.v2.structural",
+      "title": "Structural coverage: V2-3, V2-4, V2-5, V2-6 and V2-12 (structural_vectors.json)",
+      "claim": "Under the corpus verifier_policy at its verification_time (effective mode hybrid_preferred), the base and the positive twin verify, and each case, which breaks one structural rule with every other signature and commitment kept or redone valid except in two cases (the payload fraction keeps the base hashes and signatures, stale by construction, because no dcp-jcs-v1 form exists for a commitment to cover; the backwards range has no valid merkle_root, because the run it names does not exist), is rejected (verified false): non-canonical sig_b64 (bytes unchanged) of the RPR, passport, policy decision and checkpoint; checkpoint without PQ, with an invalid classical component under a PQ component signed over it, with a backwards event_range or an absent from_audit_id; audit_count off with the right root; passport_hash and policy_hash off; a payload fraction; session_issued_at after session_expires_at; an invalid bundle classical signature under a PQ component signed over it.",
+      "limits": [
+        "Opt-in: it does not change the default catalog (/1, 38 cases), the evidence catalog (/2, 241 cases), the admission catalog (/3, 140 cases), the schema-closure diagnostic or the verifier policy suite.",
+        "One policy (default_verifier_policy of bundle_vectors.json) and one instant for every case. The effective mode is hybrid_preferred, which requires the classical signature; the classical negatives claim no pq_only verdict (V2-12 (3) requires only the PQ checkpoint signature in pq_only).",
+        "Isolation limits, recorded in the corpus: the payload fraction has no dcp-jcs-v1 form, so its hashes and signatures are stale by construction; a backwards range has no right merkle_root, so the one of the same entries in trail order is kept; the session case relies on the 30 s skew of V2-4, and its twin positive is its control.",
+        "Every negative counts only if the base, and for the session case its twin, passed in the same run. Only the verdict is judged: no wording, tier, mode or signer_keys output (deferred, D2)."
+      ],
+      "expected_cases": [
+        "external.v2.structural.base",
+        "external.v2.structural.session_issued_before_expires",
+        "external.v2.structural.rpr_classical_sig_b64_trailing_bits",
+        "external.v2.structural.passport_classical_sig_b64_trailing_bits",
+        "external.v2.structural.policy_decision_classical_sig_b64_trailing_bits",
+        "external.v2.structural.checkpoint_classical_sig_b64_trailing_bits",
+        "external.v2.structural.checkpoint_without_pq",
+        "external.v2.structural.checkpoint_classical_invalid_pq_resigned",
+        "external.v2.structural.checkpoint_range_backwards",
+        "external.v2.structural.checkpoint_from_audit_id_absent",
+        "external.v2.structural.manifest_audit_count_off_root_right",
+        "external.v2.structural.manifest_passport_hash_off",
+        "external.v2.structural.manifest_policy_hash_off",
+        "external.v2.structural.intent_payload_fraction",
+        "external.v2.structural.session_issued_after_expires",
+        "external.v2.structural.bundle_classical_invalid_pq_resigned"
+      ]
+    }
+  ],
+  "limits": [
+    "Built only from tests/interop/v2/structural_vectors.json, signed offline by its generator with the committed TEST-ONLY keys of interop_vectors.json#test_keys. Nothing is generated or signed by the runner."
+  ]
+}

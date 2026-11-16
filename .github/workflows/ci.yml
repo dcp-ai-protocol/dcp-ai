@@ -28,6 +28,8 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       wasm: ${{ steps.filter.outputs.wasm }}
       integrations: ${{ steps.filter.outputs.integrations }}
+      cli: ${{ steps.filter.outputs.cli }}
+      schema_ir: ${{ steps.filter.outputs.schema_ir }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -35,6 +37,7 @@ jobs:
         with:
           filters: |
             typescript:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/typescript/**'
               - 'schemas/**'
               - 'spec/**'
@@ -43,18 +46,21 @@ jobs:
               - 'package-lock.json'
               - '.github/workflows/ci.yml'
             python:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/python/**'
               - 'schemas/**'
               - 'spec/**'
               - 'tests/**'
               - '.github/workflows/ci.yml'
             go:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/go/**'
               - 'schemas/**'
               - 'spec/**'
               - 'tests/**'
               - '.github/workflows/ci.yml'
             rust:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/rust/**'
               - 'sdks/wasm/**'
               - 'schemas/**'
@@ -62,15 +68,46 @@ jobs:
               - 'tests/**'
               - '.github/workflows/ci.yml'
             wasm:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/wasm/**'
               - 'sdks/rust/**'
               - 'schemas/**'
               - 'spec/**'
               - 'tests/**'
+              - 'tools/conformance-external.js'
+              - 'tools/conformance/**'
               - '.github/workflows/ci.yml'
             integrations:
+              - 'integrations/anthropic-mcp/**'
               - 'integrations/express/**'
+              - 'integrations/google-a2a/**'
               - 'integrations/openclaw/**'
+              - 'sdks/typescript/**'
+              - 'tests/interop/v2/**'
+              - 'tests/conformance/examples/**'
+              - '.github/workflows/ci.yml'
+            cli:
+              - 'cli/**'
+              - 'tools/ed25519-ped1.js'
+              - 'sdks/typescript/**'
+              - 'schemas/**'
+              - 'tests/**'
+              - '.github/workflows/ci.yml'
+            schema_ir:
+              - 'schemas/**'
+              - 'tools/schema-ir/**'
+              - 'sdks/typescript/src/core/schema-v2.generated.ts'
+              - 'sdks/python/dcp_ai/v2/_schema_v2_generated.py'
+              - 'sdks/go/dcp/v2/schema_v2_generated.go'
+              - 'sdks/rust/src/v2/schema_v2_generated.rs'
+              - 'tests/interop/v2/schema_validation/**'
+              - 'tests/interop/v2/generate-schema-validation-vectors.mjs'
+              - 'tests/interop/v2/generate-schema-regression-vectors.mjs'
+              - 'tools/conformance/external-schema-validation-catalog.json'
+              - 'tools/conformance/structural-checks.js'
+              - 'lib/verify.js'
+              - 'package.json'
+              - 'package-lock.json'
               - '.github/workflows/ci.yml'
 
   conformance:
@@ -87,11 +124,41 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      # The root depends on the workspace SDK to test the checked-out source
+      # (package.json, .npmrc): build it before installing the root.
+      - name: Build the workspace SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
       - name: Install dependencies
         run: npm install
 
       - name: Run conformance tests (V1 + V2)
         run: npm run conformance
+
+      # Runner self-tests: missing/malformed fixtures, pinned case ids, negatives and fresh reports,
+      # exercised on temporary copies (tools/conformance/README.md).
+      - name: Conformance kit self-tests
+        run: node --test tools/conformance/conformance.test.mjs
+
+      # The Merkle vectors are generated offline with the Python standard library (no SDK); they must match.
+      - name: Merkle vectors match their generator
+        run: python3 -I tests/conformance/v2/generate-merkle-vectors.py --check
+
+      # Gate 7 fixture (dcp-jcs-v1 side): the strict checker and its negative controls, standard library only.
+      - name: Gate 7 fixture checker and its controls
+        run: |
+          python3 -I tests/interop/candidate/gate7-v1-negatives.py --check
+          python3 -I tests/interop/candidate/test_gate7_v1_negatives.py
+
+      # Ed25519 S < L (RFC 8032 §5.1.7) in the reference verifier (tools/crypto.js, lib/verify.js,
+      # the transparency-log gossip) and in the playground's verifyDetached; P-ED-1 in the same verifiers and the
+      # three identical copies of its helper (tools/, cli/lib/, playground/js/core/ed25519-ped1.js), against the frozen
+      # corpus tests/interop/v2/ed25519_ped1_vectors.json.
+      - name: Ed25519 S range and P-ED-1 (reference and playground)
+        run: node --test tools/crypto-s-range.test.mjs tools/playground-s-range.test.mjs tools/ed25519-ped1-consumers.test.mjs
 
       - name: Generate V2 examples
         run: npm run examples:generate:v2
@@ -109,11 +176,306 @@ jobs:
 
       - name: Server and service tests
         run: >-
-          node --test server/index.test.js services/revocation/index.test.js
-          services/anchor/index.test.js services/transparency-log/index.test.js
+          node --test server/index.test.js server/demo-endpoints.test.js services/revocation/index.test.js bin/dcp.test.js
+          services/anchor/index.test.js services/transparency-log/index.test.js tests/helpers.test.js
 
       - name: Check protocol integrity
         run: node bin/dcp.js integrity
+
+  # External implementations through the stdin/stdout contract (tools/conformance/README.md#external-implementations).
+  # Both wrappers are required: DCP_EXTERNAL_REQUIRE_PYTHON turns a missing interpreter into a failure, not a skip.
+  # The admission catalog (contract /3) runs here for TypeScript and Python, with the judge's self-tests.
+  # V2-2 (spec/VERIFICATION.md): the schema IR generated from schemas/v2 and its copies in the TypeScript, Python, Go
+  # and Rust SDKs must match (generate.mjs --check), and the generator, evaluator, oracles and shared corpus keep their
+  # self-tests. Fails closed: oracle 2 needs jsonschema and referencing, already dependencies of the Python SDK
+  # installed here, and a missing or failed oracle is a failure, never a pass.
+  schema-ir:
+    name: Schema IR (V2-2 generated artifacts)
+    needs: changes
+    if: ${{ needs.changes.outputs.schema_ir == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generated IR and SDK copies match the schemas
+        run: node tools/schema-ir/generate.mjs --check
+
+      - name: Build the workspace SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      # Oracle 1 (ajv, ajv-formats) and lib/verify.js come from the locked root dependencies.
+      - name: Install locked root dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install the Python SDK from the checkout (oracle 2)
+        run: pip install ./sdks/python
+
+      - name: Schema IR self-tests (both oracles required)
+        run: SCHEMA_IR_PYTHON="$(command -v python)" node --test tools/schema-ir/schema-ir.test.mjs
+
+  conformance-external:
+    name: External conformance (TypeScript and Python wrappers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the workspace SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install the Python SDK from the checkout
+        run: pip install ./sdks/python
+
+      - name: External runner self-tests (Python required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external.test.mjs
+
+      - name: TypeScript SDK wrapper (38 cases)
+        run: node tools/conformance-external.js --report external-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs
+
+      - name: Python SDK wrapper (38 cases)
+        run: node tools/conformance-external.js --report external-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
+
+      # The evidence catalog is judged on the verdict: V2-2 now decides 16 of its rejections first, with a schema
+      # diagnostic instead of the committed error_contains. --assessment legacy reports those 16 as wording discrepancies;
+      # its self-tests keep that, and no step presents legacy as a pass.
+      - name: TypeScript SDK wrapper (evidence catalog, 241 cases)
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+
+      - name: Python SDK wrapper (evidence catalog, 241 cases)
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
+
+      - name: Admission catalog self-tests (the judge, on synthetic answers)
+        run: node --test tools/conformance/external-admission.test.mjs
+
+      - name: TypeScript SDK wrapper (admission catalog, 140 cases)
+        run: node tools/conformance-external.js --catalog admission --report admission-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+
+      - name: Python SDK wrapper (admission catalog, 140 cases)
+        run: node tools/conformance-external.js --catalog admission --report admission-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
+
+      # Contract /4 (opt-in): DCP-09 mandate chain verdicts. The self-tests judge synthetic answers built from the
+      # corpus and check that the catalog is what its generator gives; 87 normative cases and 10 informative ones.
+      - name: Delegation catalog self-tests (the judge, on synthetic answers)
+        run: node --test tools/conformance/external-delegation.test.mjs
+
+      - name: TypeScript SDK wrapper (delegation catalog, 97 cases)
+        run: node tools/conformance-external.js --catalog delegation --report delegation-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+
+      - name: Python SDK wrapper (delegation catalog, 97 cases)
+        run: node tools/conformance-external.js --catalog delegation --report delegation-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
+
+  # Go, Rust and WASM wrappers (tools/conformance/README.md#go-rust-and-wasm-wrappers), built once from this
+  # checkout and reused for the self-tests and the 38 cases each. DCP_EXTERNAL_REQUIRE_NATIVE turns a missing
+  # toolchain or artifact into a failure, not a skip. The runner uses Node built-ins only; the opt-in corpus
+  # diagnostics also need the existing root schema/crypto dependencies and the built workspace SDK.
+  # The evidence self-tests need all five wrappers, so this job also builds the TypeScript SDK and installs
+  # the Python SDK from the checkout; DCP_EXTERNAL_REQUIRE_PYTHON makes the Python wrapper required too.
+  # The admission wrapper tests need the four SDK wrappers (TypeScript, Python, Go, Rust), all required. WASM has no
+  # admission API: those tests only check that its wrapper refuses contract /3, and no step emulates it. The same holds
+  # for the delegation wrapper tests and contract /4: WASM exports no mandate chain function.
+  conformance-external-native:
+    name: External conformance (Go, Rust and WASM wrappers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: sdks/go/go.mod
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build the Go, Rust and WASM wrappers from the checkout
+        run: node tools/conformance/wrappers/build.mjs all
+
+      - name: Native wrapper self-tests (every wrapper required)
+        env:
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: node --test tools/conformance/external-native.test.mjs
+
+      - name: Build the workspace TypeScript SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      # Schema and component diagnostics import lib/verify.js and the existing root crypto packages.
+      # Install after building the file: SDK dependency, keeping the committed dependency graph unchanged.
+      - name: Install locked dependencies for corpus diagnostics
+        run: npm ci --ignore-scripts
+
+      - name: Install the Python SDK from the checkout
+        run: pip install ./sdks/python
+
+      - name: Evidence catalog self-tests (all five wrappers required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-evidence.test.mjs
+
+      # The verdict assessment of the evidence catalog: its self-tests on the fake, and the 241 cases through each of
+      # the five wrappers (T15), every one required, so no other step repeats them.
+      - name: Evidence verdict assessment self-tests and five wrappers (all required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-evidence-assessment.test.mjs
+
+      # Tests the opt-in schema-closure diagnostic's corpus, layers and runner controls, on controlled implementations
+      # only. The SDKs' V2-2 claim is the schema-validation catalog below.
+      - name: Schema-boundary diagnostic self-tests (not SDK conformance)
+        run: node --test tools/conformance/external-schema.test.mjs
+
+      - name: Opt-in verifier-policy corpus and runner self-tests
+        run: node --test tools/conformance/external-policy.test.mjs
+
+      - name: Verifier-policy catalog (74 cases per SDK, five wrappers required)
+        run: |
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-python.json -- python -I tools/conformance/wrappers/python_sdk.py
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-go.json -- tools/conformance/wrappers/.build/go-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      # Contract /5: the verdict and the verification mode and security tier each SDK resolved in that same verification.
+      - name: Effective-policy corpus, judge, transport and wrapper self-tests (every wrapper required)
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-effective-policy.test.mjs
+
+      - name: Effective-policy catalog (130 cases per SDK, five wrappers required)
+        run: |
+          node tools/conformance/effective-policy-catalog.mjs --check
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-python.json -- python -I tools/conformance/wrappers/python_sdk.py
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-go.json -- tools/conformance/wrappers/.build/go-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      - name: Opt-in structural corpus and runner self-tests
+        run: node --test tools/conformance/external-structural.test.mjs
+
+      - name: Structural catalog (16 cases per SDK, five wrappers required)
+        run: |
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-python.json -- python -I tools/conformance/wrappers/python_sdk.py
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-go.json -- tools/conformance/wrappers/.build/go-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      # V2-2 in every SDK: the 57 pinned cases of tests/interop/v2/schema_validation/wiring_cases.json (13 positives;
+      # each of the 44 negatives counts only when the base case is verified), every wrapper required.
+      - name: V2-2 schema-validation suite self-tests (controlled implementations)
+        run: node --test tools/conformance/external-schema-validation.test.mjs
+
+      - name: V2-2 schema-validation catalog (57 cases per SDK, five wrappers required)
+        run: |
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-python.json -- python -I tools/conformance/wrappers/python_sdk.py
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-go.json -- tools/conformance/wrappers/.build/go-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      - name: Go SDK wrapper (38 cases)
+        run: node tools/conformance-external.js --report external-go.json -- tools/conformance/wrappers/.build/go-wrapper
+
+      - name: Rust SDK wrapper (38 cases)
+        run: node tools/conformance-external.js --report external-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+
+      - name: WASM build wrapper (38 cases, Node-hosted)
+        run: node tools/conformance-external.js --report external-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      - name: Go SDK wrapper (evidence catalog, 241 cases)
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-go.json -- tools/conformance/wrappers/.build/go-wrapper
+
+      - name: Rust SDK wrapper (evidence catalog, 241 cases)
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+
+      - name: WASM build wrapper (evidence catalog, 241 cases, Node-hosted)
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      - name: Admission wrapper tests (four SDK wrappers required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-admission-wrappers.test.mjs
+
+      - name: Go SDK wrapper (admission catalog, 140 cases)
+        run: node tools/conformance-external.js --catalog admission --report admission-go.json -- tools/conformance/wrappers/.build/go-wrapper
+
+      - name: Rust SDK wrapper (admission catalog, 140 cases)
+        run: node tools/conformance-external.js --catalog admission --report admission-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+
+      - name: Delegation wrapper tests (four SDK wrappers required, WASM refusal)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-delegation-wrappers.test.mjs
+
+      - name: Go SDK wrapper (delegation catalog, 97 cases)
+        run: node tools/conformance-external.js --catalog delegation --report delegation-go.json -- tools/conformance/wrappers/.build/go-wrapper
+
+      - name: Rust SDK wrapper (delegation catalog, 97 cases)
+        run: node tools/conformance-external.js --catalog delegation --report delegation-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+
+      # The performance harness (tools/conformance/README.md#performance-baseline): its self-tests, and a mandatory
+      # smoke run of the five children (W=1, N=2, R=1) built in release (Rust example, WASM). It checks the protocol,
+      # the verdicts and the provenance; it never checks a speed.
+      - name: Performance harness self-tests and five-SDK smoke run (all required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_PERF_PYTHON="$(command -v python)" node --test tools/conformance/perf.test.mjs
+
+      # The bounded scaling tool (tools/conformance/README.md#bounded-workload-scaling): corpus, stage, memory-unit,
+      # deadline and supervisor controls, and a mandatory smoke run of the real children on the smallest size of each
+      # dimension (five SDKs, four for mandate chains) with the memory launcher. No campaign and no speed or memory
+      # threshold: it checks verdicts, counts, units and cleanup.
+      - name: Scaling harness self-tests and smallest-size smoke run (all required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_PERF_PYTHON="$(command -v python)" node --test tools/conformance/perf-scale.test.mjs
 
   typescript-sdk:
     name: TypeScript SDK
@@ -155,8 +517,9 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # The npm integrations pin their own lockfiles (and pull @dcp-ai/sdk from the
-  # registry), so dependency bumps there need their own test run.
+  # The npm integrations pin their own lockfiles, so dependency bumps there need their own test
+  # run. All four integrations resolve @dcp-ai/sdk >=2.2.0 from the registry.
+  # The workspace build remains available for cross-package source regression tests.
   integrations:
     name: Integration (${{ matrix.integration }})
     needs: changes
@@ -165,7 +528,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        integration: [express, openclaw]
+        integration: [anthropic-mcp, express, google-a2a, openclaw]
     defaults:
       run:
         working-directory: integrations/${{ matrix.integration }}
@@ -176,17 +539,147 @@ jobs:
         with:
           node-version: 20
 
+      - name: Build the workspace SDK
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        working-directory: sdks/typescript
+        run: npm install && npm run build
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      # The build type-checks src/ through its declaration output; `npm run lint` would also
+      # type-check the tests, which openclaw's do not pass yet.
+      - name: Build
+        run: npm run build --if-present
+
+      # The SDK the lock fixes (2.2.0 from npm) has no V2-2, and the Express and OpenClaw tests are told so; when the lock
+      # moves to an SDK with V2-2 this pass must declare "1", or it fails.
+      - name: Run tests (the locked SDK, without V2-2)
+        env:
+          DCP_EXPECT_SDK_V2_2: "0"
         run: npx vitest run
 
+      # The same tests against the workspace SDK, which has V2-2: packed and copied over the locked copy (the same
+      # dependency ranges), checked byte for byte and by resolution, without touching package.json or package-lock.json.
+      - name: Copy the workspace SDK over the locked one
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        run: |
+          tgz="$(cd ../../sdks/typescript && npm pack --ignore-scripts --silent --pack-destination "$RUNNER_TEMP")"
+          rm -rf node_modules/@dcp-ai/sdk
+          mkdir node_modules/@dcp-ai/sdk
+          tar -xzf "$RUNNER_TEMP/$tgz" -C node_modules/@dcp-ai/sdk --strip-components=1
+
+      - name: Check the tests resolve the workspace SDK, copied
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        run: |
+          test ! -L node_modules/@dcp-ai/sdk
+          diff -r ../../sdks/typescript/dist node_modules/@dcp-ai/sdk/dist
+          git diff --exit-code -- package.json package-lock.json
+          node --input-type=module -e "
+            import { createHash } from 'node:crypto';
+            import { readFileSync, realpathSync } from 'node:fs';
+            import { createRequire } from 'node:module';
+            import { fileURLToPath } from 'node:url';
+            const copy = realpathSync('node_modules/@dcp-ai/sdk');
+            const ws = realpathSync('../../sdks/typescript');
+            const sha = (f) => createHash('sha256').update(readFileSync(f)).digest('hex');
+            const out = { version: JSON.parse(readFileSync(copy + '/package.json', 'utf8')).version };
+            if (out.version !== JSON.parse(readFileSync(ws + '/package.json', 'utf8')).version) throw new Error('SDK ' + out.version);
+            for (const [k, f] of [['cjs', createRequire(process.cwd() + '/').resolve('@dcp-ai/sdk')], ['esm', fileURLToPath(import.meta.resolve('@dcp-ai/sdk'))]]) {
+              const real = realpathSync(f);
+              if (!real.startsWith(copy + '/')) throw new Error(k + ' resolves outside the copy: ' + real);
+              if (sha(real) !== sha(ws + real.slice(copy.length))) throw new Error(k + ' differs from the workspace build: ' + real);
+              out[k] = { file: real.slice(copy.length + 1), sha256: sha(real) };
+            }
+            console.log(JSON.stringify(out));
+          "
+
+      - name: Build against the workspace SDK
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        run: npm run build --if-present
+
+      - name: Run tests (the workspace SDK, with V2-2)
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        env:
+          DCP_EXPECT_SDK_V2_2: "1"
+        run: npx vitest run
+
+  # @dcp-ai/cli runs its source regression tests against the checked-out workspace SDK. The
+  # SDK is built and installed into cli/ as a copy (--install-links), with the CLI's other
+  # dependencies, without writing a lockfile or package.json and without install scripts; the root
+  # is not installed, so nothing resolves through the root node_modules.
+  cli:
+    name: CLI (Node ${{ matrix.node-version }})
+    needs: changes
+    if: ${{ needs.changes.outputs.cli == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Build the workspace SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      - name: Install the CLI with the workspace SDK
+        run: npm install --no-save --package-lock=false --ignore-scripts --install-links ../sdks/typescript
+
+      - name: Check the CLI resolves the workspace SDK, copied
+        run: |
+          test ! -L node_modules/@dcp-ai/sdk
+          test ! -e ../node_modules
+          diff -r ../sdks/typescript/dist node_modules/@dcp-ai/sdk/dist
+          node -e "const v = require('./node_modules/@dcp-ai/sdk/package.json').version; if (v !== require('../sdks/typescript/package.json').version) throw new Error('SDK ' + v)"
+          git diff --exit-code -- package.json
+          test ! -e package-lock.json
+
+      # Both suites: verify-s-range (V1, the Ed25519 S range, exit codes) and verify-v2-normative
+      # (the normative V2 verifier, the pre-normative envelope, the key pin, the packaged files).
+      - name: Run the CLI tests
+        run: npm test
+
+      # P-ED-1 on V1 files (lib/ed25519-ped1.js, the corpus's object cases, the identity forgery, KAT keys, the packed
+      # helper), run explicitly: the package's test script is unchanged.
+      - name: P-ED-1 in dcp-ai verify
+        run: node --test __tests__/verify-ped1.test.mjs
+
+      # Each suite inverts one positive case: the run must fail on exactly those, on assertions.
+      - name: Negative control
+        run: npm run test:negative-control
+
+      - name: Check the packed files
+        run: |
+          npm pack --dry-run --json --ignore-scripts --offline > "$RUNNER_TEMP/pack.json"
+          node -e "
+            const files = require(process.env.RUNNER_TEMP + '/pack.json')[0].files.map((f) => f.path);
+            const need = ['bin/dcp-ai.js', 'lib/verify-v2.js', 'lib/ed25519-ped1.js', 'lib/schemas/v2/signed_bundle.schema.json'];
+            const missing = need.filter((f) => !files.includes(f));
+            const tests = files.filter((f) => f.startsWith('__tests__/'));
+            const schemas = files.filter((f) => f.startsWith('lib/schemas/v2/'));
+            if (missing.length || tests.length || schemas.length !== 11) throw new Error(JSON.stringify({ missing, tests, schemas }));
+            console.log(files.length + ' files packed');
+          "
+
   python-sdk:
-    name: Python SDK
+    name: Python SDK (${{ matrix.python }})
     needs: changes
     if: ${{ needs.changes.outputs.python == 'true' }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
     defaults:
       run:
         working-directory: sdks/python
@@ -195,7 +688,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
 
       - name: Install dependencies
         run: pip install -e ".[dev]" pytest-cov coverage
@@ -321,7 +814,94 @@ jobs:
           npm install
           npm run build:ts
 
+      # Release gate of the built package (sdks/wasm/test/release-artifact.mjs): packed members, LICENSE, the
+      # ajv-formats notice and no absolute local path in any member. Its negative controls must each fail.
+      - name: Release artifact gate and its negative controls
+        run: |
+          npm run release-check
+          npm run release-check:negative
+          npm run test:build-script
+
       # Runs verifyBundle over tests/interop/v2/bundle_vectors.json in Node, so the
       # wasm verifier runs; the Rust job only compiles the wasm32 tests.
       - name: Verify the bundle vectors through the wasm build
         run: npm test
+
+      # Exact dual Merkle roots (tests/conformance/v2/merkle_vectors.json) through the real export and DcpClient.
+      - name: Dual Merkle roots through the wasm build
+        run: node test/dual-merkle-root.mjs
+
+      # V2-2 through the wasm build: the shared schema-validation cases and the deeper checks they used to reach, through
+      # the binding, DcpWasm.verifyBundle and the experimental candidate verifier.
+      - name: V2-2 schema validation through the wasm build
+        run: node test/schema-v2.mjs
+
+      # ML-DSA-65 independent verification vectors (tests/nist-kat/README.md) through the Rust provider compiled to wasm32
+      # and run in Node. Test-only target: the npm package exposes no raw ML-DSA verification. The verdict test fails
+      # unless all 204 cases run; the other two check the corpus and the provider. pipefail keeps the exit status of
+      # wasm-pack through tee, and the grep fails the step unless the three tests passed.
+      - name: ML-DSA-65 verification vectors on wasm32 (Node)
+        working-directory: sdks/rust
+        run: |
+          set -euo pipefail
+          wasm-pack test --node . --locked --features wasm --test wasm_mldsa65_vectors 2>&1 | tee wasm-mldsa65-vectors.log
+          grep -E "test result: ok\. 3 passed; 0 failed" wasm-mldsa65-vectors.log
+
+      # P-ED-1 (tests/interop/v2/ed25519_ped1_vectors.json, frozen) at the provider level, compiled to wasm32 and run in
+      # Node: the 67 provider cases, the 4 V1 objects and the 2 composite preimages with a real ML-DSA-65 key. Not the
+      # npm package's API; the browser harness below covers the public composite path apart.
+      - name: P-ED-1 vectors on wasm32 (Node, provider level)
+        working-directory: sdks/rust
+        run: |
+          set -euo pipefail
+          wasm-pack test --node . --locked --features wasm --test wasm_ped1_vectors 2>&1 | tee wasm-ped1-vectors.log
+          grep -E "test result: ok\. 3 passed; 0 failed" wasm-ped1-vectors.log
+
+      # MP-03 P1: the error contract of DcpWasm.canonicalize, hashObject, deriveKid and the wasm error envelope, against
+      # this build (60 cases, public and raw apart).
+      - name: DcpWasm interface error contract through the wasm build
+        run: node test/interface-errors.mjs
+
+      # The public JavaScript API (initDcp, DcpWasm) in a real browser: Chrome as installed on the runner image, headless,
+      # with a temporary profile and no flag that weakens its sandbox; a missing Chrome fails the step. The served
+      # artifacts are pinned to SHA256SUMS written right after this job's build. tools/conformance/README.md lists the
+      # catalogs; /3 and /4 are refused (DcpWasm has no admission or mandate chain API, D-04 = A).
+      - name: Chrome for the browser harness
+        run: |
+          set -euo pipefail
+          command -v google-chrome
+          google-chrome --version
+          (find dist pkg -type f -name '*.js' -o -type f -name '*.wasm' | LC_ALL=C sort | sed 's|^|./|' | xargs shasum -a 256) > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: External catalogs through DcpWasm in Chrome
+        working-directory: .
+        run: |
+          set -euo pipefail
+          mkdir -p browser-reports
+          W="node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm --manifest sdks/wasm/SHA256SUMS"
+          node tools/conformance-external.js --report browser-reports/external-1.json -- $W --browser-report browser-reports/external-1.browser.json
+          node tools/conformance-external.js --catalog evidence --assessment verdict --report browser-reports/evidence-2.json -- $W --browser-report browser-reports/evidence-2.browser.json
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report browser-reports/policy.json -- $W --browser-report browser-reports/policy.browser.json
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report browser-reports/structural.json -- $W --browser-report browser-reports/structural.browser.json
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report browser-reports/schema-validation.json -- $W --browser-report browser-reports/schema-validation.browser.json
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report browser-reports/effective-5.json -- $W --browser-report browser-reports/effective-5.browser.json
+          node tools/conformance/wrappers/browser/direct-sections.mjs --report browser-reports/direct.json --root sdks/wasm --manifest sdks/wasm/SHA256SUMS --browser-report browser-reports/direct.browser.json
+
+      # The runner reports and browser records (artifact hashes, Chrome version, user agent), kept also when a run fails.
+      - name: Keep the browser reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-reports
+          path: |
+            browser-reports/
+            sdks/wasm/SHA256SUMS
+          if-no-files-found: warn
+
+      - name: Browser harness self-tests (Chrome required)
+        working-directory: .
+        env:
+          DCP_BROWSER_ROOT: sdks/wasm
+          DCP_EXTERNAL_REQUIRE_BROWSER: "1"
+        run: node --test tools/conformance/external-browser.test.mjs

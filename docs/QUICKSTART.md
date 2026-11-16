@@ -1,8 +1,24 @@
-<sub>**English** · [中文](QUICKSTART.zh-CN.md) · [Español](QUICKSTART.es.md) · [日本語](QUICKSTART.ja.md) · [Português](QUICKSTART.pt-BR.md)</sub>
+<sub>**English** · [中文](../i18n/zh-CN/docs/QUICKSTART.md) · [Español](../i18n/es/docs/QUICKSTART.md) · [日本語](../i18n/ja/docs/QUICKSTART.md) · [Português](../i18n/pt-BR/docs/QUICKSTART.md)</sub>
 
 # DCP-AI Quick Start Guide
 
-Get up and running with the Digital Citizenship Protocol in under 5 minutes.
+This guide shows how to produce and verify DCP evidence with an SDK, and which tools are demos.
+
+## Choose a path
+
+- **Produce and verify evidence with an SDK.** Install a published SDK. The examples of [§3 TypeScript](#3-typescript-sdk)
+  and [§4 Python](#4-python-sdk) create signed bundles and verify them; [Other SDKs](#other-sdks) gives the
+  installation and references for Go, Rust and WebAssembly. Verification checks integrity and signatures; it does not
+  establish principal trust, admission or authorization (see [Admission](ADMISSION.md)).
+- **Look around with a demo.** The playground and the starter projects of the
+  [zero-install shortcuts](#zero-install-shortcuts), and the CLI wizard of [§1](#1-install-the-cli) and
+  [§2](#2-initialize-your-agent), show the concepts. Their limits differ (simulated PQ keys or signatures, placeholder
+  keys, unsigned records, structure-only checks), and what they produce is not verification evidence.
+- **Run a verifier without installing an SDK.** The optional Docker image of the reference verification server, in
+  the same shortcuts and in [Run the reference services](#run-the-reference-services), verifies bundles; it does not
+  create them.
+
+The current package versions are listed in [Published versions](README.md#published-versions).
 
 ---
 
@@ -10,266 +26,341 @@ Get up and running with the Digital Citizenship Protocol in under 5 minutes.
 
 Depending on which SDK you use:
 
-- **Node.js** 18+ — for the TypeScript SDK, CLI, WASM package, and any `@dcp-ai/*` integration
-- **Python** 3.10+ — for the Python SDK
-- **Go** 1.22+ — for the Go SDK
+- **Node.js** 18+ — for the TypeScript SDK, CLI, WASM package, and the `@dcp-ai/*` integrations; the current LangChain.js (v1) in [QUICKSTART_LANGCHAIN.md](QUICKSTART_LANGCHAIN.md) needs Node.js 22+
+- **Python** 3.10+ — for the Python SDK; the separate `agno-dcp` package in [QUICKSTART_AGNO.md](QUICKSTART_AGNO.md) needs 3.11+
+- **Go** 1.25+ — for the Go SDK
 - **Rust** stable — for the Rust crate
 
-You only need the language you plan to build with. All SDKs speak the same protocol, so mixing languages across agents/verifiers works out of the box.
+You only need the language you plan to build with. All SDKs implement the same V2 wire format; the [shared vectors](../tests/interop/v2/) and the [interoperability matrix](../tools/interop-matrix/README.md) test signing and verification across SDKs, and each SDK README lists its remaining gaps.
+
+---
+
+## Published packages and this guide
+
+The TypeScript examples use published `@dcp-ai/sdk` 2.4.0, the npm CLI is `@dcp-ai/cli` 2.2.0, and Python is `dcp-ai` 2.11.0 on PyPI. See [npm](NPM_RELEASES.md), [Python](PYTHON_RELEASE.md) and [SECURITY.md](../SECURITY.md#supported-versions). Go and Rust releases are separate. For source development, use:
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/sdks/typescript && npm install && npm run build                  # TypeScript SDK of main
+cd ../../cli && npm install --no-save --package-lock=false --ignore-scripts --install-links ../sdks/typescript
+pip install -e /path/to/dcp-ai/sdks/python                                  # Python SDK of main
+```
+
+The registry commands in this guide install the published versions.
 
 ---
 
 ## Zero-install shortcuts
 
-Want to see DCP running before installing anything?
+These shortcuts use published packages and images, not `main`. The playground and the starters are demos and do not produce SDK verification evidence (limits below); the Docker image runs the reference verification server, which verifies bundles but does not create them:
 
-- **Interactive playground:** https://dcp-ai.org/playground/ — generate identities, build bundles, verify signatures in the browser.
-- **Scaffolded starter:** run `npm create @dcp-ai/langchain my-app` (or `/crewai`, `/openai`, `/express`) to get a working project in ~2 minutes.
+- **Interactive playground:** https://docs.dcp-ai.org/playground/ — generate identities, build bundles, verify signatures in the browser.
+- **Scaffolded starter:** run `npm create @dcp-ai/langchain my-app` (or `/crewai`, `/openai`, `/express`) to generate a starter project.
 - **Docker one-liner:** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` starts the reference verification server without cloning anything.
+
+The [playground](../playground/README.md) is a demo: its PQ signatures are simulated and its canonicalization and Merkle handling are simplified, so its bundles are not SDK verification evidence. The [starter templates](../templates/README.md) also have limits: LangChain, CrewAI and OpenAI use placeholder keys/signatures; Express checks structure only. Use the SDK examples below for verifiable bundles.
 
 ---
 
 ## 1. Install the CLI
 
+The CLI wizard is a demo for looking around: its "ML-DSA-65" keys are simulated (random bytes), and the RPR and
+passport it writes are unsigned and do not match the V2 schemas. To create an identity and bundles that verify,
+skip to [§3](#3-typescript-sdk) or [§4](#4-python-sdk); the limits are listed in
+[Agent creation](AGENT_CREATION_AND_CERTIFICATION.md#cli-wizard-demo-only).
+
+The published version, installed or run directly:
+
 ```bash
 npm install -g @dcp-ai/cli
-# or run directly with npx
+```
+
+```bash
 npx @dcp-ai/cli init
 ```
+
+From a checkout (above), run the repository's wizard in your project's directory:
+`node /path/to/dcp-ai/cli/bin/dcp-ai.js init`.
 
 ## 2. Initialize Your Agent
 
 ```bash
-npx @dcp-ai/cli init
+npx @dcp-ai/cli init   # or: node /path/to/dcp-ai/cli/bin/dcp-ai.js init
 ```
 
-This creates the following files in your project:
+This creates the following demo files in your project:
 
 | File | Purpose |
 |------|---------|
 | `.dcp/config.json` | Agent configuration and metadata |
-| `.dcp/keys/` | Ed25519 + ML-DSA-65 keypairs |
-| `.dcp/identity.json` | Responsible Principal Record (RPR) |
-| `.dcp/passport.json` | Agent Passport |
+| `.dcp/keys/ed25519_public.key`, `.dcp/keys/ed25519_secret.key` | Ed25519 keypair |
+| `.dcp/keys/ml_dsa_65_public.key`, `.dcp/keys/ml_dsa_65_secret.key` | Simulated "ML-DSA-65" keypair (random bytes), when post-quantum keys are chosen |
+| `.dcp/identity.json` | RPR-like record (unsigned, not schema-valid) |
+| `.dcp/passport.json` | Passport-like record (unsigned, not schema-valid) |
+
+The secret key files are written with default permissions (`0644` with the usual umask `022`): run
+`chmod 600 .dcp/keys/*_secret.key`, and keep them out of version control by adding `.dcp/keys/` to your
+`.gitignore`.
 
 ---
 
 ## 3. TypeScript SDK
 
-```bash
-npm install @dcp-ai/sdk
-```
+The TypeScript examples below work with npm SDK 2.4.0 or a development checkout (see [Published packages and this guide](#published-packages-and-this-guide)).
+
+Install one of the two:
+
+- the SDK of `main`, built from a checkout, for source development:
+
+  ```bash
+  npm install /path/to/dcp-ai/sdks/typescript
+  ```
+
+- or the published SDK 2.4.0, which includes these fixes and features:
+
+  ```bash
+  npm install @dcp-ai/sdk@^2.4.0
+  ```
 
 ### Create and Sign a Bundle (V1 — Ed25519)
 
+The RPR and the passport are each signed over the object without its `signature` field. `verifySignedBundle`
+checks the bundle signature, its hashes and the chain; the inner signatures are checked apart.
+
 ```typescript
-import {
-  generateKeypair,
-  signObject,
-  verifyObject,
-  BundleBuilder,
-  signBundle,
-  verifySignedBundle,
-} from '@dcp-ai/sdk';
+import { BundleBuilder, generateKeypair, signBundle, signObject, verifyObject, verifySignedBundle } from '@dcp-ai/sdk';
+import type { AgentPassport, ResponsiblePrincipalRecord } from '@dcp-ai/sdk';
 
-// Generate an Ed25519 keypair
-const keys = generateKeypair();
+const now = new Date().toISOString();
+const principalKeys = generateKeypair();
+const agentKeys = generateKeypair();
 
-// Define artifacts
-const hbr = {
-  dcp_version: '1.0',
-  human_id: 'human-001',
-  legal_name: 'Alice Johnson',
-  entity_type: 'natural_person',
-  jurisdiction: 'US-CA',
-  liability_mode: 'owner_responsible',
-  override_rights: true,
-  public_key: keys.publicKeyB64,
-  issued_at: new Date().toISOString(),
-  expires_at: null,
-  contact: 'alice@example.com',
+// Each artifact is signed over the object without its `signature` field.
+const rprBody: Omit<ResponsiblePrincipalRecord, 'signature'> = {
+  dcp_version: '1.0', human_id: 'human:example-001', legal_name: 'Example Principal',
+  entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible',
+  override_rights: true, issued_at: now, expires_at: null, contact: null,
 };
+const rpr: ResponsiblePrincipalRecord = { ...rprBody, signature: signObject(rprBody, principalKeys.secretKeyB64) };
 
-const passport = {
-  dcp_version: '1.0',
-  agent_id: 'agent-001',
-  human_id: 'human-001',
-  public_key: keys.publicKeyB64,
-  capabilities: ['browse', 'api_call'],
-  risk_tier: 'low',
-  created_at: new Date().toISOString(),
-  status: 'active',
+const passportBody: Omit<AgentPassport, 'signature'> = {
+  dcp_version: '1.0', agent_id: 'agent:example-001', public_key: agentKeys.publicKeyB64,
+  principal_binding_reference: rpr.human_id, capabilities: ['browse', 'api_call'],
+  risk_tier: 'low', created_at: now, status: 'active',
 };
+const passport: AgentPassport = { ...passportBody, signature: signObject(passportBody, agentKeys.secretKeyB64) };
 
-const intent = {
-  dcp_version: '1.0',
-  intent_id: 'intent-001',
-  agent_id: 'agent-001',
-  human_id: 'human-001',
-  timestamp: new Date().toISOString(),
-  action_type: 'api_call',
-  target: { channel: 'api', domain: 'api.example.com' },
-  data_classes: ['none'],
-  estimated_impact: 'low',
-  requires_consent: false,
-};
-
-const policy = {
-  dcp_version: '1.0',
-  intent_id: 'intent-001',
-  decision: 'approve',
-  risk_score: 15,
-  reasons: ['Low risk action'],
-  required_confirmation: null,
-  applied_policy_hash: 'sha256:abc123',
-  timestamp: new Date().toISOString(),
-};
-
-const audit = {
-  dcp_version: '1.0',
-  audit_id: 'audit-001',
-  prev_hash: '0'.repeat(64),
-  timestamp: new Date().toISOString(),
-  agent_id: 'agent-001',
-  human_id: 'human-001',
-  intent_id: 'intent-001',
-  intent_hash: signObject(intent, keys.secretKeyB64),
-  policy_decision: 'approved',
-  outcome: 'API call completed successfully',
-  evidence: { tool: 'fetch', result_ref: 'https://api.example.com/data' },
-};
-
-// Build the bundle
 const bundle = new BundleBuilder()
-  .responsiblePrincipalRecord(hbr)
+  .responsiblePrincipalRecord(rpr)
   .agentPassport(passport)
-  .intent(intent)
-  .policyDecision(policy)
-  .addAuditEntry(audit)
+  .intent({
+    dcp_version: '1.0', intent_id: 'intent:example-001', agent_id: passport.agent_id, human_id: rpr.human_id,
+    timestamp: now, action_type: 'api_call', target: { channel: 'api', domain: 'api.example.com' },
+    data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+  })
+  .policyDecision({
+    dcp_version: '1.0', intent_id: 'intent:example-001', decision: 'approve', risk_score: 0.05,
+    reasons: ['low-impact call'], required_confirmation: null,
+  })
+  .createAuditEntry({
+    dcp_version: '1.0', audit_id: 'audit:example-001', timestamp: now, agent_id: passport.agent_id,
+    human_id: rpr.human_id, intent_id: 'intent:example-001', policy_decision: 'approved',
+    outcome: 'call_completed', evidence: { tool: 'http', result_ref: null },
+  })
   .build();
 
-// Sign the bundle
-const signed = signBundle(bundle, keys.secretKeyB64);
+const signed = signBundle(bundle, { secretKeyB64: principalKeys.secretKeyB64, signerType: 'human', signerId: rpr.human_id });
+console.log(verifySignedBundle(signed, principalKeys.publicKeyB64)); // { verified: true }
 
-// Verify the bundle
-const result = verifySignedBundle(signed);
-console.log('Verified:', result.verified); // true
+// The inner signatures, over the same objects without `signature`
+console.log(verifyObject(rprBody, rpr.signature, principalKeys.publicKeyB64)); // true
+console.log(verifyObject(passportBody, passport.signature, agentKeys.publicKeyB64)); // true
 ```
 
 ### Verify a Bundle
 
 ```typescript
-import { verifySignedBundle } from '@dcp-ai/sdk';
+import { readFileSync } from 'node:fs';
+import { getDefaultRegistry, registerDefaultProviders, verifySignedBundleV2 } from '@dcp-ai/sdk';
 
-const result = verifySignedBundle(signedBundle);
-
-if (result.verified) {
-  console.log('Bundle is valid');
-} else {
-  console.error('Verification failed:', result.errors);
-}
+registerDefaultProviders();
+const signedBundle = JSON.parse(readFileSync('bundle.signed.json', 'utf8'));
+const result = await verifySignedBundleV2(signedBundle, getDefaultRegistry());
+console.log(result.verified, result.errors);
 ```
 
 ### V2 — Post-Quantum Hybrid Signatures
 
+Every artifact is a `SignedPayload` signed under its domain-separation context with Ed25519 + ML-DSA-65; the
+principal signs the RPR and the manifest, the agent the passport, intent and policy decision.
+
 ```typescript
 import {
-  registerDefaultProviders,
-  getDefaultRegistry,
-  compositeSign,
-  compositeVerify,
-  BundleBuilderV2,
-  computeSecurityTier,
-  type CompositeKeyPair,
+  AlgorithmRegistry, BundleBuilderV2, DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, compositeSign,
+  generateSessionNonce, preparePayload, sha256Hex, canonicalizeV2, signBundleV2, verifySignedBundleV2,
+} from '@dcp-ai/sdk';
+import type {
+  AgentPassportV2, AuditEventV2, CompositeKeyPair, DcpContext, IntentV2, KeyEntry, PolicyDecisionV2,
+  ResponsiblePrincipalRecordV2, SignedPayload,
 } from '@dcp-ai/sdk';
 
-// Register Ed25519 + ML-DSA-65 providers
-registerDefaultProviders();
-const registry = getDefaultRegistry();
+const registry = new AlgorithmRegistry();
+const ed25519 = new Ed25519Provider();
+const mlDsa65 = new MlDsa65Provider();
+registry.registerSigner(ed25519);
+registry.registerSigner(mlDsa65);
 
-// Generate composite keypair
-const ed = await registry.getSigner('ed25519').generateKeyPair();
-const pq = await registry.getSigner('ml-dsa-65').generateKeyPair();
+async function hybridKeys(): Promise<CompositeKeyPair> {
+  const c = await ed25519.generateKeypair();
+  const p = await mlDsa65.generateKeypair();
+  return {
+    classical: { kid: c.kid, alg: 'ed25519', secretKeyB64: c.secretKeyB64, publicKeyB64: c.publicKeyB64 },
+    pq: { kid: p.kid, alg: 'ml-dsa-65', secretKeyB64: p.secretKeyB64, publicKeyB64: p.publicKeyB64 },
+  };
+}
+const keyEntries = (keys: CompositeKeyPair): KeyEntry[] => [keys.classical, keys.pq].map((k) => ({
+  kid: k.kid, alg: k.alg, public_key_b64: k.publicKeyB64, created_at: '2026-01-01T00:00:00Z', expires_at: null, status: 'active',
+}));
+const sha256Of = (value: unknown) => `sha256:${sha256Hex(new TextEncoder().encode(canonicalizeV2(value)))}`;
+async function signed<T>(payload: T, context: DcpContext, keys: CompositeKeyPair): Promise<SignedPayload<T>> {
+  const { canonicalBytes, payloadHash } = preparePayload(payload);
+  return { payload, payload_hash: payloadHash, composite_sig: await compositeSign(registry, context, canonicalBytes, keys) };
+}
 
-const keys: CompositeKeyPair = {
-  classical: { kid: 'ed-01', alg: 'ed25519', ...ed },
-  pq: { kid: 'pq-01', alg: 'ml-dsa-65', ...pq },
+const principal = await hybridKeys();
+const agent = await hybridKeys();
+const nonce = generateSessionNonce();
+const now = new Date().toISOString();
+
+const rpr: ResponsiblePrincipalRecordV2 = {
+  dcp_version: '2.0', human_id: 'human:example-001', session_nonce: nonce, legal_name: 'Example Principal',
+  entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible', override_rights: true,
+  issued_at: now, expires_at: null, contact: null, binding_keys: keyEntries(principal),
+};
+const passport: AgentPassportV2 = {
+  dcp_version: '2.0', agent_id: 'agent:example-001', session_nonce: nonce, keys: keyEntries(agent),
+  principal_binding_reference: rpr.human_id, capabilities: ['browse', 'api_call'], risk_tier: 'low',
+  created_at: now, status: 'active',
+};
+const intent: IntentV2 = {
+  dcp_version: '2.0', intent_id: 'intent:example-001', session_nonce: nonce, agent_id: passport.agent_id,
+  human_id: rpr.human_id, timestamp: now, action_type: 'api_call', target: { channel: 'api', domain: 'api.example.com' },
+  data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+};
+const policy: PolicyDecisionV2 = {
+  dcp_version: '2.0', intent_id: intent.intent_id, session_nonce: nonce, decision: 'approve', risk_score: 50,
+  reasons: ['low-impact call'], required_confirmation: null, applied_policy_hash: sha256Of({ policy: 'default' }), timestamp: now,
+};
+const audit: AuditEventV2 = {
+  dcp_version: '2.0', audit_id: 'audit:example-001', session_nonce: nonce, prev_hash: 'GENESIS', hash_alg: 'sha256',
+  timestamp: now, agent_id: passport.agent_id, human_id: rpr.human_id, intent_id: intent.intent_id,
+  intent_hash: sha256Of(intent), policy_decision: 'approved', outcome: 'call_completed',
+  evidence: { tool: 'http', result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
 };
 
-// Compute the security tier for your intent
-const tier = computeSecurityTier(intentV2, policyDecisionV2);
-console.log('Security tier:', tier); // 'routine' | 'standard' | 'elevated' | 'maximum'
-
-// Build a V2 bundle with the fluent builder
-const bundle = new BundleBuilderV2(sessionNonce)
-  .responsiblePrincipalRecord(signedHbr)
-  .agentPassport(signedPassport)
-  .intent(signedIntent)
-  .policyDecision(signedPolicy)
-  .addAuditEntries(auditEvents)
-  .enableDualHash()
+const bundle = new BundleBuilderV2(nonce)
+  .responsiblePrincipalRecord(await signed(rpr, DCP_CONTEXTS.ResponsiblePrincipal, principal))
+  .agentPassport(await signed(passport, DCP_CONTEXTS.AgentPassport, agent))
+  .intent(await signed(intent, DCP_CONTEXTS.Intent, agent))
+  .policyDecision(await signed(policy, DCP_CONTEXTS.PolicyDecision, agent))
+  .addAuditEntry(audit)
   .build();
+
+const signedBundle = await signBundleV2(bundle, { registry, signerType: 'human', signerId: rpr.human_id, keys: principal });
+const result = await verifySignedBundleV2(signedBundle, registry);
+console.log(result.verified, result.errors); // true []
 ```
 
 ---
 
 ## 4. Python SDK
 
-```bash
-pip install dcp-ai
-```
+Install one of the two:
+
+- a checkout for SDK development:
+
+  ```bash
+  pip install -e /path/to/dcp-ai/sdks/python
+  ```
+
+- or the published version 2.11.0, including the fixes and APIs described here:
+
+  ```bash
+  pip install "dcp-ai>=2.11.0,<3"
+  ```
 
 ### Create and Verify a Bundle
 
 ```python
+from datetime import datetime, timezone
+
 from dcp_ai import (
+    AgentPassport,
+    AuditEvidence,
+    BundleBuilder,
+    Intent,
+    PolicyDecision,
+    ResponsiblePrincipalRecord,
     generate_keypair,
+    sign_bundle,
     sign_object,
     verify_object,
-    build_bundle,
-    sign_bundle,
     verify_signed_bundle,
 )
 
-# Generate Ed25519 keypair
-keys = generate_keypair()
+now = datetime.now(timezone.utc).isoformat()
+principal_keys = generate_keypair()
+agent_keys = generate_keypair()
 
-# Define artifacts
-hbr = {
-    "dcp_version": "1.0",
-    "human_id": "human-001",
-    "legal_name": "Alice Johnson",
-    "entity_type": "natural_person",
-    "jurisdiction": "US-CA",
-    "liability_mode": "owner_responsible",
-    "override_rights": True,
-    "public_key": keys["public_key_b64"],
-    "issued_at": "2025-01-01T00:00:00Z",
-    "expires_at": None,
-    "contact": "alice@example.com",
+# 1. The responsible principal, signed with the principal's key (the object without "signature")
+rpr_body = {
+    "dcp_version": "1.0", "human_id": "human:example-001", "legal_name": "Example Principal",
+    "entity_type": "natural_person", "jurisdiction": "ES", "liability_mode": "owner_responsible",
+    "override_rights": True, "issued_at": now, "expires_at": None, "contact": None,
 }
+rpr = {**rpr_body, "signature": sign_object(rpr_body, principal_keys["secret_key_b64"])}
 
-passport = {
-    "dcp_version": "1.0",
-    "agent_id": "agent-001",
-    "human_id": "human-001",
-    "public_key": keys["public_key_b64"],
-    "capabilities": ["browse", "api_call"],
-    "risk_tier": "low",
-    "created_at": "2025-01-01T00:00:00Z",
-    "status": "active",
+# 2. The agent passport, signed with the agent's key (the object without "signature")
+passport_body = {
+    "dcp_version": "1.0", "agent_id": "agent:example-001", "public_key": agent_keys["public_key_b64"],
+    "principal_binding_reference": "human:example-001", "capabilities": ["browse", "api_call"],
+    "risk_tier": "low", "created_at": now, "status": "active",
 }
+passport = {**passport_body, "signature": sign_object(passport_body, agent_keys["secret_key_b64"])}
 
-# Sign and build
-signed = sign_bundle(
-    build_bundle(hbr, passport, intent, policy, [audit]),
-    keys["secret_key_b64"],
+# 3. Intent, policy decision and one audit entry
+intent = Intent(
+    intent_id="intent:example-001", agent_id="agent:example-001", human_id="human:example-001",
+    timestamp=now, action_type="api_call", target={"channel": "api", "domain": "api.example.com"},
+    data_classes=["none"], estimated_impact="low", requires_consent=False,
+)
+policy = PolicyDecision(
+    intent_id="intent:example-001", decision="approve", risk_score=0.05, reasons=["low-impact call"],
+)
+bundle = (
+    BundleBuilder()
+    .responsible_principal_record(ResponsiblePrincipalRecord(**rpr))
+    .agent_passport(AgentPassport(**passport))
+    .intent(intent)
+    .policy_decision(policy)
+    .create_audit_entry(
+        audit_id="audit:example-001", timestamp=now, agent_id="agent:example-001",
+        human_id="human:example-001", intent_id="intent:example-001", policy_decision="approved",
+        outcome="call_completed", evidence=AuditEvidence(tool="http", result_ref=None),
+    )
+    .build()
 )
 
-# Verify
-result = verify_signed_bundle(signed)
-assert result["verified"] is True
+# 4. Sign with the principal's key and verify against the principal's public key
+signed = sign_bundle(bundle, principal_keys["secret_key_b64"])
+print(verify_signed_bundle(signed, principal_keys["public_key_b64"]))  # {'verified': True}
+
+# 5. The inner signatures, over the same objects without "signature"
+print(verify_object(rpr_body, rpr["signature"], principal_keys["public_key_b64"]))  # True
+print(verify_object(passport_body, passport["signature"], agent_keys["public_key_b64"]))  # True
 ```
+
+For V2 bundles in Python, see [V2 Bundles](../sdks/python/README.md#v2-bundles).
 
 ---
 
@@ -282,7 +373,7 @@ DCP automatically selects a cryptographic security tier based on the intent's ri
 | 0 | **Routine** | Classical only (Ed25519) | Every 50 events | None of the triggers below |
 | 1 | **Standard** | Hybrid preferred | Every 10 events | Risk score 200–499, `estimated_impact: medium` |
 | 2 | **Elevated** | Hybrid required | Every event | Risk score 500–799, PII, financial or health data, payments, `estimated_impact: high`, unknown values |
-| 3 | **Maximum** | Hybrid required + immediate verify | Every event | Risk score ≥ 800, credentials, children's data |
+| 3 | **Maximum** | Hybrid required | Every event | Risk score ≥ 800, credentials, children's data |
 
 The risk score is the policy decision's `risk_score` (spec §14.2).
 
@@ -295,6 +386,8 @@ const mode = tierToVerificationMode(tier);
 ```
 
 ---
+
+<a id="6-telemetry--observability"></a>
 
 ## 6. Telemetry & Observability
 
@@ -347,7 +440,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 ### Go
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 ```go
@@ -360,7 +453,7 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 ### Rust
 
 ```bash
-cargo add dcp-ai
+cargo add dcp-ai@2.14.0
 ```
 
 Providers for ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 live under `dcp_ai::providers::*`. See the [`dcp-ai` crate docs on docs.rs](https://docs.rs/dcp-ai) for the full surface.
@@ -368,10 +461,10 @@ Providers for ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 live under `dcp_ai::p
 ### WebAssembly (browser)
 
 ```bash
-npm install @dcp-ai/wasm
+npm install @dcp-ai/wasm@^2.2.0   # the published version; for main, see the WASM SDK's Release status
 ```
 
-Exposes the same Rust crypto primitives to any browser JS context. The [playground](https://dcp-ai.org/playground/) is a reference consumer of this package.
+Exposes the Rust SDK's primitives to browsers and Node.js. In Node.js, `initDcp()` needs the `.wasm` file as a `data:` URL: see [Initialization](../sdks/wasm/README.md#initialization-browser-and-nodejs).
 
 ---
 

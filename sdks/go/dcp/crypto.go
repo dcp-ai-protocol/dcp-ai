@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/internal/ed25519ped1"
 	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/observability"
 	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
 )
@@ -92,7 +93,15 @@ func VerifyObject(obj interface{}, signatureB64, publicKeyB64 string) (bool, err
 		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
 		return false, fmt.Errorf("decode public key: %w", err)
 	}
-	ok := ed25519.Verify(ed25519.PublicKey(pk), []byte(canon), sig)
+	// ed25519.Verify panics on a public key that is not 32 bytes long.
+	if len(pk) != ed25519.PublicKeySize {
+		err := fmt.Errorf("invalid public key length: got %d, want %d", len(pk), ed25519.PublicKeySize)
+		tel.RecordError("verify", err.Error())
+		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
+		return false, err
+	}
+	// P-ED-1: rejected before crypto/ed25519 when S >= L, or A or R is non-canonical or of small order.
+	ok := !ed25519ped1.Rejects(sig, pk) && ed25519.Verify(ed25519.PublicKey(pk), []byte(canon), sig)
 	tel.RecordVerifyLatency(float64(time.Since(start).Microseconds())/1000.0, "ed25519")
 	tel.EndSpan(spanID)
 	return ok, nil

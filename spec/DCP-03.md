@@ -42,3 +42,20 @@ dcp merkle-root <citizenship_bundle.json>
 - The bundle [tests/conformance/examples/citizenship_bundle.json](../tests/conformance/examples/citizenship_bundle.json) includes `audit_entries`.
 
 The source of truth for fields and enums is the JSON Schema; this document is the normative specification that references them.
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- This document and its commands describe the **V1** audit entry (`schemas/v1/audit_entry.schema.json`), whose
+  `intent_hash` and the `prev_hash` of every entry after the first are bare hex strings. In V2 (`schemas/v2/audit_entry.schema.json`, specified in
+  [DCP-AI v2.0](DCP-AI-v2.0.md)) they are written `sha256:<hex>`; in both versions the first entry's `prev_hash` stays the literal
+  `"GENESIS"`. V2 entries also carry `session_nonce`, `hash_alg` and
+  `pq_checkpoint_ref`, and the entries are committed by the manifest's Merkle root rather than signed one by one.
+- The canonical form used for these hashes is the profile `dcp-jcs-v1`
+  ([CANONICALIZATION_PROFILE.md](CANONICALIZATION_PROFILE.md)); `json-stable-stringify` above is an example of a
+  sorted-key serializer, not a separate profile.
+- The chain makes an altered, removed or reordered entry detectable (tamper-evident); it does not make the entries
+  impossible to change, and it says nothing about whether their content is true.
+- `<audit_entry.json>` and the other names in angle brackets are placeholders for your own files.

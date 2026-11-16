@@ -1,0 +1,2 @@
+# Wrapper builds (tools/conformance/wrappers/build.mjs): Go binary, Cargo target dirs, WASM package.
+.build/

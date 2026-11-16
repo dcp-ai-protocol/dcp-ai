@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 _SESSION_NONCE_HEX_LEN = 64
@@ -73,27 +73,52 @@ _RFC3339 = re.compile(
 )
 
 
-def parse_rfc3339(value: Any) -> datetime | None:
-    """The instant of an RFC 3339 timestamp with a ``Z`` or ``±hh:mm`` offset, or None.
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH_ORDINAL = _EPOCH.date().toordinal()
+# 400 Gregorian years are exactly 146097 days, so year 0000, which datetime
+# cannot hold, is counted from the same date in year 0400.
+_GREGORIAN_CYCLE_DAYS = 146097
 
-    None for anything else: a date without a time, a time without an offset, an
-    impossible date or time, or a non-string. Digits beyond microseconds are dropped.
+
+def rfc3339_epoch_ms(value: Any) -> int | None:
+    """Milliseconds since the Unix epoch of an RFC 3339 timestamp with a ``Z`` or
+    ``±hh:mm`` offset, or None, as the TypeScript SDK's parseRfc3339 returns them.
+
+    Years 0000 to 9999 are valid and digits beyond milliseconds are dropped
+    (spec/VERIFICATION.md V2-4). None for anything else: a date without a time, a
+    time without an offset, an impossible date or time, or a non-string.
     """
     m = _RFC3339.fullmatch(value) if isinstance(value, str) else None
     if m is None:
         return None
     year, month, day, hour, minute, second = (int(g) for g in m.group(1, 2, 3, 4, 5, 6))
-    micro = int((m.group(7) or "")[:6].ljust(6, "0"))
-    tz = timezone.utc
-    if m.group(8):
-        offset_hours, offset_minutes = int(m.group(9)), int(m.group(10))
-        if offset_hours > 23 or offset_minutes > 59:
-            return None
-        sign = -1 if m.group(8) == "-" else 1
-        tz = timezone(sign * timedelta(hours=offset_hours, minutes=offset_minutes))
+    offset_hours, offset_minutes = (int(m.group(9)), int(m.group(10))) if m.group(8) else (0, 0)
+    if hour > 23 or minute > 59 or second > 59 or offset_hours > 23 or offset_minutes > 59:
+        return None
+    cycles = 1 if year == 0 else 0
     try:
-        return datetime(year, month, day, hour, minute, second, micro, tzinfo=tz)
-    except ValueError:  # an impossible date or time
+        days = date(year + 400 * cycles, month, day).toordinal() - cycles * _GREGORIAN_CYCLE_DAYS - _EPOCH_ORDINAL
+    except ValueError:  # an impossible date
+        return None
+    millis = int((m.group(7) or "")[:3].ljust(3, "0"))
+    offset = (-1 if m.group(8) == "-" else 1) * (offset_hours * 60 + offset_minutes)
+    return ((days * 24 + hour) * 60 + minute - offset) * 60_000 + second * 1000 + millis
+
+
+def parse_rfc3339(value: Any) -> datetime | None:
+    """The instant of an RFC 3339 timestamp with a ``Z`` or ``±hh:mm`` offset, or None.
+
+    The instant of rfc3339_epoch_ms, as a UTC datetime at millisecond precision.
+    None for anything else: a date without a time, a time without an offset, an
+    impossible date or time, a non-string, or an instant before year 0001, which
+    datetime cannot hold (rfc3339_epoch_ms takes it).
+    """
+    millis = rfc3339_epoch_ms(value)
+    if millis is None:
+        return None
+    try:
+        return _EPOCH + timedelta(milliseconds=millis)
+    except OverflowError:
         return None
 
 

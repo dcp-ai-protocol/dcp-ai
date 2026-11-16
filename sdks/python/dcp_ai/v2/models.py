@@ -144,6 +144,8 @@ class BundleManifest(BaseModel):
     audit_count: int
     # Checkpoint IDs; the checkpoints themselves live in the bundle.
     pq_checkpoints: list[str] | None = None
+    # When the session began, signed with the manifest (spec/VERIFICATION.md V2-4).
+    session_issued_at: str | None = None
     session_expires_at: str | None = None
     intended_verifier: str | None = None
     # Per spec/CANONICALIZATION_PROFILE.md § 4: optional today, only
@@ -411,7 +413,16 @@ class AuthorityScopeEntry(BaseModel):
     limits: dict[str, Any] | None = None
 
 
+class SubDelegationPolicy(BaseModel):
+    """Whether a delegate may sub-delegate, and the greatest delegation_depth any descendant may reach (DCP-09 §3.5)."""
+
+    permitted: bool
+    max_depth: int = Field(ge=0)
+
+
 class DelegationMandate(BaseModel):
+    """A root mandate. The chain fields are absent on a mandate that permits no sub-delegation."""
+
     dcp_version: str = "2.0"
     mandate_id: str
     session_nonce: str
@@ -422,7 +433,30 @@ class DelegationMandate(BaseModel):
     valid_until: str
     revocable: bool
     timestamp: str
+    delegation_depth: int | None = None
+    sub_delegation: SubDelegationPolicy | None = None
+    minimum_security_tier: Literal["routine", "standard", "elevated", "maximum"] | None = None
     human_composite_sig: dict[str, Any]
+
+
+class SubMandate(BaseModel):
+    """A sub-mandate (DCP-09 §3.5): a delegate agent's narrower delegation to another agent, signed by the delegating agent."""
+
+    dcp_version: str = "2.0"
+    mandate_id: str
+    session_nonce: str
+    human_id: str
+    agent_id: str
+    authority_scope: list[AuthorityScopeEntry]
+    valid_from: str
+    valid_until: str
+    revocable: bool
+    timestamp: str
+    parent_mandate_id: str
+    delegation_depth: int = Field(ge=1)
+    sub_delegation: SubDelegationPolicy | None = None
+    minimum_security_tier: Literal["routine", "standard", "elevated", "maximum"] | None = None
+    delegator_composite_sig: dict[str, Any]
 
 
 class AdvisoryDeclaration(BaseModel):

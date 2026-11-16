@@ -1,10 +1,19 @@
 pub mod crypto_provider;
 pub mod domain_separation;
 pub mod canonicalize;
+/// EXPERIMENTAL, opt-in: ingress of one unit under the inactive candidate dcp-jcs-v2 (phase 1).
+pub mod experimental_candidate_ingress;
+/// EXPERIMENTAL, opt-in: profile selection and delegation for the inactive candidate dcp-jcs-v2 (phase 2).
+pub mod experimental_candidate_router;
+/// EXPERIMENTAL, opt-in: verification of original bytes under the inactive candidate dcp-jcs-v2 (phase 3).
+pub mod experimental_candidate_verify;
+/// EXPERIMENTAL, opt-in: producers of new candidate dcp-jcs-v2 evidence (phase 4).
+pub mod experimental_candidate_produce;
 pub mod dual_hash;
 pub mod composite_sig;
 pub mod composite_ops;
 pub mod signed_payload;
+pub mod bundle;
 pub mod proof_of_possession;
 pub mod types;
 pub mod lifecycle;
@@ -24,4 +33,35 @@ pub mod advisory;
 pub mod blinded_rpr;
 pub mod multi_party_auth;
 pub mod error_codes;
+/// V2-2 (spec/VERIFICATION.md): the internal schema interpreter and its generated IR; nothing exported.
+mod schema_v2;
+mod schema_v2_generated;
 pub mod verify_bundle;
+pub mod admission;
+pub mod delegated_admission;
+pub mod v1_ingress;
+pub mod mandate_acknowledgment;
+
+// Verification at a given instant and admission (spec/profiles/admission § 8).
+pub use admission::{
+    admit_signed_bundle_v2, evaluate_admission_v2, resolve_strict_v1_profile, revocation_subjects,
+    AdmissionConfigError, AdmissionError, AdmissionOptions, AdmissionResult, AdmitOptions, PrincipalTrust,
+    PrincipalTrustStore, ProfileCompliance, RevocationSubjects, StrictV1Profile, STRICT_V1, STRICT_V1_MAX_SECONDS,
+};
+// Delegated admission (opt-in): a leaf bundle with its mandate chain and delegators, at one instant.
+pub use delegated_admission::{
+    admit_delegated_bundle_v2, DelegatedAdmissionResult, DelegatedChain, DelegatedEvidence, DelegatedInputs,
+    DelegatedOperator,
+};
+// Admission from bytes (opt-in): candidate scanner, portable integers, parser comparison, admission.
+pub use v1_ingress::{admit_signed_bundle_v2_from_bytes, IngressAdmissionResult, IngressError, IngressOutcome};
+// Mandate acknowledgment (opt-in, DCP-09 § 3.3): creation, and the activation evaluated over the delegated admission.
+pub use mandate_acknowledgment::{
+    create_mandate_acknowledgment, evaluate_delegation_activation_v2, AcknowledgmentEntry, ActivationEvidence, ActivationInputs,
+    DelegationActivationResult, MandateAcknowledgmentError, MandateAcknowledgmentParams, MANDATE_ACKNOWLEDGMENT_FORMAT,
+};
+pub use domain_separation::CTX_MANDATE_ACKNOWLEDGMENT;
+pub use verify_bundle::{
+    verify_signed_bundle_v2, verify_signed_bundle_v2_at, verify_signed_bundle_v2_with_policy, SignerKeyUse,
+    V2VerificationDetails, V2VerificationResult,
+};

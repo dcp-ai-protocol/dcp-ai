@@ -1,0 +1,50 @@
+<sub>[English](../../../cli/TESTING.md) · [中文](../../zh-CN/cli/TESTING.md) · [Español](../../es/cli/TESTING.md) · [日本語](../../ja/cli/TESTING.md) · **Português**</sub>
+
+<a id="testing-dcp-aicli"></a>
+
+# Testes do `@dcp-ai/cli`
+
+> Tradução informativa da [versão em inglês](../../../cli/TESTING.md), atualizada em 10/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+
+A CLI 2.2.0 requer `@dcp-ai/sdk` `^2.4.0`. Estes testes do repositório usam deliberadamente o SDK compilado do mesmo checkout para cobrir mudanças de código antes de uma publicação.
+
+```bash
+cd sdks/typescript && npm install && npm run build
+cd ../../cli
+npm install --no-save --package-lock=false --ignore-scripts --install-links ../sdks/typescript
+npm test                        # the four suites
+npm run test:negative-control   # must print "failed as required"
+```
+
+`--install-links` copia o SDK compilado para `cli/node_modules` em vez de criar um link, e as demais opções deixam `package.json` e o lockfile intactos e não executam scripts de instalação. A CI faz o mesmo no job `cli` de `.github/workflows/ci.yml`, no Node 20 e 22. Esse job não instala a raiz do repositório, então nada é resolvido por um `node_modules` da raiz.
+
+## Suítes
+
+- `__tests__/verify-s-range.test.mjs`: verificação V1, o intervalo S do Ed25519 (RFC 8032 §5.1.7), os códigos de saída e a rejeição do formato V2 histórico.
+- `__tests__/verify-ped1.test.mjs`: verificação V1 sob Ed25519 P-ED-1 contra o corpus congelado `tests/interop/v2/ed25519_ped1_vectors.json`.
+- `__tests__/version.test.mjs`: `--version` imprime a versão do `package.json` a partir de outro diretório de trabalho.
+- `__tests__/verify-v2-normative.test.mjs`: bundles V2 com o verificador normativo (os vetores entre SDKs, o envelope pré-normativo, a fixação de chave do `.dcp`), as cópias dos schemas em `lib/schemas/v2` e os arquivos empacotados executados por conta própria. Os seus processos filhos rodam com `Date.now` fixo, então o resultado não depende da data.
+
+Cada caso executa `bin/dcp-ai.js` em um processo filho, em um diretório temporário novo sem nenhum `.dcp/` acima dele.
+
+<a id="negative-control"></a>
+
+## Controle negativo
+
+Com `DCP_NEGATIVE_CONTROL=1`, cada suíte inverte um caso positivo. `__tests__/negative-control.mjs` executa as quatro suítes dessa forma. Ele só passa quando a execução sai com 1, exatamente esses quatro casos falham, cada um em uma asserção, e todos os outros testes passam, nenhum cancelado ou pulado. Qualquer outro resultado o faz falhar, inclusive uma suíte que não carrega.
+
+O verificador de referência e o playground têm os seus próprios testes do intervalo S (`tools/crypto-s-range.test.mjs`, `tools/playground-s-range.test.mjs`), que o job `conformance` executa.
+
+<a id="against-an-installed-package"></a>
+
+## Contra um pacote instalado
+
+`DCP_CLI_ROOT` aponta as mesmas quatro suítes e o controle negativo para um `@dcp-ai/cli` instalado, em vez do `cli/` deste checkout:
+
+```bash
+cd cli
+DCP_CLI_ROOT="/path/to/consumer/node_modules/@dcp-ai/cli" npm test
+DCP_CLI_ROOT="/path/to/consumer/node_modules/@dcp-ai/cli" npm run test:negative-control
+```
+
+O binário, `lib/` e as dependências vêm então desse pacote tal como foi instalado: `__tests__/cli-under-test.mjs` os resolve a partir dele e recusa um caminho ou uma dependência dentro deste checkout. Os fixtures e as expectativas continuam aqui. Dois casos se adaptam: a cópia independente usa as dependências do diretório `node_modules` em que o pacote foi instalado, e o teste de empacotamento verifica que os dois arquivos estão no pacote instalado em vez de consultar `npm pack --dry-run`, que descreve uma árvore de código-fonte. Sem a variável nada muda. A [validação de publicações](../../../tools/release-validation/README.md) executa as suítes desse modo contra o pacote publicado.

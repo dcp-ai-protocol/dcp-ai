@@ -74,19 +74,12 @@ export const DeclareIntentParams = Type.Object({
 
 export type DeclareIntentInput = Static<typeof DeclareIntentParams>;
 
-// @dcp-ai/sdk releases after 2.1.2 read risk_score from the policy decision
-// (spec §14.2); earlier ones ignore the second argument.
-const computeTier = computeSecurityTier as (
-  intent: IntentV2,
-  policyDecision?: Pick<PolicyDecisionV2, 'risk_score'>,
-) => SecurityTier;
-
 /**
- * The security tier of an intent (spec §14.2). Its explicit security_tier
- * can only raise the computed tier, never lower it.
+ * The security tier of an intent (spec §14.2), with risk_score from the policy decision. Its
+ * explicit security_tier can only raise the computed tier, never lower it.
  */
 export function resolveIntentTier(intent: IntentV2, policyDecision?: PolicyDecisionV2): SecurityTier {
-  const computed = computeTier(intent, policyDecision);
+  const computed = computeSecurityTier(intent, policyDecision);
   return intent.security_tier ? maxTier(computed, intent.security_tier) : computed;
 }
 
@@ -191,7 +184,7 @@ export async function executeDeclareIntent(
     params.estimated_impact,
     dataClasses,
   );
-  const securityTier = computeTier(intentForTier, { risk_score: riskScore });
+  const securityTier = computeSecurityTier(intentForTier, { risk_score: riskScore });
   const intent: IntentV2 = { ...intentForTier, security_tier: securityTier };
 
   session.intentsV2.set(intentId, intent);

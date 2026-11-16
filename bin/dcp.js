@@ -2,15 +2,42 @@
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
+import { fileURLToPath } from "url";
 import crypto from "crypto";
 import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
 import nacl from "tweetnacl";
 
-const ALLOWED_BASE_DIRS = [process.cwd()];
+const ALLOWED_BASE_DIRS = [fs.realpathSync(process.cwd())];
+
+/**
+ * The real path of `userPath`, symlinks resolved: the deepest part that exists is resolved with
+ * realpath (a dangling symlink throws), the rest appended. A symlink cannot lead outside.
+ */
+function realResolve(userPath) {
+  let existing = path.resolve(userPath);
+  const rest = [];
+  for (;;) {
+    try {
+      fs.lstatSync(existing);
+      break;
+    } catch {
+      const parent = path.dirname(existing);
+      if (parent === existing) break;
+      rest.unshift(path.basename(existing));
+      existing = parent;
+    }
+  }
+  return path.join(fs.realpathSync(existing), ...rest);
+}
 
 function safePath(userPath) {
-  const resolved = path.resolve(userPath);
-  const isAllowed = ALLOWED_BASE_DIRS.some(base => resolved.startsWith(path.resolve(base) + path.sep) || resolved === path.resolve(base));
+  let resolved;
+  try {
+    resolved = realResolve(userPath);
+  } catch {
+    resolved = null; // a dangling symlink, or a path that cannot be resolved
+  }
+  const isAllowed = resolved !== null && ALLOWED_BASE_DIRS.some(base => resolved.startsWith(base + path.sep) || resolved === base);
   if (!isAllowed) {
     console.error(`Error: path '${userPath}' is outside the allowed working directory`);
     process.exit(2);
@@ -18,9 +45,63 @@ function safePath(userPath) {
   return resolved;
 }
 
+/** safePath for a file the CLI writes: never the working directory or another directory. */
+function safeOutputPath(filePath) {
+  const target = safePath(filePath);
+  let isDirectory = ALLOWED_BASE_DIRS.includes(target);
+  try {
+    isDirectory ||= fs.statSync(target).isDirectory();
+  } catch {
+    // does not exist yet
+  }
+  if (isDirectory) {
+    console.error(`Error: '${filePath}' is a directory, not a file to write`);
+    process.exit(2);
+  }
+  return target;
+}
+
+/**
+ * Write a file inside the working directory: to a new temporary file (O_EXCL, which never follows
+ * a symlink) with exactly `mode`, in the target's directory, then renamed over the target. A
+ * symlink or hard link at the target is replaced, never written through, and an existing secret
+ * file does not keep a wider mode. The directory is checked again just before the rename; the
+ * CLI assumes nothing else changes the working directory while a command runs.
+ */
+function writeConfined(filePath, contents, mode = 0o644) {
+  const target = safeOutputPath(filePath);
+  const dir = path.dirname(target);
+  const tmp = path.join(dir, `.${path.basename(target)}.${process.pid}.${crypto.randomBytes(6).toString("hex")}.tmp`);
+  const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0);
+  const fd = fs.openSync(tmp, flags, mode);
+  try {
+    fs.writeFileSync(fd, contents);
+    fs.fchmodSync(fd, mode);
+  } finally {
+    fs.closeSync(fd);
+  }
+  try {
+    if (realResolve(dir) !== dir) throw new Error(`'${filePath}' changed while it was written`);
+    fs.renameSync(tmp, target);
+  } catch (err) {
+    fs.rmSync(tmp, { force: true });
+    console.error(`Error: ${err.message}`);
+    process.exit(2);
+  }
+}
+
+/** Reads of user paths, confined to the working directory like writes. */
+const existsConfined = (filePath) => fs.existsSync(safePath(filePath));
+const readConfined = (filePath, encoding) => fs.readFileSync(safePath(filePath), encoding);
+const readdirConfined = (dirPath) => fs.readdirSync(safePath(dirPath));
+
+/** The CLI's own scripts, run from where the CLI is installed, never from the working directory. */
+const CLI_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const runTool = (script, args) => execFileSync(process.execPath, [path.join(CLI_ROOT, "tools", script), ...args], { stdio: "inherit", cwd: CLI_ROOT });
+
 function safeParseJSON(filePath, label) {
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return JSON.parse(fs.readFileSync(safePath(filePath), "utf8"));
   } catch (err) {
     console.error(`Error: failed to parse ${label || filePath}: ${err.message}`);
     process.exit(2);
@@ -37,7 +118,7 @@ function safeParseInt(value, name) {
 }
 
 function writeSecretFile(filePath, contents) {
-  fs.writeFileSync(filePath, contents, { mode: 0o600 });
+  writeConfined(filePath, contents, 0o600);
 }
 
 const ALLOWED_ENDPOINT_PATTERN = /^https?:\/\/[a-zA-Z0-9._-]+(:\d{1,5})?(\/[a-zA-Z0-9._/-]*)?$/;
@@ -83,6 +164,8 @@ Usage:
     dcp kid <public_key_file> --alg <algorithm>           Compute deterministic kid
     dcp sign-bundle --composite <bundle.json> <ed_sk> <pq_sk> [out]  Composite sign
     dcp verify-bundle --policy <mode> <signed.json>       Verify with policy
+    dcp admit-bundle <signed.json> --trust <trust.json> [--profile <profile.json>]
+        [--revocation <snapshot.json>] [--now <RFC 3339>]  Admission (spec/profiles/admission)
     dcp recovery-setup --threshold <M> --shares <N> [out] Generate Shamir shares
     dcp emergency-revoke --agent <id> --token <secret>    Emergency revocation
     dcp rotate-key --old-kid <kid> --new-alg <alg>        Key rotation with PoP
@@ -95,17 +178,18 @@ Usage:
     dcp governance ceremony --threshold <M> --parties <N> [out_dir]   Governance key ceremony
     dcp governance sign-advisory <advisory.json> --key-dir <dir>      Sign advisory as governance
     dcp governance verify-advisory <advisory.json> --keys <gov_keys>  Verify governance sigs
-    dcp audit gaps                                        Verify all 13 gaps are closed
+    dcp audit gaps                                        File checks for the 13 v2.0 gaps (Gap #11 stays open)
 `);
 }
 
 function ensureDir(dir) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const target = safePath(dir);
+  if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
 }
 
 function writeFileIfMissing(filePath, contents) {
-  if (fs.existsSync(filePath)) return;
-  fs.writeFileSync(filePath, contents, "utf8");
+  if (existsConfined(filePath)) return;
+  writeConfined(filePath, contents);
 }
 
 function deriveKid(alg, publicKeyBytes) {
@@ -155,7 +239,7 @@ if (cmd === "validate") {
     console.error("Usage: dcp validate <schemaPath> <jsonPath>");
     process.exit(2);
   }
-  execFileSync("node", ["tools/validate.js", safePath(schemaPath), safePath(jsonPath)], { stdio: "inherit" });
+  runTool("validate.js", [safePath(schemaPath), safePath(jsonPath)]);
   process.exit(0);
 }
 
@@ -189,7 +273,7 @@ if (cmd === "validate-bundle") {
 // ── Conformance ──
 if (cmd === "conformance") {
   try {
-    execFileSync("node", ["tools/conformance.js"], { stdio: "inherit" });
+    runTool("conformance.js", []);
     process.exit(0);
   } catch { process.exit(1); }
 }
@@ -222,12 +306,12 @@ if (cmd === "keygen") {
     const classicalKid = deriveKid("ed25519", Buffer.from(classicalKp.publicKeyB64, "base64"));
     const pqKid = deriveKid("ml-dsa-65", pqPublicKey);
 
-    fs.writeFileSync(path.join(outDir, "ed25519_public_key.txt"), classicalKp.publicKeyB64 + "\n");
+    writeConfined(path.join(outDir, "ed25519_public_key.txt"), classicalKp.publicKeyB64 + "\n");
     writeSecretFile(path.join(outDir, "ed25519_secret_key.txt"), classicalKp.secretKeyB64 + "\n");
-    fs.writeFileSync(path.join(outDir, "ed25519_kid.txt"), classicalKid + "\n");
-    fs.writeFileSync(path.join(outDir, "ml_dsa_65_public_key.txt"), pqPublicKey.toString("base64") + "\n");
+    writeConfined(path.join(outDir, "ed25519_kid.txt"), classicalKid + "\n");
+    writeConfined(path.join(outDir, "ml_dsa_65_public_key.txt"), pqPublicKey.toString("base64") + "\n");
     writeSecretFile(path.join(outDir, "ml_dsa_65_secret_key.txt"), pqSecretKey.toString("base64") + "\n");
-    fs.writeFileSync(path.join(outDir, "ml_dsa_65_kid.txt"), pqKid + "\n");
+    writeConfined(path.join(outDir, "ml_dsa_65_kid.txt"), pqKid + "\n");
 
     console.log(`✅ Hybrid keypair written to ${outDir}/`);
     console.log(`   Ed25519 kid:   ${classicalKid}`);
@@ -246,18 +330,18 @@ if (cmd === "keygen") {
       const { generateKeypair } = await import("../tools/crypto.js");
       const kp = generateKeypair();
       const kid = deriveKid("ed25519", Buffer.from(kp.publicKeyB64, "base64"));
-      fs.writeFileSync(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
+      writeConfined(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
       writeSecretFile(path.join(outDir, "secret_key.txt"), kp.secretKeyB64 + "\n");
-      fs.writeFileSync(path.join(outDir, "kid.txt"), kid + "\n");
+      writeConfined(path.join(outDir, "kid.txt"), kid + "\n");
       console.log(`✅ Ed25519 keypair written to ${outDir}/ (kid: ${kid})`);
     } else if (specificAlg === "ml-dsa-65") {
       const pqKeys = ml_dsa65.keygen();
       const pk = Buffer.from(pqKeys.publicKey);
       const sk = Buffer.from(pqKeys.secretKey);
       const kid = deriveKid(specificAlg, pk);
-      fs.writeFileSync(path.join(outDir, "public_key.txt"), pk.toString("base64") + "\n");
+      writeConfined(path.join(outDir, "public_key.txt"), pk.toString("base64") + "\n");
       writeSecretFile(path.join(outDir, "secret_key.txt"), sk.toString("base64") + "\n");
-      fs.writeFileSync(path.join(outDir, "kid.txt"), kid + "\n");
+      writeConfined(path.join(outDir, "kid.txt"), kid + "\n");
       console.log(`✅ ${specificAlg} keypair written to ${outDir}/ (kid: ${kid})`);
     } else {
       console.error(`Algorithm ${specificAlg} keygen requires the corresponding SDK provider.`);
@@ -270,7 +354,7 @@ if (cmd === "keygen") {
   // Default V1 keygen
   const { generateKeypair } = await import("../tools/crypto.js");
   const kp = generateKeypair();
-  fs.writeFileSync(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
+  writeConfined(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
   writeSecretFile(path.join(outDir, "secret_key.txt"), kp.secretKeyB64 + "\n");
   console.log(`✅ Keypair written to ${outDir}/public_key.txt and ${outDir}/secret_key.txt`);
   process.exit(0);
@@ -287,7 +371,7 @@ if (cmd === "kid") {
     process.exit(2);
   }
 
-  const publicKeyB64 = fs.readFileSync(safePath(publicKeyPath), "utf8").trim();
+  const publicKeyB64 = readConfined(safePath(publicKeyPath), "utf8").trim();
   const pkBytes = Buffer.from(publicKeyB64, "base64");
   const kid = deriveKid(alg, pkBytes);
   console.log(kid);
@@ -316,8 +400,8 @@ if (cmd === "sign-bundle") {
       console.error("Expected an unsigned V2 bundle (dcp_bundle_version \"2.0\" with a manifest), e.g. from BundleBuilderV2.");
       process.exit(2);
     }
-    const edSecretB64 = fs.readFileSync(safePath(edSecretPath), "utf8").trim();
-    const pqSecretB64 = fs.readFileSync(safePath(pqSecretPath), "utf8").trim();
+    const edSecretB64 = readConfined(safePath(edSecretPath), "utf8").trim();
+    const pqSecretB64 = readConfined(safePath(pqSecretPath), "utf8").trim();
 
     // Public keys come from the secrets: a tweetnacl Ed25519 secret key ends
     // with its public key, and ML-DSA-65 re-derives its public key.
@@ -339,7 +423,7 @@ if (cmd === "sign-bundle") {
       keys,
     });
 
-    fs.writeFileSync(safePath(outPath), JSON.stringify(signedBundle, null, 2));
+    writeConfined(outPath, JSON.stringify(signedBundle, null, 2));
     console.log(`✅ V2 composite-signed bundle written to ${outPath}`);
     process.exit(0);
   }
@@ -352,7 +436,7 @@ if (cmd === "sign-bundle") {
     console.error("Usage: dcp sign-bundle <bundle.json> <secret_key.txt> [out.json]");
     process.exit(2);
   }
-  execFileSync("node", ["tools/bundle_sign.js", safePath(bundlePath), safePath(secretKeyPath), safePath(outPath)], { stdio: "inherit" });
+  runTool("bundle_sign.js", [safePath(bundlePath), safePath(secretKeyPath), safeOutputPath(outPath)]);
   process.exit(0);
 }
 
@@ -380,7 +464,7 @@ if (cmd === "verify-bundle") {
 
   if (isV2Bundle(signedBundle)) {
     console.log("Detected: DCP v2.0 bundle");
-    const publicKeyB64 = publicKeyPath ? fs.readFileSync(safePath(publicKeyPath), "utf8").trim() : undefined;
+    const publicKeyB64 = publicKeyPath ? readConfined(safePath(publicKeyPath), "utf8").trim() : undefined;
     const result = await verifySignedBundle(signedBundle, publicKeyB64, undefined, { mode: policyMode || undefined });
     for (const w of result.warnings || []) console.log(`⚠️  ${w}`);
     if (result.verified) {
@@ -399,7 +483,7 @@ if (cmd === "verify-bundle") {
     process.exit(2);
   }
 
-  const publicKeyB64 = fs.readFileSync(safePath(publicKeyPath), "utf8").trim();
+  const publicKeyB64 = readConfined(safePath(publicKeyPath), "utf8").trim();
   const result = await verifySignedBundle(signedBundle, publicKeyB64);
   if (result.verified) {
     console.log("✅ SIGNATURE VALID");
@@ -410,6 +494,59 @@ if (cmd === "verify-bundle") {
   for (const e of result.errors || []) console.error(e);
   console.error("\nVerification failed.");
   process.exit(1);
+}
+
+// ── Admission: trusted principals and strict-v1 (offline, from the operator's files) ──
+if (cmd === "admit-bundle") {
+  const flags = { "--trust": null, "--profile": null, "--revocation": null, "--now": null };
+  let signedPath = null;
+  for (let i = 1; i < args.length; i++) {
+    if (Object.hasOwn(flags, args[i])) {
+      flags[args[i]] = args[++i] ?? null;
+    } else if (!signedPath) {
+      signedPath = args[i];
+    } else {
+      console.error(`Unexpected argument: ${args[i]}`);
+      process.exit(2);
+    }
+  }
+  if (!signedPath || !flags["--trust"]) {
+    console.error("Usage: dcp admit-bundle <signed.json> --trust <trust.json> [--profile <profile.json>] [--revocation <snapshot.json>] [--now <RFC 3339>]");
+    process.exit(2);
+  }
+  const { parseRfc3339 } = await import("@dcp-ai/sdk");
+  // RFC 3339 with a Z or ±hh:mm offset only, as the verifier reads timestamps: never local time.
+  const now = flags["--now"] === null ? Date.now() : parseRfc3339(flags["--now"]);
+  if (now === undefined) {
+    console.error("--now must be an RFC 3339 timestamp with a Z or ±hh:mm offset");
+    process.exit(2);
+  }
+  const { admitSignedBundle } = await import("../lib/verify.js");
+  const snapshot = flags["--revocation"] === null ? null : safeParseJSON(safePath(flags["--revocation"]), "revocation snapshot");
+  let result;
+  try {
+    result = await admitSignedBundle(safeParseJSON(safePath(signedPath), "signed bundle"), {
+      trust: safeParseJSON(safePath(flags["--trust"]), "trust set"),
+      profile: flags["--profile"] === null ? undefined : safeParseJSON(safePath(flags["--profile"]), "profile"),
+      revocationSource: async () => snapshot,
+      now,
+    });
+  } catch (err) {
+    console.error(`❌ ${err.message}`);
+    process.exit(2);
+  }
+  console.log(JSON.stringify({
+    verified: result.verified,
+    admitted: result.admitted,
+    principal_trust: result.principal_trust,
+    profile: result.profile,
+    profile_compliance: result.profile_compliance,
+    action_authorized: result.action_authorized,
+    recorded_decision: result.recorded_decision,
+    trust_set_version: result.trust_set_version,
+    errors: result.errors,
+  }, null, 2));
+  process.exit(result.admitted ? 0 : 1);
 }
 
 // ── Bundle hash ──
@@ -511,7 +648,7 @@ if (cmd === "recovery-setup") {
     created_at: new Date().toISOString(),
   };
 
-  fs.writeFileSync(path.join(outDir, "recovery_config.json"), JSON.stringify(config, null, 2));
+  writeConfined(path.join(outDir, "recovery_config.json"), JSON.stringify(config, null, 2));
   console.log(`✅ Recovery setup complete (${threshold}-of-${totalShares})`);
   console.log(`   Shares written to ${outDir}/share_*.txt`);
   console.log(`   Config written to ${outDir}/recovery_config.json`);
@@ -748,7 +885,7 @@ if (cmd === "keys" && args[1] === "rotate") {
   const keyDir = keyDirIdx >= 0 ? args[keyDirIdx + 1] : "keys";
   const newAlg = newAlgIdx >= 0 ? args[newAlgIdx + 1] : "ml-dsa-65";
 
-  if (!fs.existsSync(keyDir)) {
+  if (!existsConfined(keyDir)) {
     console.error(`Key directory '${keyDir}' not found`);
     process.exit(2);
   }
@@ -765,12 +902,12 @@ if (cmd === "keys" && args[1] === "rotate") {
   const existingPkFile = path.join(keyDir, "public_key.txt");
 
   let oldKid = "unknown";
-  if (fs.existsSync(existingKidFile)) {
-    oldKid = fs.readFileSync(existingKidFile, "utf8").trim();
+  if (existsConfined(existingKidFile)) {
+    oldKid = readConfined(existingKidFile, "utf8").trim();
   } else {
     // Try hybrid key directory
     const edKidFile = path.join(keyDir, "ed25519_kid.txt");
-    if (fs.existsSync(edKidFile)) oldKid = fs.readFileSync(edKidFile, "utf8").trim();
+    if (existsConfined(edKidFile)) oldKid = readConfined(edKidFile, "utf8").trim();
   }
 
   console.log(`Old key kid:    ${oldKid}`);
@@ -818,10 +955,10 @@ if (cmd === "keys" && args[1] === "rotate") {
   const rotDir = path.join(keyDir, "rotation");
   ensureDir(rotDir);
 
-  fs.writeFileSync(path.join(rotDir, "new_public_key.txt"), newPk.toString("base64") + "\n");
+  writeConfined(path.join(rotDir, "new_public_key.txt"), newPk.toString("base64") + "\n");
   writeSecretFile(path.join(rotDir, "new_secret_key.txt"), newSk.toString("base64") + "\n");
-  fs.writeFileSync(path.join(rotDir, "new_kid.txt"), newKid + "\n");
-  fs.writeFileSync(path.join(rotDir, "rotation_record.json"), JSON.stringify(rotationRecord, null, 2) + "\n");
+  writeConfined(path.join(rotDir, "new_kid.txt"), newKid + "\n");
+  writeConfined(path.join(rotDir, "rotation_record.json"), JSON.stringify(rotationRecord, null, 2) + "\n");
 
   console.log(`\nNew key kid:    ${newKid}`);
   console.log(`\nRotation record: ${path.join(rotDir, "rotation_record.json")}`);
@@ -842,7 +979,7 @@ if (cmd === "keys" && args[1] === "certify") {
   const rotDir = path.join(keyDir, "rotation");
   const rotRecordPath = path.join(rotDir, "rotation_record.json");
 
-  if (!fs.existsSync(rotRecordPath)) {
+  if (!existsConfined(rotRecordPath)) {
     console.error(`No rotation record found at ${rotRecordPath}`);
     console.error("Run 'dcp keys rotate' first");
     process.exit(2);
@@ -881,7 +1018,7 @@ if (cmd === "keys" && args[1] === "certify") {
 
       // Write certification receipt
       const receiptPath = path.join(rotDir, "certification_receipt.json");
-      fs.writeFileSync(receiptPath, JSON.stringify({
+      writeConfined(receiptPath, JSON.stringify({
         ...data,
         certified_at: new Date().toISOString(),
         gateway: endpoint,
@@ -962,7 +1099,7 @@ if (cmd === "governance" && args[1] === "ceremony") {
     ensureDir(pDir);
     writeSecretFile(path.join(pDir, "ed25519_secret_key.txt"), edSk.toString("base64") + "\n");
     writeSecretFile(path.join(pDir, "mldsa65_secret_key.txt"), pqSk.toString("base64") + "\n");
-    fs.writeFileSync(path.join(pDir, "participant.json"), JSON.stringify(participant, null, 2) + "\n");
+    writeConfined(path.join(pDir, "participant.json"), JSON.stringify(participant, null, 2) + "\n");
 
     console.log(`  Participant ${i}: ${participantId}`);
     console.log(`    Ed25519 kid:   ${edKid}`);
@@ -998,7 +1135,7 @@ if (cmd === "governance" && args[1] === "ceremony") {
 
   // Write governance keys document
   const keysDocPath = path.join(outDir, "governance-keys.json");
-  fs.writeFileSync(keysDocPath, JSON.stringify(ceremonySummary, null, 2) + "\n");
+  writeConfined(keysDocPath, JSON.stringify(ceremonySummary, null, 2) + "\n");
 
   console.log(`\n✅ Governance ceremony complete`);
   console.log(`   ID:        ${governanceKeySet.governance_id}`);
@@ -1023,7 +1160,7 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
     process.exit(2);
   }
 
-  if (!fs.existsSync(advisoryPath)) {
+  if (!existsConfined(advisoryPath)) {
     console.error(`Advisory file not found: ${advisoryPath}`);
     process.exit(2);
   }
@@ -1031,7 +1168,7 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
   const advisory = safeParseJSON(safePath(advisoryPath), "advisory");
   const participantPath = path.join(keyDir, "participant.json");
 
-  if (!fs.existsSync(participantPath)) {
+  if (!existsConfined(participantPath)) {
     console.error(`Participant file not found at ${participantPath}`);
     process.exit(2);
   }
@@ -1058,12 +1195,12 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
 
   const edSkPath = path.join(keyDir, "ed25519_secret_key.txt");
   const pqSkPath = path.join(keyDir, "mldsa65_secret_key.txt");
-  if (!fs.existsSync(edSkPath) || !fs.existsSync(pqSkPath)) {
+  if (!existsConfined(edSkPath) || !existsConfined(pqSkPath)) {
     console.error("Missing secret key files in key directory");
     process.exit(2);
   }
-  const edSkB64 = fs.readFileSync(edSkPath, "utf8").trim();
-  const pqSkB64 = fs.readFileSync(pqSkPath, "utf8").trim();
+  const edSkB64 = readConfined(edSkPath, "utf8").trim();
+  const pqSkB64 = readConfined(pqSkPath, "utf8").trim();
 
   const payloadBytes = Buffer.from(advisoryPayload, "utf8");
   const edSk = Buffer.from(edSkB64, "base64");
@@ -1097,7 +1234,7 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
   };
 
   const sigOutPath = outPath || advisoryPath.replace(".json", `.sig.${participant.participant_id}.json`);
-  fs.writeFileSync(sigOutPath, JSON.stringify(governanceSig, null, 2) + "\n");
+  writeConfined(sigOutPath, JSON.stringify(governanceSig, null, 2) + "\n");
 
   console.log(`\n✅ Advisory signed`);
   console.log(`   Signature: ${sigOutPath}`);
@@ -1136,8 +1273,8 @@ if (cmd === "governance" && args[1] === "verify-advisory") {
   } else {
     const dir = path.dirname(advisoryPath);
     const prefix = path.basename(advisoryPath, ".json") + ".sig.";
-    if (fs.existsSync(dir)) {
-      sigFiles = fs.readdirSync(dir)
+    if (existsConfined(dir)) {
+      sigFiles = readdirConfined(dir)
         .filter(f => f.startsWith(prefix) && f.endsWith(".json"))
         .map(f => path.join(dir, f));
     }
@@ -1159,7 +1296,7 @@ if (cmd === "governance" && args[1] === "verify-advisory") {
 
   const validSigners = new Set();
   for (const sigFile of sigFiles) {
-    if (!fs.existsSync(sigFile)) {
+    if (!existsConfined(sigFile)) {
       console.log(`  ❌ ${sigFile}: file not found`);
       continue;
     }
@@ -1218,7 +1355,8 @@ if (cmd === "audit" && args[1] === "gaps") {
     { id: 8,  name: "gRPC/Protobuf V2 Messages", file: "api/proto/dcp.proto" },
     { id: 9,  name: "CLI V2 Commands", file: "bin/dcp.js" },
     { id: 10, name: "NIST KAT Validation", file: "sdks/typescript/src/providers/ml-dsa-65.ts" },
-    { id: 11, name: "Secure Memory / HSM Provider", file: "sdks/typescript/src/providers/hsm-provider.ts" },
+    // No file can close this one: the repository has no HSM backend.
+    { id: 11, name: "Secure Memory / HSM Provider", open: "no HSM backend in this repository" },
     { id: 12, name: "Version & Capability Negotiation", file: "server/index.js" },
     { id: 13, name: "Emergency Revocation (Panic Button)", file: "sdks/typescript/src/core/emergency-revocation.ts" },
   ];
@@ -1226,11 +1364,17 @@ if (cmd === "audit" && args[1] === "gaps") {
   let allClosed = true;
 
   for (const gap of gaps) {
+    if (gap.open) {
+      console.log(`  ❌ Gap #${String(gap.id).padStart(2, " ")}: ${gap.name}`);
+      console.log(`     Open: ${gap.open}`);
+      allClosed = false;
+      continue;
+    }
     const filePath = path.join(process.cwd(), gap.file);
-    const exists = fs.existsSync(filePath);
+    const exists = existsConfined(filePath);
 
     if (exists) {
-      const content = fs.readFileSync(filePath, "utf8");
+      const content = readConfined(filePath, "utf8");
       const lines = content.split("\n").length;
       console.log(`  ✅ Gap #${String(gap.id).padStart(2, " ")}: ${gap.name}`);
       console.log(`     File: ${gap.file} (${lines} lines)`);
@@ -1246,7 +1390,6 @@ if (cmd === "audit" && args[1] === "gaps") {
 
   const phase3Files = [
     { name: "pq_only verifier mode", file: "sdks/typescript/src/core/verify-v2.ts", marker: "pq_only" },
-    { name: "HsmCryptoProvider", file: "sdks/typescript/src/providers/hsm-provider.ts", marker: "HsmCryptoProvider" },
     { name: "Governance ceremony", file: "sdks/typescript/src/core/governance.ts", marker: "executeGovernanceCeremony" },
     { name: "Advisory auto-response", file: "sdks/typescript/src/core/algorithm-advisory.ts", marker: "autoApplyAdvisoriesToPolicy" },
     { name: "Key rotation ceremony CLI", file: "bin/dcp.js", marker: "Key Rotation Ceremony" },
@@ -1255,8 +1398,8 @@ if (cmd === "audit" && args[1] === "gaps") {
 
   for (const check of phase3Files) {
     const filePath = path.join(process.cwd(), check.file);
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, "utf8");
+    if (existsConfined(filePath)) {
+      const content = readConfined(filePath, "utf8");
       if (content.includes(check.marker)) {
         console.log(`  ✅ ${check.name}`);
       } else {
@@ -1278,7 +1421,7 @@ if (cmd === "audit" && args[1] === "gaps") {
 // ── Integrity ──
 if (cmd === "integrity") {
   const fingerprintsPath = path.join(process.cwd(), "protocol_fingerprints.json");
-  if (!fs.existsSync(fingerprintsPath)) {
+  if (!existsConfined(fingerprintsPath)) {
     console.error("protocol_fingerprints.json not found. Run from repo root.");
     process.exit(2);
   }
@@ -1289,12 +1432,12 @@ if (cmd === "integrity") {
   let checked = 0;
   for (const [name, expectedHash] of Object.entries(expected)) {
     const filePath = path.join(schemasDir, `${name}.schema.json`);
-    if (!fs.existsSync(filePath)) {
+    if (!existsConfined(filePath)) {
       console.error(`MISSING  ${name}.schema.json`);
       failures++;
       continue;
     }
-    const content = fs.readFileSync(filePath);
+    const content = readConfined(filePath);
     const actualHash = "sha256:" + crypto.createHash("sha256").update(content).digest("hex");
     if (actualHash === expectedHash) {
       console.log(`✅ ${name}`);

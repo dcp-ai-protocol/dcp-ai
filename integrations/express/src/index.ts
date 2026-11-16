@@ -2,31 +2,142 @@
  * @dcp-ai/express — DCP verification middleware for Express.js
  *
  * Supports both V1 (Ed25519) and V2 (composite hybrid signatures) bundles.
+ * A V2 bundle is accepted only when `verifySignedBundleV2` from `@dcp-ai/sdk`
+ * accepts it under the middleware's verifier policy. With `trustedPrincipals`,
+ * and optionally the strict-v1 `profile`, it is accepted only when it is
+ * admitted (spec/profiles/admission): signed by keys the operator trusts for
+ * its principal, and under the profile meeting every profile requirement.
  *
  * Usage:
  *   import { dcpVerify } from '@dcp-ai/express';
  *   app.use('/api/agents/*', dcpVerify({ requireBundle: true }));
  */
 
+import { createHash } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
+import {
+  AdmissionConfigError,
+  canonicalizeV2,
+  verifySignedBundle,
+  type AdmissionResult,
+  type PrincipalTrust,
+  type ProfileCompliance,
+  type StrictV1Profile,
+  type StrictV1ProfileConfig,
+  type VerificationMode,
+  type VerifierPolicy,
+  type VerifyV2Result,
+} from '@dcp-ai/sdk';
+import {
+  admissionFailure,
+  admissionPolicy,
+  admit,
+  detectVersion,
+  isObject,
+  parseRfc3339,
+  policyFingerprint,
+  resolveAdmission,
+  resolveVerifierPolicy as resolvePolicy,
+  TrustSourceError,
+  v1Refusal,
+  verifyV2,
+  type RevocationSource,
+  type SecurityTier,
+  type SupervisedSources,
+  type TrustSource,
+  type VerifierPolicyOptions,
+} from './dcp-verify.js';
+import { supportsCancellation, type SourceSupervisor } from './source-supervisor.js';
+
+export type { SecurityTier, VerifierPolicyOptions, RevocationSource, SupervisedSources, TrustSource } from './dcp-verify.js';
+export { denyListRevocationSource } from './dcp-verify.js';
+export { createSourceSupervisor } from './source-supervisor.js';
+export type { SourceEvent, SourceSupervisor, SourceSupervisorOptions, SourceSupervisorStats } from './source-supervisor.js';
 
 export interface DCPVerifyOptions {
   requireBundle?: boolean;
+  /** Ask the revocation service whether the agent and the bundle's keys are revoked, on every request. */
   checkRevocation?: boolean;
   revocationServiceUrl?: string;
-  onFailure?: (req: Request, res: Response, errors: string[]) => void;
+  /**
+   * With checkRevocation: reject the request (403) when the revocation status cannot be read
+   * (service unreachable or throwing, a non-2xx answer, a body that is not JSON or has no
+   * boolean `revoked`). Default false: such a request is let through (fail open).
+   */
+  revocationFailClosed?: boolean;
+  onFailure?: (req: Request, res: Response, errors: string[], admission?: AdmissionResult) => void;
   headerName?: string;
+  /**
+   * Seconds a verified bundle stays cached, keyed by the SHA-256 of its canonical form, the
+   * verifier policy and the tenant. 0 disables the cache. An entry never outlives the bundle's
+   * session or signing keys. Principal trust, the profile checks and revocation are evaluated on
+   * every request, cached or not.
+   */
   cacheTtlSeconds?: number;
-  /** V2: Require hybrid composite signatures (default: false for backward compat). */
+  /** Most verified bundles kept in the cache; the least recently used is evicted first. Default 1000. */
+  cacheMaxEntries?: number;
+  /** Require post-quantum signatures: every mode below hybrid_required becomes hybrid_required, and V1 bundles are refused. */
   requireHybrid?: boolean;
-  /** V2: Verification policy override. */
-  verifierPolicy?: {
-    default_mode?: 'classical_only' | 'hybrid_required' | 'hybrid_preferred' | 'pq_only';
-    require_session_binding?: boolean;
-    require_composite_binding?: boolean;
-  };
+  /**
+   * Verifier policy fields, merged over the SDK's `DEFAULT_VERIFIER_POLICY`. A `default_mode`
+   * given without `risk_overrides` applies to every risk tier. An unknown field or a value of
+   * the wrong type throws when the middleware is created.
+   */
+  verifierPolicy?: VerifierPolicyOptions;
   /** DCP-05: Require agent lifecycle state != decommissioned. */
   requireActiveLifecycle?: boolean;
+  /**
+   * The principals the operator trusts and their keys: a trust set
+   * (schemas/v2/principal_trust_set.schema.json), or a function of the tenant that returns one,
+   * called on every request. With it, only V2 bundles signed for a trusted principal with its
+   * trusted keys reach the route.
+   */
+  trustedPrincipals?: TrustSource;
+  /**
+   * The strict-v1 profile (schemas/v2/admission_profile.schema.json). Requires trustedPrincipals
+   * and revocationSource, and refuses requireBundle false, verifierPolicy, requireHybrid false
+   * and the checkRevocation options.
+   */
+  profile?: StrictV1ProfileConfig | StrictV1Profile;
+  /** The revocation source of the profile, e.g. denyListRevocationSource({ url }). */
+  revocationSource?: RevocationSource;
+  /**
+   * Milliseconds the revocation source may take before the request is refused. Default 5000. Under
+   * `supervise.revocation` it is the supervised deadline: an integer from 1 to 2147483647.
+   */
+  revocationTimeoutMs?: number;
+  /**
+   * A supervisor from createSourceSupervisor (from this package or @dcp-ai/openclaw), given with
+   * `supervise`. Its capacity is per supervisor object: share one object between middlewares to
+   * share one capacity, which the trust and revocation sources share too. A supervised source gets
+   * `signal` in its context, a deadline and a slot, held until it settles. A trustedPrincipals
+   * function that times out, finds no free slot or meets a closed supervisor gets the same 503 as a
+   * source that fails; a revocationSource, the same 403 REVOCATION_UNAVAILABLE as one that fails. It
+   * does not stop a source's work or isolate CPU.
+   */
+  sourceSupervisor?: SourceSupervisor;
+  /**
+   * `{ trustTimeoutMs?, revocation? }`: the deadline of the trustedPrincipals function, and
+   * `revocation: true` to supervise the revocationSource under revocationTimeoutMs. At least one.
+   */
+  supervise?: SupervisedSources;
+  /**
+   * When the client really leaves during admission (the response closes before it is sent, or the
+   * upload is cut short; a request's own `close` after its body is not that), cancel the supervised
+   * source invocation of that request, and only that one: its slot stays taken until the source
+   * really settles. Nothing more is done for the request: no handler, cache write, onFailure or
+   * response. Needs every source function supervised (trustTimeoutMs for a trustedPrincipals
+   * function, `revocation: true` for revocationSource), a supervisor that supports it, and no
+   * checkRevocation. Default false.
+   */
+  cancelOnDisconnect?: boolean;
+  /**
+   * The tenant of a request, from the operator's own authenticated context (never a header the
+   * client chooses). It selects the trust set and separates cached verdicts. Default: one tenant.
+   */
+  tenant?: (req: Request) => string;
+  /** The clock, in milliseconds since the epoch. For tests; default Date.now. */
+  clock?: () => number;
 }
 
 export interface DCPAgent {
@@ -37,7 +148,7 @@ export interface DCPAgent {
   riskTier: string;
   status: string;
   dcpVersion: '1.0' | '2.0';
-  /** V2: Key identifiers. */
+  /** V2: Key identifiers of the passport keys. */
   kids?: string[];
   /** V2: Session nonce for the bundle. */
   sessionNonce?: string;
@@ -45,33 +156,93 @@ export interface DCPAgent {
   lifecycleState?: string;
   /** DCP-09: Active delegation mandate ID. */
   mandateId?: string;
+  /** V2: Warnings of the SDK verifier for an accepted bundle (e.g. a classical-only signature). */
+  warnings?: string[];
+  /** V2: The verification mode the bundle was verified in. */
+  verificationMode?: VerificationMode;
+  /** V2: The security tier of the bundle's intent and policy decision (spec §14.2). */
+  securityTier?: SecurityTier;
+  /** With trustedPrincipals: the admission of the bundle (spec/profiles/admission § 5.2). */
+  admission?: {
+    admitted: true;
+    principalTrust: PrincipalTrust;
+    profile: 'strict-v1' | null;
+    profileCompliance: ProfileCompliance;
+    /** The decision the bundle records (approve, escalate, block): evidence, not a permission. */
+    recordedDecision: string | null;
+    trustSetVersion: string | null;
+    /** Always false: admitting the evidence does not authorize an action. */
+    actionAuthorized: false;
+  };
 }
 
-const _cache = new Map<string, { result: any; expires: number }>();
+const OPTION_TYPES: Record<keyof DCPVerifyOptions, readonly string[]> = {
+  requireBundle: ['boolean'],
+  checkRevocation: ['boolean'],
+  revocationServiceUrl: ['string'],
+  revocationFailClosed: ['boolean'],
+  onFailure: ['function'],
+  headerName: ['string'],
+  cacheTtlSeconds: ['number'],
+  cacheMaxEntries: ['number'],
+  requireHybrid: ['boolean'],
+  verifierPolicy: ['object'],
+  requireActiveLifecycle: ['boolean'],
+  trustedPrincipals: ['object', 'function'],
+  profile: ['object'],
+  revocationSource: ['function'],
+  revocationTimeoutMs: ['number'],
+  sourceSupervisor: ['object'],
+  supervise: ['object'],
+  cancelOnDisconnect: ['boolean'],
+  tenant: ['function'],
+  clock: ['function'],
+};
 
-function getCached(key: string): any | null {
-  const entry = _cache.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expires) {
-    _cache.delete(key);
-    return null;
+/** An unknown option or a value of the wrong type throws: a misspelt option must not switch a check off. */
+function checkOptions(options: unknown): void {
+  if (!isObject(options)) throw new TypeError('dcpVerify options must be an object');
+  for (const [key, value] of Object.entries(options)) {
+    if (value === undefined) continue;
+    if (!Object.hasOwn(OPTION_TYPES, key)) throw new Error(`Unknown dcpVerify option: ${key}`);
+    const types = OPTION_TYPES[key as keyof DCPVerifyOptions];
+    if (!types.includes(typeof value) || value === null) {
+      throw new TypeError(`dcpVerify option ${key} must be a ${types.join(' or ')}`);
+    }
   }
-  return entry.result;
+  const o = options as DCPVerifyOptions;
+  if (o.cacheTtlSeconds !== undefined && !(Number.isFinite(o.cacheTtlSeconds) && o.cacheTtlSeconds >= 0)) {
+    throw new TypeError('cacheTtlSeconds must be a non-negative number');
+  }
+  if (o.cacheMaxEntries !== undefined && !(Number.isInteger(o.cacheMaxEntries) && o.cacheMaxEntries >= 1)) {
+    throw new Error('cacheMaxEntries must be a positive integer');
+  }
+  if (o.trustedPrincipals !== undefined && o.requireBundle === false) {
+    // A request without a bundle would reach the route that refuses one with an unadmitted bundle.
+    throw new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', 'trustedPrincipals does not allow requireBundle false: a request without a bundle would reach the route');
+  }
+  if (o.profile !== undefined) {
+    // The profile fixes what these options would otherwise loosen.
+    const contradiction = (what: string) => new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', `strict-v1 does not allow ${what}`);
+    if (o.verifierPolicy !== undefined) throw contradiction('verifierPolicy: the profile sets the verifier policy (profile.verifier_policy may tighten it)');
+    if (o.requireHybrid === false) throw contradiction('requireHybrid false');
+    for (const key of ['checkRevocation', 'revocationServiceUrl', 'revocationFailClosed'] as const) {
+      if (o[key] !== undefined) throw contradiction(`${key}: the profile checks revocation with revocationSource, failing closed`);
+    }
+  }
 }
 
-function setCache(key: string, result: any, ttl: number): void {
-  if (ttl <= 0) return;
-  _cache.set(key, { result, expires: Date.now() + ttl * 1000 });
+/**
+ * The policy the middleware verifies V2 bundles with: `verifierPolicy` over the SDK's
+ * `DEFAULT_VERIFIER_POLICY`, then `requireHybrid`. Throws on an unknown field or a wrong type.
+ */
+export function resolveVerifierPolicy(
+  options: Pick<DCPVerifyOptions, 'verifierPolicy' | 'requireHybrid'> = {},
+): VerifierPolicy {
+  return resolvePolicy(options.verifierPolicy, { requireHybrid: options.requireHybrid === true });
 }
 
-function detectVersion(obj: any): '1.0' | '2.0' | null {
-  if (!obj || typeof obj !== 'object') return null;
-  if (obj.bundle?.dcp_bundle_version === '2.0') return '2.0';
-  if (obj.bundle?.responsible_principal_record?.dcp_version === '1.0') return '1.0';
-  return null;
-}
-
-function extractV2Agent(signedBundle: any): DCPAgent {
+function extractV2Agent(signedBundle: any, warnings: string[]): DCPAgent {
   const bundle = signedBundle.bundle;
   const passport = bundle.agent_passport?.payload;
   const rpr = bundle.responsible_principal_record?.payload;
@@ -89,6 +260,7 @@ function extractV2Agent(signedBundle: any): DCPAgent {
     sessionNonce: nonce,
     lifecycleState: passport?.status || 'active',
     mandateId: bundle.manifest?.mandate_id,
+    warnings,
   };
 }
 
@@ -105,141 +277,240 @@ function extractV1Agent(signedBundle: any): DCPAgent {
   };
 }
 
-async function checkV2Bundle(signedBundle: any, options: DCPVerifyOptions): Promise<{ verified: boolean; errors: string[]; warnings: string[] }> {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  const bundle = signedBundle.bundle;
-  const signature = signedBundle.signature;
-
-  if (!bundle || !signature) {
-    errors.push('Missing bundle or signature fields');
-    return { verified: false, errors, warnings };
-  }
-
-  if (bundle.dcp_bundle_version !== '2.0') {
-    errors.push('Invalid dcp_bundle_version');
-  }
-
-  // Manifest integrity
-  if (!bundle.manifest) {
-    errors.push('Missing manifest');
-  } else {
-    if (!bundle.manifest.session_nonce || !/^[0-9a-f]{64}$/.test(bundle.manifest.session_nonce)) {
-      errors.push('Invalid or missing session_nonce in manifest');
-    }
-    for (const field of ['rpr_hash', 'passport_hash', 'intent_hash', 'policy_hash', 'audit_merkle_root']) {
-      if (!bundle.manifest[field]) {
-        errors.push(`Missing manifest.${field}`);
-      }
-    }
-  }
-
-  // Required artifacts with SignedPayload envelope
-  for (const field of ['responsible_principal_record', 'agent_passport', 'intent', 'policy_decision']) {
-    const artifact = bundle[field];
-    if (!artifact?.payload) {
-      errors.push(`Missing or invalid ${field} (expected SignedPayload)`);
-    } else if (!artifact.composite_sig) {
-      errors.push(`Missing composite_sig in ${field}`);
-    }
-  }
-
-  // Composite signature check
-  if (signature.composite_sig) {
-    const cs = signature.composite_sig;
-    const policy = options.verifierPolicy || {};
-    const mode = policy.default_mode || (options.requireHybrid ? 'hybrid_required' : 'hybrid_preferred');
-
-    if (!cs.classical) {
-      errors.push('Missing classical signature');
-    }
-
-    if (cs.binding === 'pq_over_classical' && !cs.pq) {
-      errors.push('PQ signature missing despite pq_over_classical binding');
-    }
-
-    if (mode === 'hybrid_required' && cs.binding === 'classical_only') {
-      errors.push('Verifier policy requires hybrid signatures');
-    } else if (mode === 'hybrid_preferred' && cs.binding === 'classical_only') {
-      warnings.push('Bundle uses classical_only binding (no PQ protection)');
-    }
-
-    if (policy.require_composite_binding && cs.binding !== 'pq_over_classical') {
-      errors.push('Composite binding required but not present');
-    }
-  } else {
-    errors.push('Missing composite_sig in bundle signature');
-  }
-
-  // Session binding validation
-  const requireSessionBinding = options.verifierPolicy?.require_session_binding ?? true;
-  if (requireSessionBinding && bundle.manifest) {
-    const nonce = bundle.manifest.session_nonce;
-    const artifacts = [
-      bundle.agent_passport?.payload,
-      bundle.responsible_principal_record?.payload,
-      bundle.intent?.payload,
-      bundle.policy_decision?.payload,
-    ].filter(Boolean);
-
-    for (const art of artifacts) {
-      if (art.session_nonce && art.session_nonce !== nonce) {
-        errors.push('Session nonce mismatch across artifacts');
-        break;
-      }
-    }
-  }
-
-  // DCP-05: Lifecycle state check
-  if (options.requireActiveLifecycle) {
-    const passport = bundle.agent_passport?.payload;
-    if (passport?.status === 'decommissioned') {
-      errors.push('Agent is decommissioned (DCP-05 §5.1). Active lifecycle required.');
-    }
-  }
-
-  return { verified: errors.length === 0, errors, warnings };
+/** Every key a V2 bundle can be signed with: passport keys, RPR binding keys, and the bundle signature's kids. */
+function revocationKids(signedBundle: any): string[] {
+  const { bundle, signature } = signedBundle;
+  const kids = [
+    ...bundle.agent_passport.payload.keys.map((key: any) => key?.kid),
+    ...(bundle.responsible_principal_record.payload.binding_keys ?? []).map((key: any) => key?.kid),
+    signature.composite_sig.classical?.kid,
+    signature.composite_sig.pq?.kid,
+  ];
+  return [...new Set(kids.filter((kid): kid is string => typeof kid === 'string'))];
 }
 
-async function checkRevocationStatus(agentId: string, kids: string[] | undefined, url: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${url}/check/${encodeURIComponent(agentId)}`);
-    if (response.ok) {
-      const data = await response.json() as any;
-      if (data.revoked) return true;
-    }
-
-    // V2: Check kid-level revocation
-    if (kids) {
-      for (const kid of kids) {
-        const kidResponse = await fetch(`${url}/v2/check/kid/${encodeURIComponent(kid)}`);
-        if (kidResponse.ok) {
-          const kidData = await kidResponse.json() as any;
-          if (kidData.revoked) return true;
-        }
-      }
-    }
-  } catch {
-    // If revocation service is unavailable, fail-open by default
+/**
+ * When a cached verdict on this bundle stops holding: after the TTL, or when the session, the RPR,
+ * a passport key or an RPR binding key expires, whichever comes first. A timestamp that is not
+ * RFC 3339 gives 0 (not cached).
+ */
+function verdictExpiry(signedBundle: any, ttlSeconds: number, now: number): number {
+  const bundle = signedBundle.bundle ?? {};
+  const rpr = bundle.responsible_principal_record?.payload ?? bundle.responsible_principal_record;
+  const passport = bundle.agent_passport?.payload ?? bundle.agent_passport;
+  const keys = [
+    ...(Array.isArray(passport?.keys) ? passport.keys : []),
+    ...(Array.isArray(rpr?.binding_keys) ? rpr.binding_keys : []),
+  ];
+  const stamps = [bundle.manifest?.session_expires_at, rpr?.expires_at, ...keys.map((key: any) => key?.expires_at)];
+  let expires = now + ttlSeconds * 1000;
+  for (const stamp of stamps) {
+    if (stamp === undefined || stamp === null) continue;
+    const time = parseRfc3339(stamp);
+    if (time === undefined) return 0;
+    expires = Math.min(expires, time);
   }
-  return false;
+  return expires;
+}
+
+/**
+ * A cached verdict: the V2 verifier's result (for admission, which is evaluated again on every
+ * request), or the agent of an accepted bundle and the kids the revocation check asks about.
+ */
+type CachedVerdict = { verification: VerifyV2Result; agent?: undefined; kids?: undefined } | { agent: DCPAgent; kids: string[]; verification?: undefined };
+
+/** Verdicts by bundle hash, policy and tenant, each until its expiry; least recently used evicted first. */
+class VerdictCache {
+  private readonly entries = new Map<string, CachedVerdict & { expires: number }>();
+
+  constructor(private readonly maxEntries: number) {}
+
+  get(key: string, now: number): CachedVerdict | undefined {
+    const entry = this.entries.get(key);
+    if (!entry) return undefined;
+    this.entries.delete(key);
+    if (now >= entry.expires) return undefined;
+    this.entries.set(key, entry); // now the most recently used
+    return structuredClone(entry);
+  }
+
+  set(key: string, verdict: CachedVerdict, expires: number, now: number): void {
+    if (expires <= now) return;
+    this.entries.delete(key);
+    if (this.entries.size >= this.maxEntries) {
+      for (const [k, entry] of this.entries) if (now >= entry.expires) this.entries.delete(k);
+    }
+    while (this.entries.size >= this.maxEntries) {
+      this.entries.delete(this.entries.keys().next().value as string);
+    }
+    this.entries.set(key, { ...structuredClone(verdict), expires });
+  }
+}
+
+/**
+ * The cache key of a signed bundle under a policy and tenant: SHA-256 over the canonical bundle,
+ * the policy fingerprint and the tenant, so two requests share a key only for the same JSON value
+ * under the same policy for the same tenant. undefined when the bundle has no canonical form (a
+ * non-integer number such as 1e999, or nesting too deep): such a bundle is not cached.
+ */
+function cacheKeyFor(signedBundle: unknown, policyKey: string, tenant: string): string | undefined {
+  try {
+    const bundleHash = createHash('sha256').update(canonicalizeV2(signedBundle)).digest('hex');
+    return createHash('sha256').update(JSON.stringify([bundleHash, policyKey, tenant])).digest('hex');
+  } catch {
+    return undefined;
+  }
+}
+
+type RevocationStatus = 'revoked' | 'clear' | 'unavailable';
+
+/**
+ * One revocation lookup: revoked when the JSON body has a truthy `revoked`, clear when it is
+ * `false`, unavailable otherwise (fetch throws, a non-2xx answer, a body that is not JSON or
+ * whose `revoked` is missing or another falsy value).
+ */
+async function revocationLookup(url: string): Promise<RevocationStatus> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return 'unavailable';
+    const data = (await response.json()) as any;
+    if (data?.revoked === false) return 'clear';
+    return data?.revoked ? 'revoked' : 'unavailable';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+/** The agent's status (`/check/<agent_id>`) and, for V2, each key's (`/v2/check/kid/<kid>`). */
+async function checkRevocationStatus(agentId: string, kids: string[], url: string): Promise<RevocationStatus> {
+  const lookups = [`${url}/check/${encodeURIComponent(agentId)}`, ...kids.map((kid) => `${url}/v2/check/kid/${encodeURIComponent(kid)}`)];
+  let status: RevocationStatus = 'clear';
+  for (const lookup of lookups) {
+    const result = await revocationLookup(lookup);
+    if (result === 'revoked') return 'revoked';
+    if (result === 'unavailable') status = 'unavailable';
+  }
+  return status;
+}
+
+/**
+ * cancelOnDisconnect needs something to cancel, and nothing that cannot be: every source function
+ * supervised, by a supervisor that supports cancellation, and no checkRevocation.
+ */
+function checkCancelOnDisconnect(options: DCPVerifyOptions, admission: ReturnType<typeof resolveAdmission>): void {
+  const contradiction = (why: string) => new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', `cancelOnDisconnect ${why}`);
+  if (!admission) throw contradiction('needs trustedPrincipals: it cancels admission sources');
+  if (!admission.supervision) throw contradiction('needs sourceSupervisor and supervise: it cancels supervised sources only');
+  if (typeof admission.trust === 'function' && admission.supervision.trustTimeoutMs === undefined) {
+    throw contradiction('needs the trustedPrincipals function supervised (supervise.trustTimeoutMs)');
+  }
+  if (admission.revocationSource && !admission.supervision.revocation) {
+    throw contradiction('needs the revocationSource supervised (supervise.revocation: true)');
+  }
+  if (options.checkRevocation) throw contradiction('does not allow checkRevocation: it is neither supervised nor cancelled');
+  if (!supportsCancellation(admission.supervision.supervisor)) {
+    throw new AdmissionConfigError(
+      'CONFIG_INVALID_VALUE',
+      'cancelOnDisconnect needs a sourceSupervisor that supports cancellation: create it with this version of @dcp-ai/express or @dcp-ai/openclaw',
+    );
+  }
+}
+
+/**
+ * Whether the client really left: the response closed before it was sent, or the request closed
+ * before its body was complete. A request's `close` once its body is read is not that. `gone()`
+ * also reads the current state, not only events already dispatched. `dispose` removes the
+ * listeners; it runs on the response's finish or close and when the caller is done.
+ */
+function watchClient(req: Request, res: Response) {
+  const controller = new AbortController();
+  const abandon = () => controller.abort();
+  const left = () => (res.destroyed && !res.writableFinished) || (req.destroyed && req.complete === false);
+  const onResponseClose = () => {
+    if (!res.writableFinished) abandon();
+    dispose();
+  };
+  const onRequestClose = () => {
+    if (req.complete === false) abandon();
+  };
+  const dispose = () => {
+    res.off('close', onResponseClose);
+    res.off('finish', dispose);
+    req.off('close', onRequestClose);
+  };
+  if (left()) {
+    abandon(); // it left before the middleware looked
+  } else {
+    res.on('close', onResponseClose);
+    res.on('finish', dispose);
+    req.on('close', onRequestClose);
+  }
+  const gone = () => {
+    if (!controller.signal.aborted && left()) abandon();
+    return controller.signal.aborted;
+  };
+  return { signal: controller.signal, gone, dispose };
 }
 
 /**
  * Express middleware that verifies DCP signed bundles (V1 + V2).
  */
 export function dcpVerify(options: DCPVerifyOptions = {}) {
+  checkOptions(options);
   const {
     requireBundle = true,
     checkRevocation = false,
     revocationServiceUrl = 'http://localhost:3003',
+    revocationFailClosed = false,
     onFailure,
     headerName = 'x-dcp-bundle',
     cacheTtlSeconds = 0,
+    cacheMaxEntries = 1000,
+    requireHybrid = false,
+    requireActiveLifecycle = false,
+    tenant: tenantOf,
+    clock = Date.now,
   } = options;
+  const admission = resolveAdmission(options);
+  const cancelOnDisconnect = options.cancelOnDisconnect === true;
+  if (cancelOnDisconnect) checkCancelOnDisconnect(options, admission);
+  const policy = admissionPolicy(admission, resolveVerifierPolicy(options));
+  const policyKey = policyFingerprint(policy);
+
+  // One cache per middleware; its entries are keyed by bundle, policy and tenant.
+  const cache = new VerdictCache(cacheMaxEntries);
+
+  const fail = (req: Request, res: Response, errors: string[], warnings?: string[]) => {
+    if (onFailure) return onFailure(req, res, errors);
+    return res.status(403).json(warnings ? { verified: false, errors, warnings } : { verified: false, errors });
+  };
+  const refuse = (req: Request, res: Response, result: AdmissionResult) => {
+    const body = admissionFailure(result);
+    if (onFailure) return onFailure(req, res, body.errors, result);
+    return res.status(403).json(body);
+  };
+  // The operator's trust source failed or gave no valid trust set: refused, never admitted.
+  const trustUnavailable = (req: Request, res: Response, verified: boolean, err: TrustSourceError) => {
+    const errors = [`The principal trust set is unavailable (${err.code})`];
+    if (onFailure) return onFailure(req, res, errors);
+    return res.status(503).json({
+      verified,
+      admitted: false,
+      principal_trust: 'not_evaluated',
+      profile: admission?.profile ? 'strict-v1' : null,
+      profile_compliance: 'not_evaluated',
+      codes: [],
+      errors,
+    });
+  };
 
   return async (req: Request & { dcpAgent?: DCPAgent }, res: Response, next: NextFunction) => {
+    // With cancelOnDisconnect: whether the client left, and its signal, from the moment the request
+    // enters. A client that left gets nothing more and nothing is written: checked before each
+    // stage and each answer (the bundle's verification itself is not interrupted).
+    const client = cancelOnDisconnect ? watchClient(req, res) : undefined;
     try {
+      if (client?.gone()) return;
       let signedBundle: any = null;
       const headerValue = req.headers[headerName];
       if (typeof headerValue === 'string') {
@@ -255,86 +526,122 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
       }
 
       if (!signedBundle) {
+        if (client?.gone()) return;
         if (requireBundle) {
-          const errors = ['Missing DCP signed bundle. Provide via X-DCP-Bundle header or body.signed_bundle.'];
-          if (onFailure) return onFailure(req, res, errors);
-          return res.status(403).json({ verified: false, errors });
+          return fail(req, res, ['Missing DCP signed bundle. Provide via X-DCP-Bundle header or body.signed_bundle.']);
         }
         return next();
       }
 
-      // Cache check
-      const cacheKey = JSON.stringify(signedBundle.signature?.composite_sig || signedBundle.signature?.sig_b64 || '');
-      if (cacheTtlSeconds > 0 && cacheKey) {
-        const cached = getCached(cacheKey);
-        if (cached?.verified) {
-          req.dcpAgent = cached.agent;
-          return next();
-        }
-      }
-
+      const now = clock();
+      const tenant = tenantOf ? tenantOf(req) : '';
+      if (typeof tenant !== 'string') throw new TypeError('the tenant function must return a string');
+      const cacheKey = cacheTtlSeconds > 0 ? cacheKeyFor(signedBundle, policyKey, tenant) : undefined;
+      const cached = cacheKey ? cache.get(cacheKey, now) : undefined;
       const version = detectVersion(signedBundle);
 
-      if (version === '2.0') {
-        // V2 verification path
-        const { verified, errors, warnings } = await checkV2Bundle(signedBundle, options);
-
-        if (!verified) {
-          if (onFailure) return onFailure(req, res, errors);
-          return res.status(403).json({ verified: false, errors, warnings });
+      // ── Admission: trusted principals, and the strict-v1 profile ──
+      if (admission) {
+        if (client?.gone()) return;
+        let verification = cached?.verification;
+        let verdict: Awaited<ReturnType<typeof verifyV2>> | undefined;
+        if (version === '2.0' && !verification) {
+          verdict = await verifyV2(signedBundle, policy, now);
+          verification = verdict.verification;
+          if (client?.gone()) return;
+          if (cacheKey && verification.verified) cache.set(cacheKey, { verification }, verdictExpiry(signedBundle, cacheTtlSeconds, now), now);
         }
-
-        const agent = extractV2Agent(signedBundle);
-
-        // Revocation check
+        let result: AdmissionResult;
+        try {
+          result = await admit(admission, signedBundle, version === '2.0' ? verification : undefined, { tenant, now, signal: client?.signal });
+        } catch (err) {
+          if (client?.gone()) return;
+          if (!(err instanceof TrustSourceError)) throw err;
+          return trustUnavailable(req, res, verification?.verified === true, err);
+        }
+        if (client?.gone()) return;
+        client?.dispose(); // the response or the handler comes next: no listener of ours stays
+        if (!result.admitted) return refuse(req, res, result);
+        if (requireActiveLifecycle && signedBundle.bundle.agent_passport.payload.status === 'decommissioned') {
+          return fail(req, res, ['Agent is decommissioned (DCP-05 §5.1). Active lifecycle required.']);
+        }
+        const agent = extractV2Agent(signedBundle, result.verification.warnings);
+        agent.verificationMode = result.verification.details?.verification_mode;
+        agent.securityTier = result.verification.details?.resolved_tier;
+        agent.admission = {
+          admitted: true,
+          principalTrust: result.principal_trust,
+          profile: result.profile,
+          profileCompliance: result.profile_compliance,
+          recordedDecision: result.recorded_decision,
+          trustSetVersion: result.trust_set_version,
+          actionAuthorized: false,
+        };
         if (checkRevocation) {
-          const revoked = await checkRevocationStatus(agent.agentId, agent.kids, revocationServiceUrl);
-          if (revoked) {
-            const errors = ['Agent or key has been revoked'];
-            if (onFailure) return onFailure(req, res, errors);
-            return res.status(403).json({ verified: false, errors });
-          }
+          // Trusted principals without the profile may still use the revocation service.
+          const status = await checkRevocationStatus(agent.agentId, revocationKids(signedBundle), revocationServiceUrl);
+          if (status === 'revoked') return fail(req, res, ['Agent or key has been revoked']);
+          if (status === 'unavailable' && revocationFailClosed) return fail(req, res, ['Revocation status unavailable (revocationFailClosed)']);
         }
-
-        if (cacheTtlSeconds > 0) {
-          setCache(cacheKey, { verified: true, agent }, cacheTtlSeconds);
-        }
-
         req.dcpAgent = agent;
         return next();
       }
 
-      // V1 verification path
-      const { verifySignedBundle } = await import('@dcp-ai/sdk');
-      const result = verifySignedBundle(signedBundle);
-
-      if (!result.verified) {
-        const errors = result.errors || ['Verification failed'];
-        if (onFailure) return onFailure(req, res, errors);
-        return res.status(403).json({ verified: false, errors });
-      }
-
-      const agent = extractV1Agent(signedBundle);
-
-      if (checkRevocation) {
-        const revoked = await checkRevocationStatus(agent.agentId, undefined, revocationServiceUrl);
-        if (revoked) {
-          const errors = ['Agent has been revoked'];
-          if (onFailure) return onFailure(req, res, errors);
-          return res.status(403).json({ verified: false, errors });
+      // ── Verification only ──
+      let verdict = cached?.agent ? { agent: cached.agent, kids: cached.kids } : undefined;
+      const fresh = !verdict;
+      if (!verdict) {
+        if (version === '2.0') {
+          const result = await verifyV2(signedBundle, policy, now);
+          const errors = [...result.errors];
+          if (result.verified && requireActiveLifecycle && signedBundle.bundle.agent_passport.payload.status === 'decommissioned') {
+            errors.push('Agent is decommissioned (DCP-05 §5.1). Active lifecycle required.');
+          }
+          if (errors.length > 0) return fail(req, res, errors, result.warnings);
+          const agent = extractV2Agent(signedBundle, result.warnings);
+          agent.verificationMode = result.verificationMode;
+          agent.securityTier = result.securityTier;
+          verdict = { agent, kids: revocationKids(signedBundle) };
+        } else if (version === '1.0') {
+          const refusal = v1Refusal(policy, requireHybrid, signedBundle.bundle);
+          if (refusal) return fail(req, res, [refusal]);
+          let result: ReturnType<typeof verifySignedBundle>;
+          try {
+            result = verifySignedBundle(signedBundle);
+          } catch (err) {
+            return fail(req, res, [`V1 verification error: ${err instanceof Error ? err.message : String(err)}`]);
+          }
+          if (!result.verified) return fail(req, res, result.errors || ['Verification failed']);
+          verdict = { agent: extractV1Agent(signedBundle), kids: [] };
+        } else {
+          return fail(req, res, [
+            'Unrecognized DCP bundle version: expected bundle.dcp_bundle_version "2.0" or bundle.responsible_principal_record.dcp_version "1.0"',
+          ]);
         }
       }
 
-      if (cacheTtlSeconds > 0) {
-        setCache(cacheKey, { verified: true, agent }, cacheTtlSeconds);
+      // Revocation is checked on every request, cached verdict or not.
+      if (checkRevocation) {
+        const status = await checkRevocationStatus(verdict.agent.agentId, verdict.kids, revocationServiceUrl);
+        if (status === 'revoked') {
+          return fail(req, res, [verdict.agent.dcpVersion === '2.0' ? 'Agent or key has been revoked' : 'Agent has been revoked']);
+        }
+        if (status === 'unavailable' && revocationFailClosed) {
+          return fail(req, res, ['Revocation status unavailable (revocationFailClosed)']);
+        }
       }
 
-      req.dcpAgent = agent;
+      if (cacheKey && fresh) cache.set(cacheKey, verdict, verdictExpiry(signedBundle, cacheTtlSeconds, now), now);
+
+      req.dcpAgent = verdict.agent;
       next();
     } catch (err: any) {
+      if (client?.gone()) return;
       const errors = [`DCP verification error: ${err.message}`];
       if (onFailure) return onFailure(req, res, errors);
       return res.status(500).json({ verified: false, errors });
+    } finally {
+      client?.dispose();
     }
   };
 }

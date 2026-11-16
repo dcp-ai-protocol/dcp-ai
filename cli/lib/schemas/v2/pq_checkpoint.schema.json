@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/pq_checkpoint.schema.json",
+  "title": "PQCheckpoint",
+  "description": "DCP v2.0 Post-Quantum checkpoint. Composite signature over Merkle root of a batch of audit events.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["checkpoint_id", "session_nonce", "event_range", "merkle_root", "composite_sig"],
+  "properties": {
+    "checkpoint_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "event_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_audit_id", "to_audit_id", "count"],
+      "properties": {
+        "from_audit_id": { "type": "string" },
+        "to_audit_id": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "merkle_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

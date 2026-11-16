@@ -2,15 +2,18 @@ name: Publish Integrations
 
 # Publishes the 6 framework integrations to npm. Each is its own
 # package under the @dcp-ai scope and is independent of the others.
+# A package that depends on a local path (file:, link:, ...) is refused:
+# The integrations use the published SDK (minimum @dcp-ai/sdk 2.2.0).
 # Every job pre-checks whether the manifest version is already on npm
 # and, if so, exits green with a skip notice. That keeps the Actions
 # tab free of red ghosts when a release only bumps one integration.
 #
 # npm authentication is trusted publishing (OIDC); NPM_TOKEN stays only as a
-# transitional fallback. Packages with nothing to build are published straight from
-# the checkout with `--ignore-scripts`. express and openclaw need an install and a
-# build, so they are built and packed in a read-only build-* job and published by a
-# separate publish-* job that only downloads the tarball (see publish.yml for why).
+# transitional fallback. autogen and w3c-did have nothing to build and are published
+# straight from the checkout with `--ignore-scripts`. anthropic-mcp, google-a2a, express
+# and openclaw need an install and a build, so they are built and packed in a read-only
+# build-* job and published by a separate publish-* job that only downloads the tarball
+# (see publish.yml for why).
 # Trusted publishers are configured per package on npmjs.com with the workflow
 # filename `publish-integrations.yml`.
 
@@ -36,15 +39,16 @@ permissions:
   contents: read
 
 jobs:
-  publish-anthropic-mcp:
-    name: Publish @dcp-ai/anthropic-mcp
+  build-anthropic-mcp:
+    name: Build @dcp-ai/anthropic-mcp
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'anthropic-mcp'
-    # Nothing is installed and no package script runs here, so no third-party code
-    # can use the OIDC token this job is allowed to mint.
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-anthropic-mcp.
     permissions:
       contents: read
-      id-token: write
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
     defaults:
       run:
         working-directory: integrations/anthropic-mcp
@@ -52,7 +56,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -66,7 +70,51 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public --ignore-scripts
+        name: Refuse a dependency on a local path
+        # Published packages must resolve dependencies from the registry, never local paths.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
+      - if: steps.check.outputs.skip != 'true'
+        name: Install against the published @dcp-ai/sdk
+        run: npm install --no-package-lock
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.check.outputs.skip != 'true'
+        name: Pack the tarball
+        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-anthropic-mcp
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-anthropic-mcp:
+    name: Publish @dcp-ai/anthropic-mcp
+    needs: build-anthropic-mcp
+    runs-on: ubuntu-latest
+    if: needs.build-anthropic-mcp.result == 'success' && needs.build-anthropic-mcp.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-anthropic-mcp
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
           # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
           # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
@@ -102,21 +150,33 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # Published packages must resolve dependencies from the registry, never local paths.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
+      - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public --ignore-scripts
         env:
           # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
           # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-google-a2a:
-    name: Publish @dcp-ai/google-a2a
+  build-google-a2a:
+    name: Build @dcp-ai/google-a2a
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'google-a2a'
-    # Nothing is installed and no package script runs here, so no third-party code
-    # can use the OIDC token this job is allowed to mint.
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-google-a2a.
     permissions:
       contents: read
-      id-token: write
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
     defaults:
       run:
         working-directory: integrations/google-a2a
@@ -124,7 +184,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -138,7 +198,51 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public --ignore-scripts
+        name: Refuse a dependency on a local path
+        # Published packages must resolve dependencies from the registry, never local paths.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
+      - if: steps.check.outputs.skip != 'true'
+        name: Install against the published @dcp-ai/sdk
+        run: npm install --no-package-lock
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.check.outputs.skip != 'true'
+        name: Pack the tarball
+        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-google-a2a
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-google-a2a:
+    name: Publish @dcp-ai/google-a2a
+    needs: build-google-a2a
+    runs-on: ubuntu-latest
+    if: needs.build-google-a2a.result == 'success' && needs.build-google-a2a.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-google-a2a
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
           # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
           # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
@@ -173,6 +277,17 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # Published packages must resolve dependencies from the registry, never local paths.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
       - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public --ignore-scripts
         env:
@@ -210,6 +325,17 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # Published packages must resolve dependencies from the registry, never local paths.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
       - if: steps.check.outputs.skip != 'true'
         name: Install against the published @dcp-ai/sdk
         run: npm install --no-package-lock
@@ -280,6 +406,17 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # Published packages must resolve dependencies from the registry, never local paths.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
       - if: steps.check.outputs.skip != 'true'
         name: Install against the published @dcp-ai/sdk
         run: npm install --no-package-lock

@@ -1,0 +1,1279 @@
+{
+  "_description": "The historical rejects V2-2 now decides first (schema-invalid rows of bundle_vectors.json and secondary_sha3_vectors.json, read unchanged). An SDK with the schema gate asserts schema_errors (each {instance, keyword, member?}, the set both oracles report; a failed oneOf once at its instance) for these rows instead of historical_error_contains, and keeps the deeper check covered as deep_coverage says. Rows not listed keep their historical assertion.",
+  "_sources": {
+    "tests/interop/v2/bundle_vectors.json": "e46c0ee7fae524f2414147540a27b05c57b6819b8cda9ce3741aaa9aa69097e8",
+    "tests/interop/v2/secondary_sha3_vectors.json": "1f0a81967ae7f65c3cb382432f79714168e54c2705fcd3014c1cd606a34f6287",
+    "tests/interop/v2/schema_validation/wiring_cases.json": "db92741b4f3c8402d3b8bf10f6241ef7a5d4991655b1c562157d2b9bd89684eb",
+    "generator": "tests/interop/v2/generate-schema-regression-vectors.mjs",
+    "oracle_python": {
+      "oracle": "python-jsonschema",
+      "python": "3.12.2",
+      "versions": {
+        "jsonschema": "4.26.0",
+        "referencing": "0.37.0"
+      }
+    }
+  },
+  "totals": {
+    "rows_read": 146,
+    "schema_invalid": 56,
+    "by_fixture": {
+      "tests/interop/v2/bundle_vectors.json": 43,
+      "tests/interop/v2/secondary_sha3_vectors.json": 13
+    }
+  },
+  "rows": [
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "bundle_classical_sig_b64_with_junk_after",
+      "spec_step": "V2-5",
+      "historical_error_contains": "sig_b64 is not canonical base64",
+      "schema_errors": [
+        {
+          "instance": "/signature/composite_sig/classical/sig_b64",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "bundle_classical_sig_b64_unpadded",
+          "bundle_classical_sig_b64_with_trailing_bits",
+          "bundle_pq_sig_b64_with_extra_padding",
+          "bundle_pq_sig_b64_with_junk_after",
+          "intent_classical_sig_b64_unpadded",
+          "intent_classical_sig_b64_with_trailing_bits"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "bundle_classical_sig_b64_with_extra_padding",
+      "spec_step": "V2-5",
+      "historical_error_contains": "sig_b64 is not canonical base64",
+      "schema_errors": [
+        {
+          "instance": "/signature/composite_sig/classical/sig_b64",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "bundle_classical_sig_b64_unpadded",
+          "bundle_classical_sig_b64_with_trailing_bits",
+          "bundle_pq_sig_b64_with_extra_padding",
+          "bundle_pq_sig_b64_with_junk_after",
+          "intent_classical_sig_b64_unpadded",
+          "intent_classical_sig_b64_with_trailing_bits"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "bundle_classical_sig_b64_with_a_newline",
+      "spec_step": "V2-5",
+      "historical_error_contains": "sig_b64 is not canonical base64",
+      "schema_errors": [
+        {
+          "instance": "/signature/composite_sig/classical/sig_b64",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "bundle_classical_sig_b64_unpadded",
+          "bundle_classical_sig_b64_with_trailing_bits",
+          "bundle_pq_sig_b64_with_extra_padding",
+          "bundle_pq_sig_b64_with_junk_after",
+          "intent_classical_sig_b64_unpadded",
+          "intent_classical_sig_b64_with_trailing_bits"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "bundle_pq_sig_b64_with_a_newline",
+      "spec_step": "V2-5",
+      "historical_error_contains": "sig_b64 is not canonical base64",
+      "schema_errors": [
+        {
+          "instance": "/signature/composite_sig/pq",
+          "keyword": "oneOf"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "bundle_classical_sig_b64_unpadded",
+          "bundle_classical_sig_b64_with_trailing_bits",
+          "bundle_pq_sig_b64_with_extra_padding",
+          "bundle_pq_sig_b64_with_junk_after",
+          "intent_classical_sig_b64_unpadded",
+          "intent_classical_sig_b64_with_trailing_bits"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "intent_classical_sig_b64_with_junk_after",
+      "spec_step": "V2-5",
+      "historical_error_contains": "sig_b64 is not canonical base64",
+      "schema_errors": [
+        {
+          "instance": "/bundle/intent/composite_sig/classical/sig_b64",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "bundle_classical_sig_b64_unpadded",
+          "bundle_classical_sig_b64_with_trailing_bits",
+          "bundle_pq_sig_b64_with_extra_padding",
+          "bundle_pq_sig_b64_with_junk_after",
+          "intent_classical_sig_b64_unpadded",
+          "intent_classical_sig_b64_with_trailing_bits"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "intent_classical_sig_b64_with_extra_padding",
+      "spec_step": "V2-5",
+      "historical_error_contains": "sig_b64 is not canonical base64",
+      "schema_errors": [
+        {
+          "instance": "/bundle/intent/composite_sig/classical/sig_b64",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "bundle_classical_sig_b64_unpadded",
+          "bundle_classical_sig_b64_with_trailing_bits",
+          "bundle_pq_sig_b64_with_extra_padding",
+          "bundle_pq_sig_b64_with_junk_after",
+          "intent_classical_sig_b64_unpadded",
+          "intent_classical_sig_b64_with_trailing_bits"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "intent_classical_sig_b64_with_a_newline",
+      "spec_step": "V2-5",
+      "historical_error_contains": "sig_b64 is not canonical base64",
+      "schema_errors": [
+        {
+          "instance": "/bundle/intent/composite_sig/classical/sig_b64",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "bundle_classical_sig_b64_unpadded",
+          "bundle_classical_sig_b64_with_trailing_bits",
+          "bundle_pq_sig_b64_with_extra_padding",
+          "bundle_pq_sig_b64_with_junk_after",
+          "intent_classical_sig_b64_unpadded",
+          "intent_classical_sig_b64_with_trailing_bits"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "signature_hash_alg_unknown",
+      "spec_step": "V2-4",
+      "historical_error_contains": "hash_alg",
+      "schema_errors": [
+        {
+          "instance": "/signature/hash_alg",
+          "keyword": "enum"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "the hash_alg enum is the set the verifier accepts"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "intent_null",
+      "spec_step": "V2-8",
+      "historical_error_contains": "intent",
+      "schema_errors": [
+        {
+          "instance": "/bundle/intent",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "the SignedPayload envelope is closed and its members required; the \"not a SignedPayload object\" branch is no longer reachable"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "policy_decision_not_an_object",
+      "spec_step": "V2-8",
+      "historical_error_contains": "policy_decision",
+      "schema_errors": [
+        {
+          "instance": "/bundle/policy_decision",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "the SignedPayload envelope is closed and its members required; the \"not a SignedPayload object\" branch is no longer reachable"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "rpr_null_in_agent_signed_bundle",
+      "spec_step": "V2-8",
+      "historical_error_contains": "responsible_principal_record",
+      "schema_errors": [
+        {
+          "instance": "/bundle/responsible_principal_record",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "the SignedPayload envelope is closed and its members required; the \"not a SignedPayload object\" branch is no longer reachable"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "intent_unsigned",
+      "spec_step": "V2-8",
+      "historical_error_contains": "intent",
+      "schema_errors": [
+        {
+          "instance": "/bundle/intent",
+          "keyword": "required",
+          "member": "composite_sig"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "the SignedPayload envelope is closed and its members required; the \"not a SignedPayload object\" branch is no longer reachable"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "agent_passport_unsigned",
+      "spec_step": "V2-8",
+      "historical_error_contains": "agent_passport",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport",
+          "keyword": "required",
+          "member": "composite_sig"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "the SignedPayload envelope is closed and its members required; the \"not a SignedPayload object\" branch is no longer reachable"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "policy_decision_unsigned",
+      "spec_step": "V2-8",
+      "historical_error_contains": "policy_decision",
+      "schema_errors": [
+        {
+          "instance": "/bundle/policy_decision",
+          "keyword": "required",
+          "member": "composite_sig"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "the SignedPayload envelope is closed and its members required; the \"not a SignedPayload object\" branch is no longer reachable"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "dcp_bundle_version_1_0",
+      "spec_step": "V2-1",
+      "historical_error_contains": "version",
+      "schema_errors": [
+        {
+          "instance": "/bundle/dcp_bundle_version",
+          "keyword": "const"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "dcp_bundle_version is const \"2.0\"; the version branch of the V2 verifier is no longer reachable"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject",
+      "name": "dcp_bundle_version_3_0",
+      "spec_step": "V2-1",
+      "historical_error_contains": "version",
+      "schema_errors": [
+        {
+          "instance": "/bundle/dcp_bundle_version",
+          "keyword": "const"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "dcp_bundle_version is const \"2.0\"; the version branch of the V2 verifier is no longer reachable"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "classical_only_bundle_signature_without_pq",
+      "spec_step": "V2-5",
+      "historical_error_contains": "bundle",
+      "schema_errors": [
+        {
+          "instance": "/signature/composite_sig",
+          "keyword": "required",
+          "member": "pq"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "pq is a required member (null allowed); the PQ requirement of the effective mode stays reachable with pq null",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/bundle_vectors.json",
+          "rows": [
+            "classical_only_estimated_impact_high",
+            "classical_only_payment_from_low_risk_passport",
+            "classical_only_policy_risk_score_900"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "empty_audit_trail_with_another_root",
+      "spec_step": "V2-3",
+      "historical_error_contains": "audit",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/audit_merkle_root",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "manifest_audit_merkle_root_mismatch"
+        ],
+        "note": "the root comparison stays reachable with a schema-valid wrong root; must_accept empty_audit_trail keeps the zero-root branch"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "manifest_without_rpr_hash",
+      "spec_step": "V2-3",
+      "historical_error_contains": "rpr_hash",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest",
+          "keyword": "required",
+          "member": "rpr_hash"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "the manifest hashes are required members; a mismatched hash stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/bundle_vectors.json",
+          "rows": [
+            "manifest_intent_hash_mismatch",
+            "intent_payload_hash_wrong"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "session_expires_at_not_a_timestamp",
+      "spec_step": "V2-4",
+      "historical_error_contains": "session_expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/session_expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "session_expires_at_space_separator"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "session_expires_at_empty",
+      "spec_step": "V2-4",
+      "historical_error_contains": "session_expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/session_expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "session_expires_at_space_separator"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "session_expires_at_date_only",
+      "spec_step": "V2-4",
+      "historical_error_contains": "session_expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/session_expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "session_expires_at_space_separator"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "session_expires_at_not_a_string",
+      "spec_step": "V2-4",
+      "historical_error_contains": "session_expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/session_expires_at",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "session_expires_at_space_separator"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "passport_key_expires_at_not_a_timestamp",
+      "spec_step": "V2-13",
+      "historical_error_contains": "expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/keys/0/expires_at",
+          "keyword": "format"
+        },
+        {
+          "instance": "/bundle/agent_passport/payload/keys/1/expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "passport_key_expires_at_leap_second"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "passport_key_expires_at_not_a_string",
+      "spec_step": "V2-13",
+      "historical_error_contains": "expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/keys/0/expires_at",
+          "keyword": "type"
+        },
+        {
+          "instance": "/bundle/agent_passport/payload/keys/1/expires_at",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "passport_key_expires_at_leap_second"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "passport_key_expires_at_impossible_date",
+      "spec_step": "V2-13",
+      "historical_error_contains": "expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/keys/0/expires_at",
+          "keyword": "format"
+        },
+        {
+          "instance": "/bundle/agent_passport/payload/keys/1/expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "passport_key_expires_at_leap_second"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "passport_key_expires_at_date_only",
+      "spec_step": "V2-13",
+      "historical_error_contains": "expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/keys/0/expires_at",
+          "keyword": "format"
+        },
+        {
+          "instance": "/bundle/agent_passport/payload/keys/1/expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "passport_key_expires_at_leap_second"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "passport_key_expires_at_no_offset",
+      "spec_step": "V2-13",
+      "historical_error_contains": "expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/keys/0/expires_at",
+          "keyword": "format"
+        },
+        {
+          "instance": "/bundle/agent_passport/payload/keys/1/expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "passport_key_expires_at_leap_second"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "rpr_binding_key_expires_at_impossible_date",
+      "spec_step": "V2-13",
+      "historical_error_contains": "expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/responsible_principal_record/payload/binding_keys/0/expires_at",
+          "keyword": "format"
+        },
+        {
+          "instance": "/bundle/responsible_principal_record/payload/binding_keys/1/expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "rpr_binding_key_expires_at_offset_without_colon"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "classical_only_payment_from_passport_risk_tier_constructor",
+      "spec_step": "V2-9",
+      "historical_error_contains": "pq",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/risk_tier",
+          "keyword": "enum"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "helper",
+        "helper": "the tier and mode lookups with prototype names: computeSecurityTier (public) and resolveMode (verify-v2 internal), tested directly in each SDK"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "classical_only_payment_from_passport_risk_tier_proto",
+      "spec_step": "V2-9",
+      "historical_error_contains": "pq",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/risk_tier",
+          "keyword": "enum"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "helper",
+        "helper": "the tier and mode lookups with prototype names: computeSecurityTier (public) and resolveMode (verify-v2 internal), tested directly in each SDK"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "classical_only_payment_from_passport_risk_tier_toString",
+      "spec_step": "V2-9",
+      "historical_error_contains": "pq",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/risk_tier",
+          "keyword": "enum"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "helper",
+        "helper": "the tier and mode lookups with prototype names: computeSecurityTier (public) and resolveMode (verify-v2 internal), tested directly in each SDK"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "classical_only_payment_from_passport_risk_tier_hasOwnProperty",
+      "spec_step": "V2-9",
+      "historical_error_contains": "pq",
+      "schema_errors": [
+        {
+          "instance": "/bundle/agent_passport/payload/risk_tier",
+          "keyword": "enum"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "helper",
+        "helper": "the tier and mode lookups with prototype names: computeSecurityTier (public) and resolveMode (verify-v2 internal), tested directly in each SDK"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "classical_only_intent_action_type_constructor",
+      "spec_step": "V2-9",
+      "historical_error_contains": "pq",
+      "schema_errors": [
+        {
+          "instance": "/bundle/intent/payload/action_type",
+          "keyword": "enum"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "helper",
+        "helper": "the tier and mode lookups with prototype names: computeSecurityTier (public) and resolveMode (verify-v2 internal), tested directly in each SDK"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "classical_only_intent_estimated_impact_constructor",
+      "spec_step": "V2-9",
+      "historical_error_contains": "pq",
+      "schema_errors": [
+        {
+          "instance": "/bundle/intent/payload/estimated_impact",
+          "keyword": "enum"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "helper",
+        "helper": "the tier and mode lookups with prototype names: computeSecurityTier (public) and resolveMode (verify-v2 internal), tested directly in each SDK"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "classical_only_intent_security_tier_constructor",
+      "spec_step": "V2-9",
+      "historical_error_contains": "pq",
+      "schema_errors": [
+        {
+          "instance": "/bundle/intent/payload/security_tier",
+          "keyword": "enum"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "helper",
+        "helper": "the tier and mode lookups with prototype names: computeSecurityTier (public) and resolveMode (verify-v2 internal), tested directly in each SDK"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "canonicalization_profile_unknown",
+      "spec_step": "V2-3",
+      "historical_error_contains": "canonicalization_profile",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/canonicalization_profile",
+          "keyword": "const"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "canonicalization_profile is const \"dcp-jcs-v1\" on the default path; the candidate route has its own one-node overlay and its own tests"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "canonicalization_profile_not_a_string",
+      "spec_step": "V2-3",
+      "historical_error_contains": "canonicalization_profile",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/canonicalization_profile",
+          "keyword": "const"
+        },
+        {
+          "instance": "/bundle/manifest/canonicalization_profile",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "canonicalization_profile is const \"dcp-jcs-v1\" on the default path; the candidate route has its own one-node overlay and its own tests"
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "rpr_expires_at_impossible_date",
+      "spec_step": "V2-14",
+      "historical_error_contains": "responsible_principal_record has an invalid expires_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/responsible_principal_record/payload/expires_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "rpr_expires_at_tab_separator"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "policy_decision_without_session_nonce",
+      "spec_step": "V2-4",
+      "historical_error_contains": "nonce",
+      "schema_errors": [
+        {
+          "instance": "/bundle/policy_decision/payload",
+          "keyword": "required",
+          "member": "session_nonce"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "audit_entry_session_nonce_differs",
+          "intent_session_nonce_differs",
+          "manifest_session_nonce_differs_from_artifacts"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "audit_entry_without_session_nonce",
+      "spec_step": "V2-4",
+      "historical_error_contains": "nonce",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/1",
+          "keyword": "required",
+          "member": "session_nonce"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "schema_valid_rows",
+        "fixture": "tests/interop/v2/bundle_vectors.json",
+        "rows": [
+          "audit_entry_session_nonce_differs",
+          "intent_session_nonce_differs",
+          "manifest_session_nonce_differs_from_artifacts"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "session_issued_at_not_a_timestamp",
+      "spec_step": "V2-4",
+      "historical_error_contains": "session_issued_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/session_issued_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "session_issued_at_lowercase"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/bundle_vectors.json",
+      "group": "must_reject_bundles",
+      "name": "session_issued_at_date_only",
+      "spec_step": "V2-4",
+      "historical_error_contains": "session_issued_at",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/session_issued_at",
+          "keyword": "format"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "deep_negatives",
+        "cases": [
+          "session_issued_at_lowercase"
+        ]
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "root",
+      "name": "root_null",
+      "spec_step": "V2-11",
+      "historical_error_contains": "audit_merkle_root_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/audit_merkle_root_secondary",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "root_wrong_value",
+            "root_over_reordered_entries",
+            "root_without_odd_duplication",
+            "root_sha256_tree_under_sha3_prefix",
+            "root_zeros_on_non_empty_trail",
+            "root_non_zero_on_empty_trail"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "root",
+      "name": "root_number",
+      "spec_step": "V2-11",
+      "historical_error_contains": "audit_merkle_root_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/audit_merkle_root_secondary",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "root_wrong_value",
+            "root_over_reordered_entries",
+            "root_without_odd_duplication",
+            "root_sha256_tree_under_sha3_prefix",
+            "root_zeros_on_non_empty_trail",
+            "root_non_zero_on_empty_trail"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "root",
+      "name": "root_uppercase_hex",
+      "spec_step": "V2-11",
+      "historical_error_contains": "audit_merkle_root_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/audit_merkle_root_secondary",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "root_wrong_value",
+            "root_over_reordered_entries",
+            "root_without_odd_duplication",
+            "root_sha256_tree_under_sha3_prefix",
+            "root_zeros_on_non_empty_trail",
+            "root_non_zero_on_empty_trail"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "root",
+      "name": "root_sha256_prefix",
+      "spec_step": "V2-11",
+      "historical_error_contains": "audit_merkle_root_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/audit_merkle_root_secondary",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "root_wrong_value",
+            "root_over_reordered_entries",
+            "root_without_odd_duplication",
+            "root_sha256_tree_under_sha3_prefix",
+            "root_zeros_on_non_empty_trail",
+            "root_non_zero_on_empty_trail"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "root",
+      "name": "root_63_hex",
+      "spec_step": "V2-11",
+      "historical_error_contains": "audit_merkle_root_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/manifest/audit_merkle_root_secondary",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "root_wrong_value",
+            "root_over_reordered_entries",
+            "root_without_odd_duplication",
+            "root_sha256_tree_under_sha3_prefix",
+            "root_zeros_on_non_empty_trail",
+            "root_non_zero_on_empty_trail"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "chain",
+      "name": "chain_null",
+      "spec_step": "V2-11",
+      "historical_error_contains": "prev_hash_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/1/prev_hash_secondary",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "chain_wrong_link_at_1",
+            "chain_wrong_link_at_last",
+            "chain_link_over_previous_without_its_secondary",
+            "chain_link_over_entry_before_previous",
+            "chain_genesis_after_first",
+            "chain_entry0_hash_instead_of_genesis"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "chain",
+      "name": "chain_null_on_entry0",
+      "spec_step": "V2-11",
+      "historical_error_contains": "prev_hash_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/0/prev_hash_secondary",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "chain_wrong_link_at_1",
+            "chain_wrong_link_at_last",
+            "chain_link_over_previous_without_its_secondary",
+            "chain_link_over_entry_before_previous",
+            "chain_genesis_after_first",
+            "chain_entry0_hash_instead_of_genesis"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "chain",
+      "name": "chain_number",
+      "spec_step": "V2-11",
+      "historical_error_contains": "prev_hash_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/1/prev_hash_secondary",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "chain_wrong_link_at_1",
+            "chain_wrong_link_at_last",
+            "chain_link_over_previous_without_its_secondary",
+            "chain_link_over_entry_before_previous",
+            "chain_genesis_after_first",
+            "chain_entry0_hash_instead_of_genesis"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "chain",
+      "name": "chain_uppercase_hex",
+      "spec_step": "V2-11",
+      "historical_error_contains": "prev_hash_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/1/prev_hash_secondary",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "chain_wrong_link_at_1",
+            "chain_wrong_link_at_last",
+            "chain_link_over_previous_without_its_secondary",
+            "chain_link_over_entry_before_previous",
+            "chain_genesis_after_first",
+            "chain_entry0_hash_instead_of_genesis"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "chain",
+      "name": "chain_sha256_prefix",
+      "spec_step": "V2-11",
+      "historical_error_contains": "prev_hash_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/1/prev_hash_secondary",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "chain_wrong_link_at_1",
+            "chain_wrong_link_at_last",
+            "chain_link_over_previous_without_its_secondary",
+            "chain_link_over_entry_before_previous",
+            "chain_genesis_after_first",
+            "chain_entry0_hash_instead_of_genesis"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "chain",
+      "name": "chain_lowercase_genesis",
+      "spec_step": "V2-11",
+      "historical_error_contains": "prev_hash_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/0/prev_hash_secondary",
+          "keyword": "pattern"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "chain_wrong_link_at_1",
+            "chain_wrong_link_at_last",
+            "chain_link_over_previous_without_its_secondary",
+            "chain_link_over_entry_before_previous",
+            "chain_genesis_after_first",
+            "chain_entry0_hash_instead_of_genesis"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "intent",
+      "name": "intent_null",
+      "spec_step": "V2-11",
+      "historical_error_contains": "intent_hash_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/0/intent_hash_secondary",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "intent_wrong_value",
+            "intent_sha256_digest_under_sha3_prefix",
+            "intent_over_signed_intent_envelope",
+            "intent_on_one_entry_of_several"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+      "group": "intent",
+      "name": "intent_number",
+      "spec_step": "V2-11",
+      "historical_error_contains": "intent_hash_secondary",
+      "schema_errors": [
+        {
+          "instance": "/bundle/audit_entries/1/intent_hash_secondary",
+          "keyword": "type"
+        }
+      ],
+      "deep_coverage": {
+        "kind": "structural",
+        "reason": "a secondary field that is null, not a string or outside its pattern fails the schema; a present inconsistent value stays reachable",
+        "also": {
+          "kind": "schema_valid_rows",
+          "fixture": "tests/interop/v2/secondary_sha3_vectors.json",
+          "rows": [
+            "intent_wrong_value",
+            "intent_sha256_digest_under_sha3_prefix",
+            "intent_over_signed_intent_envelope",
+            "intent_on_one_entry_of_several"
+          ]
+        }
+      }
+    }
+  ]
+}

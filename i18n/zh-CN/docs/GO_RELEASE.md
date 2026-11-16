@@ -1,0 +1,84 @@
+<a id="published-go-module"></a>
+
+# 已发布的 Go 模块
+
+> [英文版](../../../docs/GO_RELEASE.md)的参考译文，更新于 09/11/2026。如有差异，以英文版为准。
+
+于 09/11/2026 核实：Go SDK `v2.14.0` 已通过 [`sdks/go/v2.14.0` 标签](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.14.0/sdks/go)发布，公共模块代理和校验和数据库提供该版本（[更新内容](#what-changed-in-v2140)）。之前的版本 `v2.13.0`（[`sdks/go/v2.13.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.13.0/sdks/go)，05/11/2026 核实）、`v2.11.1`（[`sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go)，28/10/2026 核实）和 `v2.11.0`（[`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)，26/10/2026 核实）的说明保留在下方。模块及其导入路径保留 `/v2`。SDK 版本独立于 DCP 传输格式/规范版本。Go 不需要单独的注册表令牌：使用方通过 Go 模块系统解析仓库标签。
+
+<a id="install"></a>
+
+## 安装
+
+需要 Go 1.25 或更高版本。在应用模块中执行，并更新及提交应用的 `go.mod` 和 `go.sum`：
+
+```bash
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
+go mod verify
+```
+
+<a id="what-changed-in-v2111"></a>
+
+## v2.11.1 的更新内容
+
+在 [VERIFICATION.md 的 V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`（按主树方式构建的 SHA3-256 树；空记录为 `sha3-256:` 后接 64 个零）、每个 `prev_hash_secondary`（第一个条目为 `"GENESIS"`，之后为 bundle 中原样的前一条目的 SHA3-256）以及每个 `intent_hash_secondary`（意图载荷的 SHA3-256）。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链。存在的字段如果是 `null`、不是字符串或不一致，则被拒绝：对于带有这些字段的证据，这是相对于 v2.11.0 的接受范围变更（v2.11.0 曾接受它们）。API、结果字段、`dcp-jcs-v1`、实验性且需显式启用的 `dcp-jcs-v2` API 以及 `hash_alg` 的处理均不变。验证仍然不等于对主体的信任、准入或授权。 SDK 遥测报告 `2.11.1`。
+
+<a id="upgrade-and-compatibility"></a>
+
+## 升级与兼容性
+
+v2.11.0（2026 年 10 月 26 日）包含、v2.11.1 予以保留的内容：V1 无效密钥长度错误处理、修复后的 V2 责任主体/密钥/产物/检查点验证、责任主体显式信任与 `strict-v1`、委托链，以及具备重放保护的并发 A2A 会话。v2.11.0 的 SDK 遥测报告 `2.11.0`。见 [SDK README](../../../sdks/go/README.md)、[准入指南](../../../docs/ADMISSION.md) 和[安全策略](../../../SECURITY.md)。
+
+验证比 v2.10.0 更严格：之前接受的格式错误或不一致证据可能被拒绝。请保留历史证据，不要重写。`dcp-jcs-v1` 仍是规范性默认值；`dcp-jcs-v2` API 仍为实验性、非规范性且须显式启用。验证不等于责任主体信任、准入或授权。在 v2.11.0 中，可选的次级 SHA3-256 字段不在验证器的检查范围内；v2.11.1 会在它们存在时检查。
+
+<a id="validation"></a>
+
+## 验证
+
+对于 v2.13.0，公共代理为 `sdks/go/v2.13.0` 标签（提交 `46b142bd`）提供的模块包含与发布前测试过的模块相同的 92 个文件，checksum 数据库记录的是测试过的模块的哈希 `h1:bRkqSUWHQ/qTywPmKWRdzg2bBWI0RG1ZZAlb6IafnyU=`。通过 `proxy.golang.org` 解析 v2.13.0、启用 checksum 数据库且没有本地 `replace` 的使用方，通过了外部一致性套件（七个目录中的 697 个用例）、v2.13.0 中变化的 API 的检查以及默认配置检查。
+
+对于 v2.11.1，代理提供的模块 zip 中的 84 个文件与 `main` 一致（Go 会在 zip 中加入仓库根目录的 `LICENSE`），代理和 checksum 数据库确认了该版本。一个不使用本地 `replace`、从代理解析 `v2.11.1` 的外部使用方通过了 189 项测试。
+
+对于 v2.11.0（2026 年 10 月 26 日），默认套件和 `-race -tags otlp` 套件各通过 1,154 项测试/子测试；一项测试有意留给独立的实时生产者/消费者矩阵。`go mod tidy -diff`、构建和 vet 均通过。外部使用方通过 137 项测试/子测试，其负对照按预期失败。已通过公开代理与 checksum 验证将发布模块下载到新缓存，源码与审核提交一致。随后外部使用方在没有本地 `replace` 指令的情况下通过测试。Rust 的独立发布见 [Rust](../../../docs/RUST_RELEASE.md)。
+
+<a id="what-changed-in-v2130"></a>
+
+## v2.13.0 的更新内容
+
+v2.13.0 已于 05/11/2026 通过 `main`（`46b142bd`）上的 `sdks/go/v2.13.0` 标签发布。它取代了下面从未打标签的 v2.12.0。与 v2.11.1 相比，v2.13.0：
+
+- **执行 V2-2 模式校验（接受范围变化）。** `v2.VerifySignedBundleV2` 及其变体在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
+- **修正 `v2.VerifyPayloadHash`（接受范围变化）**，与下面的 v2.12.0 相同：只有在值为 `"sha256:"` 后接规范载荷的 SHA-256（即 `SignPayload` 写入的形式）时才为 `true`；不带前缀的摘要为 `false`。
+- **新增 `v2.RawAuditEventV2`**，与下面的 v2.12.0 相同。
+- **统一授权书检查。** `v2.VerifyMandateValidity` 采用统一的约定，`v2.VerifyMandateValidityAt`（新增）接收验证时间；以前被接受的缺失或格式错误的日期现在无效。`v2.VerifyMandateChain` 以同一方式读取所有时间，并拒绝重复某个领域的根授权书。
+
+`SDKVersion` 为 `2.13.0`。传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变。请保留历史证据，而不是改写它：新检查拒绝的 bundle 仍按收到时的样子保留。已发布模块中的 SDK README 是发布前准备的版本：写着“prepared, not published”，而且其中 `v2.VerifyPayloadHash` 那一行和 `v2.RawAuditEventV2` 那一段仍写着“prepared for v2.12.0”。已发布的模块无法更改；仓库中的 README 描述 v2.13.0。见 [SDK README](../../../sdks/go/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
+
+<a id="prepared-not-published-v2120"></a>
+
+## 已准备、尚未发布：v2.12.0
+
+v2.12.0 已于 30/10/2026 在仓库中准备好，但尚未发布：`sdks/go/v2.12.0` 标签不存在，因此模块代理不提供此版本，`go get` 也无法解析它。准备时，安装命令仍为 v2.11.1；当前版本见[已发布版本](../../../docs/README.md#published-versions)。与 v2.11.1 相比，v2.12.0：
+
+- **修正 `v2.VerifyPayloadHash`（接受范围变更）。** 只有当 `payload_hash` 恰好是 `"sha256:"` 后接 `dcp-jcs-v1` 规范 payload 的小写十六进制 SHA-256 时才返回 `true`。现在接受 `v2.SignPayload` 的输出，拒绝不带前缀的摘要；v2.11.1 正好相反。该函数只检查哈希一致性，不检查签名、密钥、策略、对主体的信任或准入。bundle 验证从未使用它，也不会改变。
+- **新增 `v2.RawAuditEventV2`。** 它原样保留收到的审计条目的字节，因此显式的 `null` 和未知成员在转发后仍然保留；`Typed()` 是有损视图。`AuditEventV2` 及其他类型化结构体仍是用于生成的类型，行为不变。
+
+其他 API、bundle 验证、`dcp-jcs-v1` 以及实验性且需显式启用的 `dcp-jcs-v2` API 均不变；实验性候选的新测试不改变任何默认值。SDK 遥测报告 `2.12.0`。模块不再包含翻译版 README，它们现在位于仓库的 `i18n/` 目录树中。参见 [SDK README](../../../sdks/go/README.md) 和[变更日志](../../../CHANGELOG.md)。
+
+> **说明（05/11/2026）。** 上面的比较写于 30/10/2026，针对已准备的 v2.12.0，该版本仍未发布。此后 `main` 改变了验证：所有 V2 验证器都执行 V2-2 模式校验（#116，02/11/2026），授权书有效性辅助函数、链的时间检查和重复根域检查也已更改（#117 至 #119）。这些更改不在上述 v2.12.0 中；v2.12.0 从未打标签，上面的 v2.13.0 包含这些更改并取代了它，`main` 上的清单文件带有 v2.13.0。见[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
+
+<a id="what-changed-in-v2140"></a>
+
+## v2.14.0 的更新内容
+
+v2.14.0 于 09/11/2026 通过 `main`（`cdb7099b`）上的 `sdks/go/v2.14.0` 标签发布。代理提供的模块与发布前测试过的模块具有相同的 106 个文件和相同的哈希 `h1:9O4n7vn3YqOhKlyUg/cm0OnouQi4QbU7mHbIh1BM5Z8=`；只有 zip 压缩不同。使用方在启用校验和数据库、没有本地 `replace` 的情况下，用 Go 1.26.10 通过 `proxy.golang.org` 解析 v2.14.0，安装了该模块，API 结果与测试过的模块相同。与 v2.13.0 相比：
+
+- **新增（显式启用）。** `v2.AdmitDelegatedBundleV2`、`v2.AdmitSignedBundleV2FromBytes`、`v2.CreateMandateAcknowledgment` 和 `v2.EvaluateDelegationActivationV2`（[变更日志](../../../CHANGELOG.md#unreleased)）。
+- **接受范围变化。** V1 对象验证和默认的 V2 Ed25519 提供方中的 P-ED-1。
+- **修复。** SLH-DSA-192f 提供方读取密钥时不再 panic。`SDKVersion` 为 `2.14.0`。
+
+<a id="related-releases"></a>
+
+## 相关发布
+
+各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[npm 软件包](../../../docs/NPM_RELEASES.md)、[Python 2.11.0](../../../docs/PYTHON_RELEASE.md)、[Rust 2.14.0](../../../docs/RUST_RELEASE.md)。

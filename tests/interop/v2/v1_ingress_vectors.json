@@ -1,0 +1,653 @@
+{
+  "title": "MP-02 F3: V2 admission from bytes under dcp-jcs-v1",
+  "status": "Opt-in route admitSignedBundleV2FromBytes. dcp-jcs-v1, the candidate dcp-jcs-v2, the profiles and the defaults are unchanged.",
+  "date": "07/11/2026",
+  "design": "docs/reviews/mp02-security-composition-design.md section 3; .claude/handoff/INFORME-CODEX-MP02-F3-DISENO.md",
+  "generated_by": ".claude/mp02-20261107/claude-f3/gen_v1_ingress_vectors.py (data only; no SDK)",
+  "how_to_read": {
+    "route": "Private copy of the bytes; the candidate scanner unchanged (layer scanner); the portable integer domain over number literals outside strings (layer domain); the concrete parser, canonicalized with dcp-jcs-v1 and compared byte for byte with the scanner canonical (layer parser, class INGRESS_PARSER_MISMATCH, offset null); then admitSignedBundleV2 over that parsed value.",
+    "domain": "A number literal outside strings must match -?(0|[1-9][0-9]*) and must not be -0. Range is the scanner's. Offset is the literal's first byte in the unit.",
+    "sources": "Every document/bare unit of the two corpora keeps its own expectation, read from the pinned file: a scanner rejection with its class and offset, or acceptance with its canonical_sha256. The exceptions are the domain_differences.",
+    "admission": "None of these units is a signed bundle: every accepted unit must reach admission and be neither verified nor admitted."
+  },
+  "sources": [
+    {
+      "path": "docs/proposals/canonicalization-candidate/baseline-corpus.json",
+      "sha256": "b7a0ca195169ffef510f3c3619ef559535bd008272acc23e0194d35c909515a7",
+      "selection": "cases",
+      "count": 87
+    },
+    {
+      "path": "docs/proposals/canonicalization-candidate/corpus.json",
+      "sha256": "3804ad606d059ad9214f9b47bf8522d6bc6937649fe67b3a07082199f461eda6",
+      "selection": "cases with mode document and transport bare",
+      "count": 81
+    }
+  ],
+  "domain_differences": [
+    {
+      "source": "baseline",
+      "id": "n-1e15",
+      "input_sha256": "f6379beb6e629d7100ca6435c7382758ed6365b133c916bc1048a7cfde918c41",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-sci-max",
+      "input_sha256": "44976c5dfc3438dc57706e4175f1a7144be300b8f741fd4edf9d6deff57b9cb5",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-one-point-zero",
+      "input_sha256": "3b6b06ecd1c968c8e738e0f11c4bb361fca80a9a694de22fe66a05286afbd081",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-trailing-zeros",
+      "input_sha256": "bf2811a0308e7d316c0401a33a52e18b8329517fd30972386ea447c3749f69e9",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-1e2",
+      "input_sha256": "477bbdd93b24d7ebe5b110b7bd76f53e82c2831cd361d557779cbf3f1da9c522",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-1E+2",
+      "input_sha256": "e8c8bafe40e96580d0a185e7c07069734224c4fdd901bcf50c8338a2882e8892",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-exp-leading-zeros",
+      "input_sha256": "dd81c4b17c3b147cd3f00ec80ed71d18acaaca482efb5c4550dc2473c6182a75",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-scaled-down",
+      "input_sha256": "fe993fdc4f3cdf8e103896d26d0396a42320cebd0f200c7097dd0e587bc0a189",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-large-mantissa",
+      "input_sha256": "bd2f51aed4b44377c3543a9f8a5324320c8810b687e9465a1a8c3ea2ad4be352",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-fraction-mantissa",
+      "input_sha256": "2d70ec8b91cd41834f8d55869048be30db1f7154788956228adefd37dce21671",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-neg-zero",
+      "input_sha256": "d54829e5b2d6e184fe2005d0b3ee73c1931163e1c1fd461a7449c9f7255ea2d2",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-neg-zero-fraction",
+      "input_sha256": "a8a313cade05001e69f7ddb5db01e1e2d06fb8f6913ab492cc4506d4e65d465a",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-zero-tiny-exponent",
+      "input_sha256": "9bb0fbc0f87601a5b2ba0eab5caf84ccc7d6f3855cadaf6618594e9524f26bc0",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-zero-huge-exponent",
+      "input_sha256": "f15ac004fe4e08801d29afe9a0e8a796b514183dc3b81474258b4f9146fb6158",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-long-mantissa-800",
+      "input_sha256": "f8b9b061498918ff73275c4d670ca4e2b1ba67f0a93061ab7fb650b20815fab0",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "n-long-mantissa-cancelled",
+      "input_sha256": "fc49f441487c342d6a7f8c10c8f706787d76ce1af60b65ef5d584b6ee144e552",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "baseline",
+      "id": "top-number",
+      "input_sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 0
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-max-scaled-down",
+      "input_sha256": "6b0f3f1cca2878949234a93d1e0fefc069ca455213f568757b9f0eb34528d8c5",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-max-fraction-scaled",
+      "input_sha256": "229e931c6c55ea37fc22349ebafe05932e3c26ac35da5387f03c056c2c3f4bd6",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-max-sci-padded",
+      "input_sha256": "7a132a9756baf80e556f1f9177b54645adea8404aeee2497ec3d8df63de48e6d",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-exp-padded-15",
+      "input_sha256": "01f32d53b6626871349f27642f3fe2ecd886b7dca28957a5a0099f2fa1ad0acd",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-neg-zero-huge-exp",
+      "input_sha256": "864fa717973c37c31f48e67741fc34b2aec217fe247a65a8b14ada8b1fb724a8",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-tiny-fraction-scaled-up",
+      "input_sha256": "f68765a72229d1888fc1a06141cd51988ecd0d9faf04b9abc398a7b268d6f7d6",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-long-zero-fraction",
+      "input_sha256": "2ae74cc9b0d2dd2a505107738b240a5226b2757a4e7bf5077d2cb86258a45395",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-trailing-zeros-down",
+      "input_sha256": "7176e9955176be3611e7bf1d594eab673ed379d5b41016e064ffb708237d77ae",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-neg-one-exp-zero",
+      "input_sha256": "88cc0a2393c65f32bebb56ce4c4f54508328f8cb38bf3ff75cf87ad63e918013",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-sci-integer",
+      "input_sha256": "b11f8af5daa6a8028dabc85d1c807e560fab65edb792eccd6928c7077cb5c245",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-max-zero-fraction",
+      "input_sha256": "ae5a8faa929f2517a5e69699e855aca4ac5fc2962b7afe6ae263b449f6c89915",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-min-sci-zero",
+      "input_sha256": "ac4e34b57f8e54e9a6d64fcc06866096520250bfe28270145b33309b9564c036",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    },
+    {
+      "source": "corpus",
+      "id": "x-big-mantissa-cancelled",
+      "input_sha256": "c1da8f1531966e435e8a91bae210ef372932ca11297adea4c1d98a6f82b4489b",
+      "expected": {
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "s-number-texts-in-values",
+      "group": "string",
+      "input_json": "{\"a\":\"1.0\",\"b\":\"-0\",\"c\":\"1e2\"}",
+      "input_sha256": "ae355550e31d12f5c0be663783dfaede506f87b046c839f7afc4e99e420e571e",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"a\":\"1.0\",\"b\":\"-0\",\"c\":\"1e2\"}",
+        "canonical_sha256": "ae355550e31d12f5c0be663783dfaede506f87b046c839f7afc4e99e420e571e"
+      },
+      "why": "Number-like text inside strings is not a number literal."
+    },
+    {
+      "id": "s-number-texts-in-keys",
+      "group": "string",
+      "input_json": "{\"1.0\":1,\"-0\":2,\"1e2\":3}",
+      "input_sha256": "1064a3a5c639b938972e10eb847b94cb1e9a44749f3983841318eba6f1a03d56",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"-0\":2,\"1.0\":1,\"1e2\":3}",
+        "canonical_sha256": "18a79abd534f803aa25590d01dd5ac795d2ef86c4bbffc0d4ed239160df4bdbe"
+      },
+      "why": "Keys are strings; sorted by code point."
+    },
+    {
+      "id": "s-escaped-quotes",
+      "group": "string",
+      "input_json": "{\"s\":\"\\\"1.0\\\"\"}",
+      "input_sha256": "1d04d74b5b75eb00ba9d70f2860d7823af8b6a3df3f9c97760d855cdcdc83f56",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"s\":\"\\\"1.0\\\"\"}",
+        "canonical_sha256": "1d04d74b5b75eb00ba9d70f2860d7823af8b6a3df3f9c97760d855cdcdc83f56"
+      },
+      "why": "An escaped quote does not end the string."
+    },
+    {
+      "id": "s-escaped-quote-then-literal",
+      "group": "string",
+      "input_json": "{\"s\":\"\\\"\",\"n\":1.0}",
+      "input_sha256": "6706685e750ad6bf899e7181eeedaf0b50c41e4cefe7e92f30bce66d2bb97574",
+      "expected": {
+        "ingress": "reject",
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 14
+      },
+      "why": "After an escaped quote the string still ends at its real closing quote."
+    },
+    {
+      "id": "s-escaped-backslash-then-literal",
+      "group": "string",
+      "input_json": "{\"s\":\"\\\\\",\"n\":-0}",
+      "input_sha256": "62088a9996c8b4fb2184258641967fe2ac086a9d7468dae64416593cfaa008e6",
+      "expected": {
+        "ingress": "reject",
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 14
+      },
+      "why": "An escaped backslash does not escape the closing quote."
+    },
+    {
+      "id": "l-literals-with-e",
+      "group": "literal",
+      "input_json": "{\"f\":false,\"n\":null,\"t\":true}",
+      "input_sha256": "22e00dc2f7b01420f940fbdbfbdf34fa0667cc6500186495023ba37722cbd05e",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"f\":false,\"n\":null,\"t\":true}",
+        "canonical_sha256": "22e00dc2f7b01420f940fbdbfbdf34fa0667cc6500186495023ba37722cbd05e"
+      },
+      "why": "The e of true and false does not start a number."
+    },
+    {
+      "id": "u-key-order",
+      "group": "unicode",
+      "input_json": "{\"\ud83d\ude00\":1,\"\ufb01\":2,\"\u00e9\":3,\"z\":4}",
+      "input_sha256": "102065765621eeb250914dbea7933c4a41ee73203cab807769cb3027cc697b61",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"z\":4,\"\u00e9\":3,\"\ufb01\":2,\"\ud83d\ude00\":1}",
+        "canonical_sha256": "c2bbc6649636e771c2f3eea542dec9fff8c851c462a229f3333711f73e0533e4"
+      },
+      "why": "Code point order: U+FB01 before U+1F600 (UTF-16 order would invert them)."
+    },
+    {
+      "id": "u-escaped-key",
+      "group": "unicode",
+      "input_json": "{\"\\u00e9\":1}",
+      "input_sha256": "01b9cf31ea00f80345d00103084d7eafc25b95080afe05b454ff67db53697453",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"\u00e9\":1}",
+        "canonical_sha256": "ddcfcf4765da163969972bb20660092ca2787782d9352d1d8a38e93f70acf3bf"
+      },
+      "why": "A \\u escape in a key is the same key; the canonical form writes the character."
+    },
+    {
+      "id": "u-mixed-value",
+      "group": "unicode",
+      "input_json": "{\"s\":\"\u00e9\\u00e9\ud83d\ude00\"}",
+      "input_sha256": "714400ab2252cb3986b03c7f0528295b34b0c50565b932b087f80d477ee4634a",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"s\":\"\u00e9\u00e9\ud83d\ude00\"}",
+        "canonical_sha256": "3bbc1269d2391d24e5d47a597bdc11e048a42851811e9615c176eda1f1229d44"
+      },
+      "why": "Raw, escaped and astral characters in one string."
+    },
+    {
+      "id": "p-duplicate-before-domain",
+      "group": "precedence",
+      "input_json": "{\"x\":1.0,\"a\":1,\"a\":2}",
+      "input_sha256": "3aaa8fe35db7757b14435a69db68e87f2395c86fd497f39a756aa7fec8f461fb",
+      "expected": {
+        "ingress": "reject",
+        "layer": "scanner",
+        "class": "DUPLICATE_KEY",
+        "offset": 15
+      },
+      "why": "A scanner rejection wins over a domain literal at an earlier offset."
+    },
+    {
+      "id": "p-depth-before-domain",
+      "group": "precedence",
+      "input_json": "[1.0,[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+      "input_sha256": "bb07f3ead04059278166da86f833482750525c93d21b5b94ce3782aec9b99249",
+      "expected": {
+        "ingress": "reject",
+        "layer": "scanner",
+        "class": "DEPTH_EXCEEDED",
+        "offset": 68
+      },
+      "why": "Depth 65 is a scanner rejection; it wins over the 1.0 at offset 1."
+    },
+    {
+      "id": "p-range-before-domain",
+      "group": "precedence",
+      "input_json": "{\"a\":1.0,\"n\":9007199254740992}",
+      "input_sha256": "51ab835c80213f7e6f5cffd7963401cc8b2edba685a927638eef308a8b08a87b",
+      "expected": {
+        "ingress": "reject",
+        "layer": "scanner",
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 13
+      },
+      "why": "2^53 is a scanner rejection; it wins over the 1.0 at offset 5."
+    },
+    {
+      "id": "p-not-integer",
+      "group": "precedence",
+      "input_json": "{\"n\":0.5}",
+      "input_sha256": "aec38c68ae9784cd6c9391c1d52335984c2722d6ec167168b08027566480962d",
+      "expected": {
+        "ingress": "reject",
+        "layer": "scanner",
+        "class": "NUMBER_NOT_INTEGER",
+        "offset": 5
+      },
+      "why": "A fraction is the scanner's, not the domain's."
+    },
+    {
+      "id": "p-first-literal-by-offset",
+      "group": "precedence",
+      "input_json": "{\"b\":-0,\"a\":1e2}",
+      "input_sha256": "fe8fbbe5bc74bddebf9cdf8ef19bd91b7ee6188a99d21c9b826f69f1d96a1c93",
+      "expected": {
+        "ingress": "reject",
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 5
+      },
+      "why": "The first non-portable literal by byte offset, not by key order."
+    },
+    {
+      "id": "p-deep-literal",
+      "group": "precedence",
+      "input_json": "[[[[[[[[[[1.0]]]]]]]]]]",
+      "input_sha256": "39f8ce38fb37c15a9fbf2a8a654c95165f6ed95a537d3a244350fd2ccad004c8",
+      "expected": {
+        "ingress": "reject",
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 10
+      },
+      "why": "Within the depth limit the domain applies at any depth."
+    },
+    {
+      "id": "w-whitespace-literal",
+      "group": "whitespace",
+      "input_json": "{ \"n\" : 1.0 }",
+      "input_sha256": "f2da6fd21c58069065b64c5c8044814536472abeffa3150c68e9a23c42601141",
+      "expected": {
+        "ingress": "reject",
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 8
+      },
+      "why": "The offset counts the whitespace."
+    },
+    {
+      "id": "w-whitespace-portable",
+      "group": "whitespace",
+      "input_json": "{ \"n\" : 1 }",
+      "input_sha256": "7bf595dc01e7866161710b1f448f5183ebc97558129e993d8c282e22e8921653",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"n\":1}",
+        "canonical_sha256": "2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"
+      },
+      "why": "Whitespace is not part of the canonical form."
+    },
+    {
+      "id": "e-portable-edges",
+      "group": "edge",
+      "input_json": "{\"a\":0,\"b\":-1,\"c\":9007199254740991,\"d\":-9007199254740991}",
+      "input_sha256": "1489b0fc5a4304a9d919746be4ad963ad9bfc71f114c4d983a708d1b3246aee6",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{\"a\":0,\"b\":-1,\"c\":9007199254740991,\"d\":-9007199254740991}",
+        "canonical_sha256": "1489b0fc5a4304a9d919746be4ad963ad9bfc71f114c4d983a708d1b3246aee6"
+      },
+      "why": "0, -1 and +-(2^53-1) are portable."
+    },
+    {
+      "id": "a-portable",
+      "group": "array",
+      "input_json": "[0,-1,10]",
+      "input_sha256": "b002258c80c5799662b3c77fbd3e2ac2ac7a3643264f26258b826d6766496d5e",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "[0,-1,10]",
+        "canonical_sha256": "b002258c80c5799662b3c77fbd3e2ac2ac7a3643264f26258b826d6766496d5e"
+      },
+      "why": "Portable integers in an array."
+    },
+    {
+      "id": "a-negative-zero",
+      "group": "array",
+      "input_json": "[1,-0]",
+      "input_sha256": "dcb6ebfc2b77c4f7d081dd1b0c049e491dac51b8093be77650495a99db3986b8",
+      "expected": {
+        "ingress": "reject",
+        "layer": "domain",
+        "class": "NUMBER_NOT_PORTABLE",
+        "offset": 3
+      },
+      "why": "-0 in an array."
+    },
+    {
+      "id": "t-true",
+      "group": "top-level",
+      "input_json": "true",
+      "input_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "true",
+        "canonical_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+      },
+      "why": "Portable JSON; admission rejects the structure."
+    },
+    {
+      "id": "t-null",
+      "group": "top-level",
+      "input_json": "null",
+      "input_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "null",
+        "canonical_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "why": "Portable JSON; admission rejects the structure."
+    },
+    {
+      "id": "t-array",
+      "group": "top-level",
+      "input_json": "[]",
+      "input_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "[]",
+        "canonical_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "why": "Portable JSON; admission rejects the structure."
+    },
+    {
+      "id": "t-string",
+      "group": "top-level",
+      "input_json": "\"x\"",
+      "input_sha256": "ba2df4903a2c14e86dc3bcca58911b44ac1d2514b7227bf6eb08cfb978f55a1b",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "\"x\"",
+        "canonical_sha256": "ba2df4903a2c14e86dc3bcca58911b44ac1d2514b7227bf6eb08cfb978f55a1b"
+      },
+      "why": "Portable JSON; admission rejects the structure."
+    },
+    {
+      "id": "t-number",
+      "group": "top-level",
+      "input_json": "1",
+      "input_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "1",
+        "canonical_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+      },
+      "why": "Portable JSON; admission rejects the structure."
+    },
+    {
+      "id": "t-empty-object",
+      "group": "top-level",
+      "input_json": "{}",
+      "input_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "expected": {
+        "ingress": "accept",
+        "canonical": "{}",
+        "canonical_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+      },
+      "why": "Portable JSON; admission rejects the structure."
+    }
+  ]
+}

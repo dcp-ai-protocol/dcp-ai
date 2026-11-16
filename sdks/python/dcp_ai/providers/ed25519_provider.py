@@ -10,6 +10,7 @@ import nacl.encoding
 import nacl.exceptions
 import nacl.signing
 
+from dcp_ai import _ed25519_ped1
 from dcp_ai.v2.crypto_provider import CryptoProvider, derive_kid
 
 
@@ -41,6 +42,8 @@ class Ed25519Provider(CryptoProvider):
     async def verify(self, message: bytes, signature: bytes, public_key_b64: str) -> bool:
         pk_bytes = base64.b64decode(public_key_b64)
         verify_key = nacl.signing.VerifyKey(pk_bytes)
+        if _ed25519_ped1.rejects(message, signature, pk_bytes):  # P-ED-1, before libsodium
+            return False
         try:
             verify_key.verify(message, signature)
             return True

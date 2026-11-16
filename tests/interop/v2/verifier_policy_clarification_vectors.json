@@ -1,0 +1,1764 @@
+{
+  "_description": "Verifier policy vectors of the dated clarification of spec/VERIFICATION.md V2-10 (05/11/2026), questions Q1, Q2 and Q3 of verifier_policy_vectors.json, which is not changed and keeps its omitted cases as history. Each case gives the exact policy and verification_time, the bundle (a base in bundles, or a variant: a base with mutations applied) and the verdict; a negative counts only if its controls verified in the same run. Every base is routine, so requested_mode is also the effective mode. A contract /2 run judges the verdict only: warnings are diagnostics, and allow_classical_fallback_disable changes a warning, never a verdict.",
+  "_generator": "tests/interop/v2/generate-verifier-policy-clarification-vectors.mjs",
+  "_keys": "The bases are committed elsewhere and bound by the sha256 of their JSON.stringify text. The Q2 variants re-sign only the PQ component, with the committed TEST-ONLY ML-DSA-65 key of tests/interop/v2/interop_vectors.json#test_keys; the scope variants change one value and keep every signature byte.",
+  "_randomness": "ML-DSA-65 signatures are hedged, so regeneration is not byte-identical. The committed file is the artifact.",
+  "verification_time": "2026-10-22T00:00:00Z",
+  "base_policy": {
+    "default_mode": "hybrid_preferred",
+    "risk_overrides": {
+      "low": "classical_only",
+      "medium": "hybrid_preferred",
+      "high": "hybrid_required"
+    },
+    "min_classical": 1,
+    "min_pq": 1,
+    "accepted_classical_algs": [
+      "ed25519"
+    ],
+    "accepted_pq_algs": [
+      "ml-dsa-65",
+      "slh-dsa-192f"
+    ],
+    "accepted_hash_algs": [
+      "sha256",
+      "sha384"
+    ],
+    "require_session_binding": true,
+    "require_composite_binding": true,
+    "max_key_age_days": 365,
+    "allow_v1_bundles": true,
+    "allow_classical_fallback_disable": false,
+    "warn_classical_only_deprecated": false,
+    "advisory_rejected_algs": []
+  },
+  "requested_mode_policy": "base_policy with default_mode and risk_overrides.low, .medium and .high all set to the requested mode, then policy_overrides.",
+  "bundles": {
+    "routine_hybrid": {
+      "source": "tests/interop/v2/verifier_policy_vectors.json#bundles/routine_hybrid",
+      "sha256": "9cda22d3ee55181fd1fc105e0541a9af4eaf9cb8f8eb5e119f509ca5ffb6edcf",
+      "tier": "routine"
+    },
+    "classical_only_routine": {
+      "source": "tests/interop/v2/bundle_vectors.json#classical_only_routine_bundle",
+      "sha256": "32e84a67ff4d0b8151f8732168a478bd6e9f9eb529413f5e847db7e89c7d760f",
+      "tier": "routine"
+    }
+  },
+  "variants": {
+    "q2_bundle": {
+      "of": "routine_hybrid",
+      "location": "bundle",
+      "mutations": [
+        {
+          "path": [
+            "signature",
+            "composite_sig",
+            "classical",
+            "sig_b64"
+          ],
+          "value": "zRvshBRIg7HEpojbJK5e8Gn0tcsg/YMpBWorR85dkqwCj1ane4cjQkyPJOijtkHDnZ59JlekOR3Xd1WSlVIYDg=="
+        },
+        {
+          "path": [
+            "signature",
+            "composite_sig",
+            "pq",
+            "sig_b64"
+          ],
+          "value": "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"
+        }
+      ],
+      "checks": {
+        "classical_valid": false,
+        "pq_valid_over_these_classical_bytes": true,
+        "committed_pq_valid_over_these_classical_bytes": false
+      }
+    },
+    "q2_passport": {
+      "of": "routine_hybrid",
+      "location": "passport",
+      "mutations": [
+        {
+          "path": [
+            "bundle",
+            "agent_passport",
+            "composite_sig",
+            "classical",
+            "sig_b64"
+          ],
+          "value": "80tNQKDY2dZZH74BCCh0n58gmwYrAGsNRoEhtlmKogubTD2fBNY3nuwvMfi0cma1uX2voPwLnCmrQSWXiVlJCQ=="
+        },
+        {
+          "path": [
+            "bundle",
+            "agent_passport",
+            "composite_sig",
+            "pq",
+            "sig_b64"
+          ],
+          "value": "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"
+        }
+      ],
+      "checks": {
+        "classical_valid": false,
+        "pq_valid_over_these_classical_bytes": true,
+        "committed_pq_valid_over_these_classical_bytes": false
+      }
+    },
+    "q2_checkpoint": {
+      "of": "routine_hybrid",
+      "location": "checkpoint",
+      "mutations": [
+        {
+          "path": [
+            "bundle",
+            "pq_checkpoints",
+            0,
+            "composite_sig",
+            "classical",
+            "sig_b64"
+          ],
+          "value": "5pQGpD14ghcUWeWK561qC34LYZpSYaeDuLKxk5/tYIZ9sFPbcb05Cve6+yY2YS9w1DEsxBEgr7kLl1VOaVdKCQ=="
+        },
+        {
+          "path": [
+            "bundle",
+            "pq_checkpoints",
+            0,
+            "composite_sig",
+            "pq",
+            "sig_b64"
+          ],
+          "value": "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"
+        }
+      ],
+      "checks": {
+        "classical_valid": false,
+        "pq_valid_over_these_classical_bytes": true,
+        "committed_pq_valid_over_these_classical_bytes": false
+      }
+    },
+    "scope_bundle_noncanonical_classical_sig_b64": {
+      "of": "routine_hybrid",
+      "location": "bundle",
+      "mutations": [
+        {
+          "path": [
+            "signature",
+            "composite_sig",
+            "classical",
+            "sig_b64"
+          ],
+          "value": "zBvshBRIg7HEpojbJK5e8Gn0tcsg/YMpBWorR85dkqwCj1ane4cjQkyPJOijtkHDnZ59JlekOR3Xd1WSlVIYDh=="
+        }
+      ],
+      "checks": {
+        "same_bytes_as_committed": true,
+        "canonical": false
+      }
+    },
+    "scope_bundle_unknown_classical_kid": {
+      "of": "routine_hybrid",
+      "location": "bundle",
+      "mutations": [
+        {
+          "path": [
+            "signature",
+            "composite_sig",
+            "classical",
+            "kid"
+          ],
+          "value": "6ac70c9bc56d2c6d7fa021ef0556bed5"
+        }
+      ],
+      "checks": {
+        "kid_in_key_list": false,
+        "committed_pq_valid": true
+      }
+    },
+    "scope_passport_noncanonical_classical_sig_b64": {
+      "of": "routine_hybrid",
+      "location": "passport",
+      "mutations": [
+        {
+          "path": [
+            "bundle",
+            "agent_passport",
+            "composite_sig",
+            "classical",
+            "sig_b64"
+          ],
+          "value": "8ktNQKDY2dZZH74BCCh0n58gmwYrAGsNRoEhtlmKogubTD2fBNY3nuwvMfi0cma1uX2voPwLnCmrQSWXiVlJCR=="
+        }
+      ],
+      "checks": {
+        "same_bytes_as_committed": true,
+        "canonical": false
+      }
+    },
+    "scope_passport_unknown_classical_kid": {
+      "of": "routine_hybrid",
+      "location": "passport",
+      "mutations": [
+        {
+          "path": [
+            "bundle",
+            "agent_passport",
+            "composite_sig",
+            "classical",
+            "kid"
+          ],
+          "value": "6ac70c9bc56d2c6d7fa021ef0556bed5"
+        }
+      ],
+      "checks": {
+        "kid_in_key_list": false,
+        "committed_pq_valid": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "base.classical_only.positive",
+      "question": "control",
+      "bundle": "routine_hybrid",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Every signature pq_over_classical and valid, both algorithms accepted, none under advisory (verifier_policy_vectors.json routine_hybrid positives)."
+    },
+    {
+      "name": "base.hybrid_preferred.positive",
+      "question": "control",
+      "bundle": "routine_hybrid",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Every signature pq_over_classical and valid, both algorithms accepted, none under advisory (verifier_policy_vectors.json routine_hybrid positives)."
+    },
+    {
+      "name": "base.hybrid_required.positive",
+      "question": "control",
+      "bundle": "routine_hybrid",
+      "requested_mode": "hybrid_required",
+      "effective_mode": "hybrid_required",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_required",
+        "risk_overrides": {
+          "low": "hybrid_required",
+          "medium": "hybrid_required",
+          "high": "hybrid_required"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Every signature pq_over_classical and valid, both algorithms accepted, none under advisory (verifier_policy_vectors.json routine_hybrid positives)."
+    },
+    {
+      "name": "base.pq_only.positive",
+      "question": "control",
+      "bundle": "routine_hybrid",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Every signature pq_over_classical and valid, both algorithms accepted, none under advisory (verifier_policy_vectors.json routine_hybrid positives)."
+    },
+    {
+      "name": "q1.pq_only.classical_alg_not_accepted",
+      "question": "Q1",
+      "bundle": "routine_hybrid",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {
+        "accepted_classical_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ml-dsa-65"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q1): under pq_only the classical lists and advisories do not apply to the classical component, which is not required (DCP-AI-v2.0.md § 7.1, § 7.3, § 13.3)."
+    },
+    {
+      "name": "q1.hybrid_required.classical_alg_not_accepted",
+      "question": "Q1",
+      "bundle": "routine_hybrid",
+      "requested_mode": "hybrid_required",
+      "effective_mode": "hybrid_required",
+      "policy_overrides": {
+        "accepted_classical_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "policy": {
+        "default_mode": "hybrid_required",
+        "risk_overrides": {
+          "low": "hybrid_required",
+          "medium": "hybrid_required",
+          "high": "hybrid_required"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ml-dsa-65"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_required.positive"
+      ],
+      "basis": "V2-10: outside pq_only a policy that excludes the classical algorithm the bundle uses rejects it (the contrast of Q1)."
+    },
+    {
+      "name": "q1.pq_only.classical_alg_advisory_rejected",
+      "question": "Q1",
+      "bundle": "routine_hybrid",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {
+        "advisory_rejected_algs": [
+          "ed25519"
+        ]
+      },
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": [
+          "ed25519"
+        ]
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q1): under pq_only the classical lists and advisories do not apply to the classical component, which is not required (DCP-AI-v2.0.md § 7.1, § 7.3, § 13.3)."
+    },
+    {
+      "name": "q1.hybrid_required.classical_alg_advisory_rejected",
+      "question": "Q1",
+      "bundle": "routine_hybrid",
+      "requested_mode": "hybrid_required",
+      "effective_mode": "hybrid_required",
+      "policy_overrides": {
+        "advisory_rejected_algs": [
+          "ed25519"
+        ]
+      },
+      "policy": {
+        "default_mode": "hybrid_required",
+        "risk_overrides": {
+          "low": "hybrid_required",
+          "medium": "hybrid_required",
+          "high": "hybrid_required"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": [
+          "ed25519"
+        ]
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_required.positive"
+      ],
+      "basis": "V2-10: outside pq_only a policy that excludes the classical algorithm the bundle uses rejects it (the contrast of Q1)."
+    },
+    {
+      "name": "q2.bundle.classical_only",
+      "question": "Q2",
+      "bundle": "q2_bundle",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-6",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.classical_only.positive"
+      ],
+      "basis": "V2-6: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.bundle.hybrid_preferred",
+      "question": "Q2",
+      "bundle": "q2_bundle",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-6",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_preferred.positive"
+      ],
+      "basis": "V2-6: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.bundle.hybrid_required",
+      "question": "Q2",
+      "bundle": "q2_bundle",
+      "requested_mode": "hybrid_required",
+      "effective_mode": "hybrid_required",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_required",
+        "risk_overrides": {
+          "low": "hybrid_required",
+          "medium": "hybrid_required",
+          "high": "hybrid_required"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-6",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_required.positive"
+      ],
+      "basis": "V2-6: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.bundle.pq_only",
+      "question": "Q2",
+      "bundle": "q2_bundle",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-6",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q2): under pq_only a classical component that fails cryptographic verification is tolerated when the PQ component verifies over those classical bytes (pq_over_classical; DCP-AI-v2.0.md § 5, § 7.1)."
+    },
+    {
+      "name": "q2.passport.classical_only",
+      "question": "Q2",
+      "bundle": "q2_passport",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-8",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.classical_only.positive"
+      ],
+      "basis": "V2-8: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.passport.hybrid_preferred",
+      "question": "Q2",
+      "bundle": "q2_passport",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-8",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_preferred.positive"
+      ],
+      "basis": "V2-8: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.passport.hybrid_required",
+      "question": "Q2",
+      "bundle": "q2_passport",
+      "requested_mode": "hybrid_required",
+      "effective_mode": "hybrid_required",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_required",
+        "risk_overrides": {
+          "low": "hybrid_required",
+          "medium": "hybrid_required",
+          "high": "hybrid_required"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-8",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_required.positive"
+      ],
+      "basis": "V2-8: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.passport.pq_only",
+      "question": "Q2",
+      "bundle": "q2_passport",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-8",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q2): under pq_only a classical component that fails cryptographic verification is tolerated when the PQ component verifies over those classical bytes (pq_over_classical; DCP-AI-v2.0.md § 5, § 7.1)."
+    },
+    {
+      "name": "q2.checkpoint.classical_only",
+      "question": "Q2",
+      "bundle": "q2_checkpoint",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-12",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.classical_only.positive"
+      ],
+      "basis": "V2-12: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.checkpoint.hybrid_preferred",
+      "question": "Q2",
+      "bundle": "q2_checkpoint",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-12",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_preferred.positive"
+      ],
+      "basis": "V2-12: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.checkpoint.hybrid_required",
+      "question": "Q2",
+      "bundle": "q2_checkpoint",
+      "requested_mode": "hybrid_required",
+      "effective_mode": "hybrid_required",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_required",
+        "risk_overrides": {
+          "low": "hybrid_required",
+          "medium": "hybrid_required",
+          "high": "hybrid_required"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-12",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_required.positive"
+      ],
+      "basis": "V2-12: outside pq_only the classical component is required and MUST verify (the contrast of Q2)."
+    },
+    {
+      "name": "q2.checkpoint.pq_only",
+      "question": "Q2",
+      "bundle": "q2_checkpoint",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-12",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q2): under pq_only a classical component that fails cryptographic verification is tolerated when the PQ component verifies over those classical bytes (pq_over_classical; DCP-AI-v2.0.md § 5, § 7.1; V2-12 (3))."
+    },
+    {
+      "name": "q2_scope.bundle.noncanonical_classical_sig_b64",
+      "question": "Q2 scope",
+      "bundle": "scope_bundle_noncanonical_classical_sig_b64",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-5",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.pq_only.positive"
+      ],
+      "basis": "Clarification of V2-10 (Q2) leaves V2-5 in force under pq_only: every sig_b64 MUST be canonical base64, including a classical one whose verification is tolerated."
+    },
+    {
+      "name": "q2_scope.bundle.unknown_classical_kid",
+      "question": "Q2 scope",
+      "bundle": "scope_bundle_unknown_classical_kid",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-13",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.pq_only.positive"
+      ],
+      "basis": "Clarification of V2-10 (Q2) leaves the key lookup and identity of V2-6 and V2-13 in force under pq_only: a classical kid that names no key in the list is rejected."
+    },
+    {
+      "name": "q2_scope.passport.noncanonical_classical_sig_b64",
+      "question": "Q2 scope",
+      "bundle": "scope_passport_noncanonical_classical_sig_b64",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-5",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.pq_only.positive"
+      ],
+      "basis": "Clarification of V2-10 (Q2) leaves V2-5 in force under pq_only: every sig_b64 MUST be canonical base64, including a classical one whose verification is tolerated."
+    },
+    {
+      "name": "q2_scope.passport.unknown_classical_kid",
+      "question": "Q2 scope",
+      "bundle": "scope_passport_unknown_classical_kid",
+      "requested_mode": "pq_only",
+      "effective_mode": "pq_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "pq_only",
+        "risk_overrides": {
+          "low": "pq_only",
+          "medium": "pq_only",
+          "high": "pq_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-13",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.pq_only.positive"
+      ],
+      "basis": "Clarification of V2-10 (Q2) leaves the key lookup and identity of V2-6 and V2-13 in force under pq_only: a classical kid that names no key in the list is rejected."
+    },
+    {
+      "name": "q3.classical_only.positive",
+      "question": "control",
+      "bundle": "classical_only_routine",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "bundle_vectors.json classical_only_routine_bundle.verified_by_mode.classical_only = true."
+    },
+    {
+      "name": "q3.classical_only.pq_alg_not_accepted",
+      "question": "Q3",
+      "bundle": "classical_only_routine",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {
+        "accepted_pq_algs": [
+          "slh-dsa-192f"
+        ]
+      },
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q3): a bundle with no PQ component uses no PQ algorithm, so the PQ lists and advisories do not reject it; the effective mode admits classical_only."
+    },
+    {
+      "name": "q3_contrast.classical_only.pq_alg_not_accepted",
+      "question": "Q3",
+      "bundle": "routine_hybrid",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {
+        "accepted_pq_algs": [
+          "slh-dsa-192f"
+        ]
+      },
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.classical_only.positive"
+      ],
+      "basis": "V2-10: a PQ component that is present is checked against the PQ lists in every mode (the contrast of Q3)."
+    },
+    {
+      "name": "q3.classical_only.pq_alg_advisory_rejected",
+      "question": "Q3",
+      "bundle": "classical_only_routine",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {
+        "advisory_rejected_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q3): a bundle with no PQ component uses no PQ algorithm, so the PQ lists and advisories do not reject it; the effective mode admits classical_only."
+    },
+    {
+      "name": "q3_contrast.classical_only.pq_alg_advisory_rejected",
+      "question": "Q3",
+      "bundle": "routine_hybrid",
+      "requested_mode": "classical_only",
+      "effective_mode": "classical_only",
+      "policy_overrides": {
+        "advisory_rejected_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "policy": {
+        "default_mode": "classical_only",
+        "risk_overrides": {
+          "low": "classical_only",
+          "medium": "classical_only",
+          "high": "classical_only"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.classical_only.positive"
+      ],
+      "basis": "V2-10: a PQ component that is present is checked against the PQ lists in every mode (the contrast of Q3)."
+    },
+    {
+      "name": "q3.hybrid_preferred.positive",
+      "question": "control",
+      "bundle": "classical_only_routine",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {},
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "bundle_vectors.json classical_only_routine_bundle.verified_by_mode.hybrid_preferred = true."
+    },
+    {
+      "name": "q3.hybrid_preferred.pq_alg_not_accepted",
+      "question": "Q3",
+      "bundle": "classical_only_routine",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {
+        "accepted_pq_algs": [
+          "slh-dsa-192f"
+        ]
+      },
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q3): a bundle with no PQ component uses no PQ algorithm, so the PQ lists and advisories do not reject it; the effective mode admits classical_only."
+    },
+    {
+      "name": "q3_contrast.hybrid_preferred.pq_alg_not_accepted",
+      "question": "Q3",
+      "bundle": "routine_hybrid",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {
+        "accepted_pq_algs": [
+          "slh-dsa-192f"
+        ]
+      },
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": []
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_preferred.positive"
+      ],
+      "basis": "V2-10: a PQ component that is present is checked against the PQ lists in every mode (the contrast of Q3)."
+    },
+    {
+      "name": "q3.hybrid_preferred.pq_alg_advisory_rejected",
+      "question": "Q3",
+      "bundle": "classical_only_routine",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {
+        "advisory_rejected_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": true
+      },
+      "basis": "Clarification of V2-10 (Q3): a bundle with no PQ component uses no PQ algorithm, so the PQ lists and advisories do not reject it; the effective mode admits classical_only."
+    },
+    {
+      "name": "q3_contrast.hybrid_preferred.pq_alg_advisory_rejected",
+      "question": "Q3",
+      "bundle": "routine_hybrid",
+      "requested_mode": "hybrid_preferred",
+      "effective_mode": "hybrid_preferred",
+      "policy_overrides": {
+        "advisory_rejected_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "policy": {
+        "default_mode": "hybrid_preferred",
+        "risk_overrides": {
+          "low": "hybrid_preferred",
+          "medium": "hybrid_preferred",
+          "high": "hybrid_preferred"
+        },
+        "min_classical": 1,
+        "min_pq": 1,
+        "accepted_classical_algs": [
+          "ed25519"
+        ],
+        "accepted_pq_algs": [
+          "ml-dsa-65",
+          "slh-dsa-192f"
+        ],
+        "accepted_hash_algs": [
+          "sha256",
+          "sha384"
+        ],
+        "require_session_binding": true,
+        "require_composite_binding": true,
+        "max_key_age_days": 365,
+        "allow_v1_bundles": true,
+        "allow_classical_fallback_disable": false,
+        "warn_classical_only_deprecated": false,
+        "advisory_rejected_algs": [
+          "ml-dsa-65"
+        ]
+      },
+      "verification_time": "2026-10-22T00:00:00Z",
+      "spec_step": "V2-10",
+      "expect": {
+        "verified": false
+      },
+      "controls": [
+        "base.hybrid_preferred.positive"
+      ],
+      "basis": "V2-10: a PQ component that is present is checked against the PQ lists in every mode (the contrast of Q3)."
+    }
+  ]
+}

@@ -29,7 +29,11 @@ const examplesDir = path.join(__dirname, "..", "tests", "conformance", "examples
 const digest = (alg, obj) => crypto.createHash(alg).update(canonicalizeV2(obj), "utf8").digest("hex");
 const isoSeconds = (date) => date.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-export async function buildV2Examples() {
+/**
+ * `sessionExpiresAt` and `intendedVerifier`, when given, go into the signed manifest (the signer
+ * then stamps session_issued_at): a bundle for an audience-bound, short session.
+ */
+export async function buildV2Examples({ sessionExpiresAt, intendedVerifier } = {}) {
   const registry = new AlgorithmRegistry();
   const ed25519 = new Ed25519Provider();
   const mlDsa65 = new MlDsa65Provider();
@@ -165,6 +169,8 @@ export async function buildV2Examples() {
     signerType: "human",
     signerId: rpr.human_id,
     keys,
+    sessionExpiresAt,
+    intendedVerifier,
   });
 
   return { rpr, passport, intent, policyDecision, signedBundle, signerPublicKeyB64: keys.classical.publicKeyB64 };

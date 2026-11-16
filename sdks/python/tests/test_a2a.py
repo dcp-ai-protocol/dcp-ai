@@ -137,7 +137,8 @@ class TestSession:
         msg = encrypt_message(left, {"a": 1})
         tampered = dict(msg)
         ct = base64.b64decode(tampered["encrypted_payload"])
-        tampered["encrypted_payload"] = base64.b64encode(b"\xff" + ct[1:]).decode()
+        # Flip a bit instead of overwriting with 0xff, which is a no-op 1 time in 256.
+        tampered["encrypted_payload"] = base64.b64encode(bytes([ct[0] ^ 0x01]) + ct[1:]).decode()
         with pytest.raises(Exception):
             decrypt_message(right, tampered)
 
@@ -166,6 +167,77 @@ class TestSession:
         p = generate_resume_proof(left, 10)
         assert verify_resume_proof(left, 10, p) is True
         assert verify_resume_proof(left, 11, p) is False
+
+    def test_each_sequence_accepted_once_in_or_out_of_order(self):
+        left, right = _pair_sessions()
+        m0, m1, m2 = (encrypt_message(left, {"n": i}) for i in range(3))
+        assert decrypt_message(right, m0) == {"n": 0}
+        assert decrypt_message(right, m2) == {"n": 2}
+        assert decrypt_message(right, m1) == {"n": 1}  # late, inside the window
+        for m in (m0, m1, m2):
+            with pytest.raises(ValueError, match="already received"):
+                decrypt_message(right, m)
+
+    def test_forged_message_does_not_use_up_its_sequence(self):
+        import base64
+
+        left, right = _pair_sessions()
+        m0 = encrypt_message(left, {"n": 0})
+        forged = {**m0, "tag": base64.b64encode(bytes(16)).decode()}
+        with pytest.raises(Exception):
+            decrypt_message(right, forged)
+        assert decrypt_message(right, m0) == {"n": 0}
+
+    def test_invalid_and_too_old_sequences_rejected(self):
+        left, right = _pair_sessions()
+        m0 = encrypt_message(left, {"n": 0})
+        for sequence in (-1, 0.5, True, "0", None):
+            with pytest.raises(ValueError, match="Invalid message sequence"):
+                decrypt_message(right, {**m0, "sequence": sequence})
+        right.message_counter_recv = 1001
+        with pytest.raises(ValueError, match="too old"):
+            decrypt_message(right, m0)
+
+    def test_restored_session_without_received_sequences_never_accepts_below_counter(self):
+        left, right = _pair_sessions()
+        msgs = [encrypt_message(left, {"n": i}) for i in range(4)]
+        decrypt_message(right, msgs[0])
+        decrypt_message(right, msgs[1])
+        right.received_sequences = None  # restored from storage without the field
+        with pytest.raises(ValueError, match="already received"):
+            decrypt_message(right, msgs[1])
+        assert decrypt_message(right, msgs[2]) == {"n": 2}
+        for m in msgs[:3]:
+            with pytest.raises(ValueError, match="already received"):
+                decrypt_message(right, m)
+        assert decrypt_message(right, msgs[3]) == {"n": 3}
+        # Restoring through the constructor without the field is the same restored session.
+        restored = A2ASession(**{k: v for k, v in vars(right).items() if k != "received_sequences"})
+        for m in msgs:
+            with pytest.raises(ValueError, match="already received"):
+                decrypt_message(restored, m)
+        fresh = encrypt_message(left, {"n": 4})
+        assert decrypt_message(restored, fresh) == {"n": 4}
+        with pytest.raises(ValueError, match="already received"):
+            decrypt_message(restored, msgs[0])
+
+    def test_sequence_must_be_exactly_int(self):
+        class Sneaky(int):
+            def __str__(self) -> str:
+                return "5"
+
+        left, right = _pair_sessions()
+        m0 = encrypt_message(left, {"n": 0})
+        with pytest.raises(ValueError, match="Invalid message sequence"):
+            decrypt_message(right, {**m0, "sequence": Sneaky(0)})
+
+    def test_sequence_a_window_ahead_rejected(self):
+        left, right = _pair_sessions()
+        left.message_counter_send = 1000
+        with pytest.raises(ValueError, match="too far ahead"):
+            decrypt_message(right, encrypt_message(left, {"n": 1000}))
+        left.message_counter_send = 999
+        assert decrypt_message(right, encrypt_message(left, {"n": 999})) == {"n": 999}
 
 
 class TestNonce:

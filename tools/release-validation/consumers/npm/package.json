@@ -1,0 +1,11 @@
+{
+  "name": "dcp-release-validation-npm-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Consumer of the published npm packages. Copied to a temporary directory; never installed in place.",
+  "dependencies": {
+    "@dcp-ai/cli": "2.2.0",
+    "@dcp-ai/sdk": "2.4.0",
+    "@dcp-ai/wasm": "2.2.0"
+  }
+}

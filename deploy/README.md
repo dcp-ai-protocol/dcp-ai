@@ -14,23 +14,32 @@ any container host. Below are the most common flows.
 | Transparency log | `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log` | 3002 |
 | Revocation | `ghcr.io/dcp-ai-protocol/dcp-ai/revocation` | 3003 |
 
-Every image is published with `:latest`, the full semver (`:2.0.3`),
-major.minor (`:2.0`), major (`:2`), and a `:sha-xxxxxxx` tag. Both
-`linux/amd64` and `linux/arm64` are provided.
+Tags (see [`publish-docker.yml`](../.github/workflows/publish-docker.yml)): a push to `main` that
+touches the service code or the Dockerfile builds the images without publishing them. A published release
+publishes its tag, its semver tags (`:<major>.<minor>.<patch>`, `:<major>.<minor>`, `:<major>`) and
+`:sha-xxxxxxx`, and can also move `:latest`, which is mutable; a manual run publishes the tags of the
+branch or tag it runs on (on `main`: `:latest`, `:main` and `:sha-xxxxxxx`). Both `linux/amd64` and
+`linux/arm64` are built.
 
 Quick smoke test on your laptop:
 
 ```bash
 docker run --rm -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest
+# in a second terminal, while the container runs in the foreground
 curl http://localhost:3000/health
 ```
+
+`/health` only shows that the process answers HTTP. It says nothing about persistence, anchoring,
+gossip or readiness for production.
 
 ---
 
 ## Option 1 — Docker Compose (self-host, simplest)
 
-The repo ships a ready-to-run compose file that wires all four services
-together, including two gossiping transparency logs:
+The repo ships a ready-to-run compose file that wires the four services together in five
+containers, with two transparency logs. The logs only gossip once each has a fixed `OPERATOR_KEY`
+and the other's public key pinned (see [`docker/README.md`](../docker/README.md)); without that,
+each polls the other and ignores its tree heads:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai
@@ -39,6 +48,7 @@ docker compose up -d
 ```
 
 Services expose:
+
 - `http://localhost:3000` — verification
 - `http://localhost:3001` — anchor
 - `http://localhost:3002` — transparency-log (log-alpha)
@@ -57,9 +67,7 @@ services:
 
 ---
 
-## Option 2 — Fly.io (managed, free tier)
-
-Free tier of Fly.io covers up to 3 shared-cpu VMs with 256 MB RAM — enough to run the four services for evaluation.
+## Option 2 — Fly.io (managed)
 
 ```bash
 # one-time setup
@@ -77,31 +85,34 @@ fly secrets set --app dcp-ai-verification OPERATOR_TOKEN="$(openssl rand -hex 32
 fly deploy --config verification.toml
 
 fly launch --config anchor.toml          --no-deploy
-# anchor needs a signer and a contract:
-fly secrets set --app dcp-ai-anchor \
-  ANCHOR_RPC_URL="https://mainnet.base.org" \
-  ANCHOR_PRIVATE_KEY="0x..." \
-  ANCHOR_CONTRACT="0x..."
+# on-chain submission is not implemented: no RPC URL, wallet key or contract is read
+fly secrets set --app dcp-ai-anchor OPERATOR_TOKEN="$(openssl rand -hex 32)"   # unlocks POST /flush
 fly deploy --config anchor.toml
 
 fly launch --config transparency-log.toml --no-deploy
 fly secrets set --app dcp-ai-transparency-log \
   OPERATOR_KEY="$(openssl rand -hex 32)" \
-  GOSSIP_PEERS="https://<your-second-log>.fly.dev"
+  GOSSIP_PEERS="https://<your-second-log>.fly.dev#<its /health public_key>"
 fly deploy --config transparency-log.toml
 
 fly launch --config revocation.toml      --no-deploy
 fly deploy --config revocation.toml
 ```
 
-Each service gets a public HTTPS URL like `https://dcp-ai-verification.fly.dev`.
+Each service gets a public HTTPS URL like `https://dcp-ai-verification.fly.dev`. These configurations run the published `:latest` image and do not set `DCP_DEMO_ENDPOINTS`. Only a server built from sources that include the DCP-05 to DCP-09 gate keeps those demo endpoints off by default; an image built from sources without this change has them on and without a token (see the operating notes).
+
+A gossip peer without its `#<public key>` is polled but its tree heads are ignored.
 
 State is in memory. The verification, revocation and transparency-log configs keep one machine
-running so idling does not wipe their registries; a deploy or restart still starts them empty.
+running so idling does not wipe their registries; a deploy or restart still starts them empty. The
+anchor config lets its machine stop (`min_machines_running = 0`), which drops its pending hashes
+and local records. Only the revocation service can keep its state across restarts: put
+`REVOCATION_STATE_PATH` on a volume, as the comment in `revocation.toml` shows. The transparency
+log has no persistence option.
 Set `OPERATOR_TOKEN` on the revocation app too, since registering a new `agent_id` there needs it,
 and on the anchor and transparency-log apps if you need `POST /flush` or `POST /gossip/peers`.
 
-For production you want **two** transparency-log instances in different regions, each pointing at the other via `GOSSIP_PEERS`. That is what detects split-view attacks (DCP-03 §4).
+For production you want **two** transparency-log instances in different regions, each with its own `OPERATOR_KEY` and pointing at the other via `GOSSIP_PEERS` with the other's public key pinned. Each log then witnesses the other's signed tree heads, by polling and through `POST /gossip/exchange`, and raises an alert when one log (its pinned key and exact `log_id`) has signed two different roots for the same tree size, with both signed heads as evidence. The two logs hold different entries and are never compared with each other. The logs do not replicate entries, and heads of different sizes are not compared (there is no consistency proof). A log restarted with the same `OPERATOR_KEY` and `LOG_ID` starts an empty tree under the same identity, and its peer reports a split view if it still holds an earlier head at a size the new tree signs with another root; see [the transparency log README](../services/transparency-log/README.md#gossip).
 
 ---
 
@@ -116,7 +127,8 @@ gcloud run deploy dcp-ai-verification \
   --set-env-vars="DCP_VERSION=2.0,VERIFIER_MODE=hybrid_required"
 ```
 
-Repeat for each service. Cloud Run scales to zero when idle, so cost for low traffic is near $0.
+Repeat for each service. Cloud Run scales to zero when idle, and these services keep their state in
+memory: an instance that scales to zero or restarts starts empty (see the operating notes).
 
 ---
 
@@ -128,13 +140,16 @@ Create a new project from Docker image. For each service paste the GHCR image UR
 
 ## Operating notes
 
-- **Anchor**: only enable after you have deployed `contracts/ethereum/DCPAnchor.sol` to an EVM chain and set `ANCHOR_CONTRACT`. See [Smart-contract deployment](#smart-contract-deployment) in the operator guide.
-- **Transparency log**: persistence is in-process by default (good for evaluation, loses data on restart). For production back it with a volume or a real DB.
-- **Revocation**: the registry is authoritative only if every verifier in your policy points at *this* URL. Publish the URL in your `.well-known/dcp-capabilities.json`.
-- **Verification**: stateless, horizontally scalable, put behind a CDN/load-balancer for production.
+- **Anchor**: on-chain submission is not implemented. Deploying `contracts/ethereum/src/DCPAnchor.sol` and setting `ANCHOR_CONTRACT` does not enable it: `ANCHOR_RPC_URL`, `ANCHOR_PRIVATE_KEY` and `ANCHOR_CONTRACT` are not read (setting `ANCHOR_RPC_URL` only logs a warning), so do not give the service a wallet key. It keeps local records in memory with `tx_hash: null` and `onchain: false`.
+- **Transparency log**: in memory only, with no persistence option: a restart starts a new, empty tree, and a volume does not change that. A fixed `OPERATOR_KEY` keeps the same signing key across restarts.
+- **Revocation**: the registry is authoritative only if every verifier in your policy points at *this* URL. Publish the URL in your `.well-known/dcp-capabilities.json`. Without `REVOCATION_STATE_PATH` on persistent storage, a restart forgets every registration and revocation.
+- **Verification**: not stateless. It keeps passports, keys, audit chains and the DCP-05–09 records in memory, and separate instances do not share them, so instances behind a load balancer would answer differently. Run one instance.
+- **Verification, DCP-05 to DCP-09 endpoints**: in a server built from current sources they are off by default (404); `DCP_DEMO_ENDPOINTS=dcp-05-09` makes them answer whoever holds the operator token, which must then be at least 32 characters, and they still verify no signature. An image built from sources without this change, as `:latest` may still be, has them on without a token, so anyone who reaches a public deployment (Fly, or Cloud Run with `--allow-unauthenticated`) can change lifecycle, dispute and mandate state: until you run an image built from these sources, put your own authorization in front of them or do not route them ([docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 ---
 
 ## CI/CD
 
-The repo's [`publish-docker.yml`](../.github/workflows/publish-docker.yml) workflow rebuilds and pushes these images on every release and on every push to `main` that touches the service code. You do not have to build images locally unless you want a custom patch.
+The repo's [`publish-docker.yml`](../.github/workflows/publish-docker.yml) workflow rebuilds and pushes these images on every published release, on manual dispatch, and on every push to `main` that touches `server/`, `services/`, `lib/`, `tools/`, `schemas/`, `docker/Dockerfile` or the workflow itself. The images also build the workspace SDK (`sdks/typescript/`), but a push that changes only the SDK does not trigger a rebuild.
+
+Before deploying, trace the digest of the image you will run to a successful run of the publishing workflow for the chosen commit. `:latest` is mutable and does not guarantee that revision. If no image exists for the chosen commit, build it from that checkout (`docker build -f docker/Dockerfile --target <service> .`, from the repo root).

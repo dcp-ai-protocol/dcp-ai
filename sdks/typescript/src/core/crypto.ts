@@ -6,6 +6,7 @@ import nacl from 'tweetnacl';
 import naclUtil from 'tweetnacl-util';
 import stringify from 'json-stable-stringify';
 import type { Keypair } from '../types/index.js';
+import { verifyDetached } from './ed25519-scalar.js';
 
 const { decodeUTF8, encodeBase64, decodeBase64 } = naclUtil;
 
@@ -47,5 +48,5 @@ export function verifyObject(
   const msg = decodeUTF8(canonicalize(obj));
   const sig = decodeBase64(signatureB64);
   const pk = decodeBase64(publicKeyB64);
-  return nacl.sign.detached.verify(msg, sig, pk);
+  return verifyDetached(msg, sig, pk);
 }

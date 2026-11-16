@@ -67,6 +67,7 @@
   - changed-files:
       - any-glob-to-any-file:
           - "docs/**"
+          - "i18n/**"
           - "docs-site/**"
           - "site/**"
           - "playground/**"

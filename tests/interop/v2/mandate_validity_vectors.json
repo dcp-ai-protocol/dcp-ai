@@ -1,0 +1,1316 @@
+{
+  "_description": "Cross-SDK mandate validity vectors (DCP-09 §3.5.2 rule 4 and §3.6): the helper that checks a mandate_id, local revocation and the validity window. Every helper MUST return each case's expect ({valid} or {valid: false, reason}, the first failing rule) for its mandate, its revoked_mandate_ids and its now (verification_time when absent). The rules, in order: the mandate is a JSON object; mandate_id is a non-empty string; it is not revoked (exact string match); valid_from and valid_until are RFC 3339 instants as in interop_vectors.json#rfc3339, compared in milliseconds, never as text; valid_from is not after valid_until; the verification time lies within the window, both limits included. The helper verifies no signature, schema, scope, chain or trust and authorizes nothing; the mandates are unsigned. An API that cannot take a value (a typed map cannot hold a JSON array) MUST skip the case explicitly, never pass it.",
+  "_generator": "tests/interop/v2/generate-mandate-validity-vectors.mjs",
+  "verification_time": "2026-06-15T12:00:00.000Z",
+  "reasons": {
+    "object": "Mandate is not an object",
+    "id": "Mandate mandate_id is missing or invalid",
+    "revoked": "Mandate has been revoked",
+    "from": "Mandate valid_from is missing or invalid",
+    "until": "Mandate valid_until is missing or invalid",
+    "inverted": "Mandate valid_from is after valid_until",
+    "notYet": "Mandate is not yet valid",
+    "expired": "Mandate has expired"
+  },
+  "cases": [
+    {
+      "name": "current",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "expired",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-10T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has expired"
+      }
+    },
+    {
+      "name": "not_yet_valid",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-20T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not yet valid"
+      }
+    },
+    {
+      "name": "revoked",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [
+        "mandate-validity-0001"
+      ],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has been revoked"
+      }
+    },
+    {
+      "name": "revoked_and_expired",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-10T00:00:00Z"
+      },
+      "revoked_mandate_ids": [
+        "mandate-validity-0001"
+      ],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has been revoked"
+      }
+    },
+    {
+      "name": "revoked_with_an_invalid_window",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "not-a-date"
+      },
+      "revoked_mandate_ids": [
+        "mandate-validity-0001"
+      ],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has been revoked"
+      }
+    },
+    {
+      "name": "other_ids_revoked",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [
+        "mandate-validity-0002",
+        "MANDATE-VALIDITY-0001",
+        "mandate-validity-0001 "
+      ],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "now_at_valid_until",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "now": "2026-07-01T00:00:00.000Z",
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "now_one_ms_after_valid_until",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "now": "2026-07-01T00:00:00.001Z",
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has expired"
+      }
+    },
+    {
+      "name": "now_at_valid_from",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "now": "2026-06-01T00:00:00.000Z",
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "now_one_ms_before_valid_from",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "now": "2026-05-31T23:59:59.999Z",
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not yet valid"
+      }
+    },
+    {
+      "name": "now_with_an_offset",
+      "group": "controls",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "now": "2026-07-01T02:00:00.001+02:00",
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has expired"
+      }
+    },
+    {
+      "name": "until_offset_equal_to_now",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T14:00:00+02:00"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "until_offset_one_ms_before_now",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T13:59:59.999+02:00"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has expired"
+      }
+    },
+    {
+      "name": "from_negative_offset_equal_to_now",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T06:30:00-05:30",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "from_negative_offset_one_ms_after_now",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T06:30:00.001-05:30",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not yet valid"
+      }
+    },
+    {
+      "name": "until_later_than_text_suggests",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T11:00:00-02:00"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "from_earlier_than_text_suggests",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T13:00:00+02:00",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "until_minus_zero_offset_equal_to_now",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T12:00:00-00:00"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "until_plus_zero_offset_equal_to_now",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T12:00:00+00:00"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "until_largest_offset_equal_to_now",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-16T11:59:00+23:59"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "until_smallest_offset_one_minute_before_now",
+      "group": "offsets",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-14T12:00:00-23:59"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has expired"
+      }
+    },
+    {
+      "name": "from_equal_to_now",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T12:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "until_equal_to_now",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T12:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "from_one_ms_after_now",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T12:00:00.001Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not yet valid"
+      }
+    },
+    {
+      "name": "until_one_ms_before_now",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T11:59:59.999Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has expired"
+      }
+    },
+    {
+      "name": "until_submillisecond_truncated_before_now",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T11:59:59.9999999Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has expired"
+      }
+    },
+    {
+      "name": "from_submillisecond_truncated_to_now",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T12:00:00.0009Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "equal_limits_at_now",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T12:00:00Z",
+        "valid_until": "2026-06-15T12:00:00.000Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "equal_limits_before_now",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T11:59:59.999Z",
+        "valid_until": "2026-06-15T11:59:59.999Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has expired"
+      }
+    },
+    {
+      "name": "long_fraction",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-15T12:00:00.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "year_0000_from",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "0000-01-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "year_9999_until",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "9999-12-31T23:59:59.999Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "leap_day",
+      "group": "limits",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2028-02-29T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "inverted",
+      "group": "inverted",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-20T00:00:00Z",
+        "valid_until": "2026-06-10T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is after valid_until"
+      }
+    },
+    {
+      "name": "inverted_by_one_ms",
+      "group": "inverted",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T12:00:00.001Z",
+        "valid_until": "2026-06-15T12:00:00.000Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is after valid_until"
+      }
+    },
+    {
+      "name": "inverted_by_offsets",
+      "group": "inverted",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-15T13:00:00+00:00",
+        "valid_until": "2026-06-15T14:00:00+02:00"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is after valid_until"
+      }
+    },
+    {
+      "name": "until_not_a_date",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "not-a-date"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_empty",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": ""
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_date_only",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_no_offset",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_space_separator",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01 00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_lowercase_t",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01t00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_lowercase_z",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_offset_without_colon",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00+0200"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_offset_hours_only",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00+02"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_offset_hour_24",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00+24:00"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_offset_minute_60",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00+05:60"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_no_seconds",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_month_13",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-13-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_day_00",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-00T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_february_30",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-02-30T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_february_29_common_year",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2027-02-29T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_april_31",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-04-31T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_hour_24",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T24:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_minute_60",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:60:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_leap_second",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-06-30T23:59:60Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_empty_fraction",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00.Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_comma_fraction",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00,5Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_five_digit_year",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "20260-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_signed_year",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "+2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_leading_space",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": " 2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_trailing_newline",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z\n"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_nul_inside",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z\u0000"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_fullwidth_digits",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "２０２６-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_double_z",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00ZZ"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "from_not_a_date",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "not-a-date",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is missing or invalid"
+      }
+    },
+    {
+      "name": "from_no_offset",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is missing or invalid"
+      }
+    },
+    {
+      "name": "from_february_30",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-02-30T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is missing or invalid"
+      }
+    },
+    {
+      "name": "from_and_until_invalid",
+      "group": "format",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "x",
+        "valid_until": "y"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is missing or invalid"
+      }
+    },
+    {
+      "name": "from_missing",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is missing or invalid"
+      }
+    },
+    {
+      "name": "until_missing",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "from_null",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": null,
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_from is missing or invalid"
+      }
+    },
+    {
+      "name": "until_null",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": null
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_epoch_ms_number",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": 1782864000000
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_boolean",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": true
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_object",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": {}
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "until_array",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "mandate-validity-0001",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": [
+          "2026-07-01T00:00:00Z"
+        ]
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate valid_until is missing or invalid"
+      }
+    },
+    {
+      "name": "id_missing",
+      "group": "types",
+      "mandate": {
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "id_null",
+      "group": "types",
+      "mandate": {
+        "mandate_id": null,
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "id_empty",
+      "group": "types",
+      "mandate": {
+        "mandate_id": "",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "id_number",
+      "group": "types",
+      "mandate": {
+        "mandate_id": 1,
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "id_array",
+      "group": "types",
+      "mandate": {
+        "mandate_id": [
+          "mandate-validity-0001"
+        ],
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "id_object",
+      "group": "types",
+      "mandate": {
+        "mandate_id": {},
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "id_missing_and_empty_id_revoked",
+      "group": "types",
+      "mandate": {
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [
+        ""
+      ],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "all_fields_missing",
+      "group": "types",
+      "mandate": {},
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "mandate_null",
+      "group": "hostile",
+      "mandate": null,
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not an object"
+      }
+    },
+    {
+      "name": "mandate_array",
+      "group": "hostile",
+      "mandate": [
+        {
+          "mandate_id": "mandate-validity-0001",
+          "valid_from": "2026-06-01T00:00:00Z",
+          "valid_until": "2026-07-01T00:00:00Z"
+        }
+      ],
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not an object"
+      }
+    },
+    {
+      "name": "mandate_string",
+      "group": "hostile",
+      "mandate": "mandate",
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not an object"
+      }
+    },
+    {
+      "name": "mandate_number",
+      "group": "hostile",
+      "mandate": 1,
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not an object"
+      }
+    },
+    {
+      "name": "mandate_boolean",
+      "group": "hostile",
+      "mandate": true,
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate is not an object"
+      }
+    },
+    {
+      "name": "proto_member_not_an_id",
+      "group": "hostile",
+      "mandate": {
+        "__proto__": {
+          "mandate_id": "mandate-validity-0001"
+        },
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate mandate_id is missing or invalid"
+      }
+    },
+    {
+      "name": "proto_named_id_revoked",
+      "group": "hostile",
+      "mandate": {
+        "mandate_id": "__proto__",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [
+        "__proto__"
+      ],
+      "expect": {
+        "valid": false,
+        "reason": "Mandate has been revoked"
+      }
+    },
+    {
+      "name": "constructor_named_id_not_revoked",
+      "group": "hostile",
+      "mandate": {
+        "mandate_id": "constructor",
+        "valid_from": "2026-06-01T00:00:00Z",
+        "valid_until": "2026-07-01T00:00:00Z"
+      },
+      "revoked_mandate_ids": [],
+      "expect": {
+        "valid": true
+      }
+    }
+  ]
+}

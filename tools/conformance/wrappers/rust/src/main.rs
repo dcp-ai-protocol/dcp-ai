@@ -1,0 +1,394 @@
+//! External conformance wrapper for the Rust SDK (contract dcp-ai-conformance-external/1,
+//! tools/conformance/README.md). Reads one request on stdin and writes one response on stdout.
+//!
+//! canonicalize: fatal UTF-8 decoding and serde_json::from_str (a failure is rejected/parse), then ONE
+//! call to dcp_ai::v2::canonicalize::canonicalize_v2. Only its documented rejection ("Non-integer number
+//! in V2 canonical form:" / "Non-finite number in V2 canonical form:", possibly behind `key "…": ` and
+//! `array[i]: ` path prefixes; an Err(String) with no stable code) is rejected/profile; any other Err is
+//! an error. digest: dcp_ai::v2::dual_hash::sha256_hex / sha3_256_hex of the decoded bytes. Contracts /2, /3, /4 and
+//! /5 (opt-in) are described where they are handled below.
+
+use std::collections::HashSet;
+use std::io::{Read, Write};
+
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
+use dcp_ai::v2::canonicalize::canonicalize_v2;
+use dcp_ai::providers::ed25519::Ed25519Provider;
+use dcp_ai::providers::ml_dsa_65::MlDsa65Provider;
+use dcp_ai::v2::composite_ops::composite_verify;
+use dcp_ai::v2::composite_sig::CompositeSignature;
+use dcp_ai::v2::crypto_provider::CryptoProvider;
+use dcp_ai::v2::delegation::{verify_mandate_chain, MandateChainKeys};
+use dcp_ai::v2::dual_hash::{dual_merkle_root, sha256_hex, sha3_256_hex, DualHash};
+use dcp_ai::v2::session_nonce::parse_rfc3339_millis;
+use dcp_ai::v2::types::VerifierPolicy;
+use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2_at;
+use dcp_ai::v2::{admit_signed_bundle_v2, resolve_strict_v1_profile, AdmissionConfigError, AdmitOptions, PrincipalTrustStore};
+use serde_json::{json, Map, Value};
+
+const CONTRACT: &str = "dcp-ai-conformance-external/1";
+const CONTRACT_V2: &str = "dcp-ai-conformance-external/2";
+const CONTRACT_V3: &str = "dcp-ai-conformance-external/3";
+const CONTRACT_V4: &str = "dcp-ai-conformance-external/4";
+const CONTRACT_V5: &str = "dcp-ai-conformance-external/5";
+
+fn fail(msg: &str) -> ! {
+    eprintln!("rust wrapper: {msg}");
+    std::process::exit(2);
+}
+
+fn exact_keys(o: &Map<String, Value>, want: &[&str]) -> bool {
+    o.len() == want.len() && want.iter().all(|k| o.contains_key(*k))
+}
+
+/// Canonical RFC 4648 base64 with padding only: the same string after re-encoding.
+fn decode_base64_strict(s: &str) -> Option<Vec<u8>> {
+    let b = STANDARD.decode(s).ok()?;
+    (STANDARD.encode(&b) == s).then_some(b)
+}
+
+/// A message longer than this many UTF-8 bytes (1 MiB, the same measure as the WASM wrapper) is never
+/// classified as a profile rejection: it is reported as an error. The limit applies to this classifier only.
+const MAX_REJECTION_MESSAGE: usize = 1 << 20;
+const REJECTION_TEXTS: [&[u8]; 2] = [b"Non-integer number in V2 canonical form: ", b"Non-finite number in V2 canonical form: "];
+
+/// The documented rejection text of canonicalize_v2, behind any number of `key "<k>": ` prefixes (<k> may
+/// itself contain `": `) and `array[<digits>]: ` prefixes. Trying every possible end of a key backtracks
+/// exponentially, so a small automaton runs over the bytes instead: one pass, a constant number of states
+/// per byte. States, as bits: B at a prefix boundary; K1..K4 inside `key "`; KB inside the key; E1/E2 after
+/// `"` and `":`; A1..A5 inside `array[`; D0 before the first digit; D in the digits; F1/F2 after `]` and `]:`.
+fn is_documented_rejection(msg: &str) -> bool {
+    const KEY_OPEN: &[u8] = b"key \"";
+    const ARRAY_OPEN: &[u8] = b"array[";
+    const B: u32 = 1;
+    const KB: u32 = 1 << 5;
+    const E1: u32 = 1 << 6;
+    const E2: u32 = 1 << 7;
+    const D0: u32 = 1 << 13;
+    const D: u32 = 1 << 14;
+    const F1: u32 = 1 << 15;
+    const F2: u32 = 1 << 16;
+    let k = |i: usize| 1u32 << i; // K1..K4: bits 1..4
+    let a = |i: usize| 1u32 << (7 + i); // A1..A5: bits 8..12
+    let bytes = msg.as_bytes();
+    if bytes.len() > MAX_REJECTION_MESSAGE {
+        return false;
+    }
+    let mut set = B;
+    let mut i = 0;
+    while set != 0 {
+        if set & B != 0 && REJECTION_TEXTS.iter().any(|t| bytes[i..].starts_with(t)) {
+            return true;
+        }
+        let Some(&c) = bytes.get(i) else { return false };
+        let mut next = 0;
+        if set & B != 0 {
+            if c == KEY_OPEN[0] { next |= k(1); }
+            if c == ARRAY_OPEN[0] { next |= a(1); }
+        }
+        for j in 1..=4 {
+            if set & k(j) != 0 && c == KEY_OPEN[j] { next |= if j < 4 { k(j + 1) } else { KB }; }
+        }
+        if set & KB != 0 { next |= if c == b'"' { KB | E1 } else { KB }; }
+        if set & E1 != 0 && c == b':' { next |= E2; }
+        if set & E2 != 0 && c == b' ' { next |= B; }
+        for j in 1..=5 {
+            if set & a(j) != 0 && c == ARRAY_OPEN[j] { next |= if j < 5 { a(j + 1) } else { D0 }; }
+        }
+        if set & (D0 | D) != 0 && c.is_ascii_digit() { next |= D; }
+        if set & D != 0 && c == b']' { next |= F1; }
+        if set & F1 != 0 && c == b':' { next |= F2; }
+        if set & F2 != 0 && c == b' ' { next |= B; }
+        set = next;
+        i += 1;
+    }
+    false
+}
+
+fn is_hex64(v: &Value) -> bool {
+    v.as_str().is_some_and(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+}
+
+/// YYYY-MM-DDTHH:MM:SS[.fraction] followed by Z or ±HH:MM (the kit's contract; no local or implicit zone).
+fn is_rfc3339_with_zone(t: &str) -> bool {
+    let b = t.as_bytes();
+    let digits = |r: std::ops::Range<usize>| r.clone().all(|i| b.get(i).is_some_and(u8::is_ascii_digit));
+    if b.len() < 20 || !digits(0..4) || b[4] != b'-' || !digits(5..7) || b[7] != b'-' || !digits(8..10) || b[10] != b'T'
+        || !digits(11..13) || b[13] != b':' || !digits(14..16) || b[16] != b':' || !digits(17..19) {
+        return false;
+    }
+    let mut i = 19;
+    if b[i] == b'.' { i += 1; let s = i; while i < b.len() && b[i].is_ascii_digit() { i += 1; } if i == s { return false; } }
+    &t[i..] == "Z" || (b.len() == i + 6 && (b[i] == b'+' || b[i] == b'-') && digits(i + 1..i + 3) && b[i + 3] == b':' && digits(i + 4..i + 6))
+}
+
+/// Contract /2 (opt-in evidence): one call per case to dual_merkle_root, composite_verify (Ed25519 and
+/// ML-DSA-65 providers, as the SDK's interop tests pass them) or verify_signed_bundle_v2_at.
+fn run_evidence_case(id: &str, op: &str, o: &Map<String, Value>) -> Value {
+    let need_str = |k: &str| -> &str { o.get(k).and_then(Value::as_str).unwrap_or_else(|| fail(&format!("case {id}: {k} must be a string"))) };
+    match op {
+        "dual_merkle_root" => {
+            if !exact_keys(o, &["id", "op", "leaves"]) { fail(&format!("case {id}: fields do not match op {op}")); }
+            let leaves: Vec<DualHash> = match o["leaves"].as_array() {
+                Some(a) if !a.is_empty() && a.iter().all(|l| l.as_object().is_some_and(|m| exact_keys(m, &["sha256", "sha3_256"]) && m.values().all(is_hex64))) =>
+                    serde_json::from_value(o["leaves"].clone()).unwrap_or_else(|e| fail(&format!("case {id}: leaves: {e}"))),
+                _ => fail(&format!("case {id}: leaves must be {{sha256, sha3_256}} strings")),
+            };
+            match dual_merkle_root(&leaves) {
+                Some(r) => json!({"id": id, "status": "ok", "sha256": r.sha256, "sha3_256": r.sha3_256}),
+                None => json!({"id": id, "status": "error", "message": "dual_merkle_root returned no root"}),
+            }
+        }
+        "composite_verify" => {
+            if !exact_keys(o, &["id", "op", "context", "payload_b64", "composite_sig", "classical_public_key_b64", "pq_public_key_b64"]) || !o["composite_sig"].is_object() {
+                fail(&format!("case {id}: fields do not match op {op}"));
+            }
+            let payload = decode_base64_strict(need_str("payload_b64")).unwrap_or_else(|| fail(&format!("case {id}: payload_b64 is not canonical base64")));
+            let pq = match &o["pq_public_key_b64"] { Value::Null => None, Value::String(s) => Some(s.as_str()), _ => fail(&format!("case {id}: pq_public_key_b64 must be a string or null")) };
+            let sig: CompositeSignature = serde_json::from_value(o["composite_sig"].clone()).unwrap_or_else(|e| fail(&format!("case {id}: composite_sig: {e}")));
+            let ml = MlDsa65Provider;
+            match composite_verify(&Ed25519Provider, Some(&ml as &dyn CryptoProvider), need_str("context"), &payload, &sig, need_str("classical_public_key_b64"), pq) {
+                Ok(r) => json!({"id": id, "status": "ok", "valid": r.valid, "classical_valid": r.classical_valid, "pq_valid": r.pq_valid}),
+                // The SDK reports an absent PQ signature under a pq_over_classical binding as an Err (its interop test
+                // accepts that as the rejection). Only that exact error, for that exact input, is
+                // rejected(missing_pq_signature); any other Err is an error.
+                Err(e) if format!("{e:?}") == r#"SignatureError("pq_over_classical binding requires PQ signature")"#
+                    && o["composite_sig"]["binding"] == "pq_over_classical" && o["composite_sig"]["pq"].is_null() =>
+                    json!({"id": id, "status": "rejected", "code": "missing_pq_signature"}),
+                Err(e) => json!({"id": id, "status": "error", "message": format!("{e:?}").chars().take(500).collect::<String>()}),
+            }
+        }
+        _ => {
+            if !exact_keys(o, &["id", "op", "bundle_b64", "policy", "verification_time"]) || !o["policy"].is_object() {
+                fail(&format!("case {id}: fields do not match op {op}"));
+            }
+            let bytes = decode_base64_strict(need_str("bundle_b64")).unwrap_or_else(|| fail(&format!("case {id}: bundle_b64 is not canonical base64")));
+            let t = need_str("verification_time");
+            let now = if is_rfc3339_with_zone(t) { parse_rfc3339_millis(t) } else { None }
+                .unwrap_or_else(|| fail(&format!("case {id}: verification_time is not RFC 3339 with an explicit zone")));
+            let policy: VerifierPolicy = serde_json::from_value(o["policy"].clone()).unwrap_or_else(|e| fail(&format!("case {id}: policy: {e}")));
+            let Some(signed) = std::str::from_utf8(&bytes).ok().and_then(|t| serde_json::from_str::<Value>(t).ok()) else {
+                return json!({"id": id, "status": "rejected", "code": "parse"});
+            };
+            let r = verify_signed_bundle_v2_at(&signed, &policy, now).result;
+            json!({"id": id, "status": "ok", "verified": r.verified, "errors": r.errors})
+        }
+    }
+}
+
+/// Contract /5 (opt-in effective policy): the /2 bundle verification, ONE verify_signed_bundle_v2_at call per case,
+/// and the verification_mode and resolved_tier fields of that same result, copied as they are and never derived.
+/// They are Strings, so they are always exposed; the SDK leaves them "" when it did not resolve them.
+fn run_effective_case(id: &str, o: &Map<String, Value>) -> Value {
+    let need_str = |k: &str| -> &str { o.get(k).and_then(Value::as_str).unwrap_or_else(|| fail(&format!("case {id}: {k} must be a string"))) };
+    if !exact_keys(o, &["id", "op", "bundle_b64", "policy", "verification_time"]) || !o["policy"].is_object() {
+        fail(&format!("case {id}: fields do not match op verify_signed_bundle_v2"));
+    }
+    let bytes = decode_base64_strict(need_str("bundle_b64")).unwrap_or_else(|| fail(&format!("case {id}: bundle_b64 is not canonical base64")));
+    let t = need_str("verification_time");
+    let now = if is_rfc3339_with_zone(t) { parse_rfc3339_millis(t) } else { None }
+        .unwrap_or_else(|| fail(&format!("case {id}: verification_time is not RFC 3339 with an explicit zone")));
+    let policy: VerifierPolicy = serde_json::from_value(o["policy"].clone()).unwrap_or_else(|e| fail(&format!("case {id}: policy: {e}")));
+    let Some(signed) = std::str::from_utf8(&bytes).ok().and_then(|t| serde_json::from_str::<Value>(t).ok()) else {
+        return json!({"id": id, "status": "rejected", "code": "parse"});
+    };
+    let r = verify_signed_bundle_v2_at(&signed, &policy, now).result;
+    json!({"id": id, "status": "ok", "verified": r.verified, "errors": r.errors, "effective": {
+        "verification_mode": {"exposed": true, "value": r.verification_mode},
+        "resolved_tier": {"exposed": true, "value": r.resolved_tier},
+    }})
+}
+
+/// /3's now: exactly YYYY-MM-DDTHH:MM:SS.sssZ with a real calendar date and time (no leap second) in the years
+/// 0001-9999, in milliseconds.
+fn exact_now_ms(t: &str) -> Option<i64> {
+    let b = t.as_bytes();
+    if b.len() != 24 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' || b[13] != b':' || b[16] != b':' || b[19] != b'.' || b[23] != b'Z' {
+        return None;
+    }
+    let num = |r: std::ops::Range<usize>| -> Option<u32> { let s = &t[r]; s.bytes().all(|c| c.is_ascii_digit()).then(|| s.parse().ok()).flatten() };
+    let (year, month, day, hour, minute, second) = (num(0..4)?, num(5..7)?, num(8..10)?, num(11..13)?, num(14..16)?, num(17..19)?);
+    num(20..23)?;
+    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if year == 0 || !(1..=12).contains(&month) || day == 0 || day > days[(month - 1) as usize] || hour > 23 || minute > 59 || second > 59 {
+        return None;
+    }
+    parse_rfc3339_millis(t)
+}
+
+/// Contract /3 (opt-in admission, spec/profiles/admission): one call per case to admit_signed_bundle_v2 (the combined
+/// function, at the request's now, never the system clock), after resolve_strict_v1_profile and
+/// PrincipalTrustStore::from_json load the operator's configuration, or one call to either loader. They return only
+/// AdmissionConfigError, a rejection with its code; a policy the SDK cannot deserialize is an error, and anything
+/// unexpected is a panic, which ends the process (never a rejection). DCP_CONFORMANCE_WRAPPER_FAULT=panic (self-tests
+/// only) panics before each /3 SDK call.
+fn run_admission_case(id: &str, op: &str, o: &Map<String, Value>) -> Value {
+    let rejected = |e: AdmissionConfigError| json!({"id": id, "status": "rejected", "code": e.code});
+    let fault = || if std::env::var("DCP_CONFORMANCE_WRAPPER_FAULT").as_deref() == Ok("panic") { panic!("injected by DCP_CONFORMANCE_WRAPPER_FAULT") };
+    if op == "load_admission_config" {
+        if !exact_keys(o, &["id", "op", "kind", "config"]) { fail(&format!("case {id}: fields do not match op {op}")); }
+        let config = &o["config"];
+        return match o["kind"].as_str() {
+            Some("trust_set") => { fault(); match PrincipalTrustStore::from_json(config) { Ok(_) => json!({"id": id, "status": "ok", "accepted": true}), Err(e) => rejected(e) } }
+            Some("profile") => { fault(); match resolve_strict_v1_profile(config) {
+                Ok(p) => json!({"id": id, "status": "ok", "accepted": true, "max_session_duration_seconds": p.max_session_duration_seconds(), "max_revocation_age_seconds": p.max_revocation_age_seconds()}),
+                Err(e) => rejected(e),
+            } }
+            _ => fail(&format!("case {id}: kind must be trust_set or profile")),
+        };
+    }
+    if !exact_keys(o, &["id", "op", "bundle_b64", "now", "profile", "trust_set", "verifier_policy", "revocation"]) {
+        fail(&format!("case {id}: fields do not match op {op}"));
+    }
+    let bytes = o["bundle_b64"].as_str().and_then(decode_base64_strict).unwrap_or_else(|| fail(&format!("case {id}: bundle_b64 is not canonical base64")));
+    let signed: Value = std::str::from_utf8(&bytes).ok().and_then(|t| serde_json::from_str(t).ok()).unwrap_or_else(|| fail(&format!("case {id}: bundle_b64 is not UTF-8 JSON")));
+    let now = o["now"].as_str().and_then(exact_now_ms)
+        .unwrap_or_else(|| fail(&format!("case {id}: now is not YYYY-MM-DDTHH:mm:ss.sssZ with a real date in the years 0001-9999")));
+    let object_or_null = |k: &str| -> Option<&Value> { match &o[k] { Value::Null => None, v @ Value::Object(_) => Some(v), _ => fail(&format!("case {id}: {k} must be an object or null")) } };
+    let (profile_cfg, trust_cfg, policy_cfg) = (object_or_null("profile"), object_or_null("trust_set"), object_or_null("verifier_policy"));
+    // Three states: no revocation (no profile), unavailable (None to the SDK, R1) and a snapshot.
+    let (has_revocation, snapshot) = match &o["revocation"] {
+        Value::Null => (false, None),
+        Value::Object(m) if exact_keys(m, &["state"]) && m["state"] == "unavailable" => (true, None),
+        // A snapshot is an object, complete or not: the SDK judges its content.
+        Value::Object(m) if exact_keys(m, &["state", "snapshot"]) && m["state"] == "snapshot" && m["snapshot"].is_object() => (true, Some(&m["snapshot"])),
+        _ => fail(&format!("case {id}: revocation is null, {{state: unavailable}} or {{state: snapshot, snapshot: <object>}}")),
+    };
+    if profile_cfg.is_some() != has_revocation { fail(&format!("case {id}: revocation is given exactly under a profile")); }
+    fault();
+    let profile = match profile_cfg.map(resolve_strict_v1_profile).transpose() { Ok(p) => p, Err(e) => return rejected(e) };
+    let trust = match trust_cfg.map(PrincipalTrustStore::from_json).transpose() { Ok(t) => t, Err(e) => return rejected(e) };
+    let policy: Option<VerifierPolicy> = match policy_cfg.map(|v| serde_json::from_value(v.clone())).transpose() {
+        Ok(p) => p,
+        Err(e) => return json!({"id": id, "status": "error", "message": format!("verifier_policy: {e}").chars().take(500).collect::<String>()}),
+    };
+    let options = AdmitOptions { profile: profile.as_ref(), policy, trust: trust.as_ref(), revocation: snapshot, now_ms: Some(now) };
+    match admit_signed_bundle_v2(&signed, &options) {
+        Ok(r) => json!({
+            "id": id, "status": "ok", "verified": r.verified, "principal_trust": r.principal_trust, "profile": r.profile,
+            "profile_compliance": r.profile_compliance, "admitted": r.admitted, "action_authorized": r.action_authorized,
+            "recorded_decision": r.recorded_decision, "trust_set_version": r.trust_set_version,
+            "codes": r.errors.iter().map(|e| e.code).collect::<Vec<_>>(), "verification_verified": r.verification.result.verified,
+        }),
+        Err(e) => rejected(e),
+    }
+}
+
+/// Contract /4 (opt-in delegation, DCP-09 §3.5.2): one call per case to verify_mandate_chain with the request's keys
+/// and revoked ids, and its verification_time read by parse_rfc3339_millis, never the system clock. The chain and the
+/// keys arrive as the fixture's bytes and are read with serde_json, as the SDK's own corpus test does. A rejected chain
+/// is ok with valid: false; anything unexpected is a panic, which ends the process (never a rejection).
+/// DCP_CONFORMANCE_WRAPPER_FAULT=panic (self-tests only) panics before each /4 SDK call.
+fn run_delegation_case(id: &str, o: &Map<String, Value>) -> Value {
+    if !exact_keys(o, &["id", "op", "chain_b64", "keys_b64", "revoked_mandate_ids", "verification_time"]) {
+        fail(&format!("case {id}: fields do not match op verify_mandate_chain"));
+    }
+    let json_of = |k: &str| -> Value {
+        o[k].as_str().and_then(decode_base64_strict).and_then(|b| String::from_utf8(b).ok()).and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_else(|| fail(&format!("case {id}: {k} is not canonical base64 of UTF-8 JSON")))
+    };
+    let chain = match json_of("chain_b64") { Value::Array(a) => a, _ => fail(&format!("case {id}: chain_b64 must hold a JSON array")) };
+    let keys: MandateChainKeys = serde_json::from_value(json_of("keys_b64")).unwrap_or_else(|e| fail(&format!("case {id}: keys_b64: {e}")));
+    let revoked: HashSet<String> = match o["revoked_mandate_ids"].as_array() {
+        Some(a) if a.iter().all(Value::is_string) => a.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+        _ => fail(&format!("case {id}: revoked_mandate_ids must be an array of strings")),
+    };
+    let now = o["verification_time"].as_str().and_then(parse_rfc3339_millis)
+        .unwrap_or_else(|| fail(&format!("case {id}: verification_time is not an RFC 3339 instant")));
+    if std::env::var("DCP_CONFORMANCE_WRAPPER_FAULT").as_deref() == Ok("panic") { panic!("injected by DCP_CONFORMANCE_WRAPPER_FAULT"); }
+    let r = verify_mandate_chain(&chain, &revoked, &keys, Some(now));
+    json!({"id": id, "status": "ok", "valid": r.valid, "errors": r.errors, "effective_tier": r.effective_tier.map(|t| t.as_str()), "depth": r.depth})
+}
+
+fn run_case(c: &Value, v2: bool, v3: bool, v4: bool, v5: bool) -> Value {
+    let o = c.as_object().unwrap_or_else(|| fail("a case must be an object"));
+    let id = o.get("id").and_then(Value::as_str).unwrap_or_else(|| fail("a case needs a string id")).to_string();
+    // A missing or non-string op, alg or profile is an invalid request (exit 2), never "unsupported".
+    let need_str = |k: &str| -> &str { o.get(k).and_then(Value::as_str).unwrap_or_else(|| fail(&format!("case {id}: {k} must be a string"))) };
+    let op = need_str("op");
+    if v2 && matches!(op, "dual_merkle_root" | "composite_verify" | "verify_signed_bundle_v2") {
+        return run_evidence_case(&id, op, o);
+    }
+    if v3 && matches!(op, "admit_signed_bundle_v2" | "load_admission_config") {
+        return run_admission_case(&id, op, o);
+    }
+    if v4 && op == "verify_mandate_chain" {
+        return run_delegation_case(&id, o);
+    }
+    if v5 {
+        // /5 has one operation; any other op is unsupported.
+        return if op == "verify_signed_bundle_v2" { run_effective_case(&id, o) } else { json!({"id": id, "status": "unsupported"}) };
+    }
+    let fields: &[&str] = match op {
+        "canonicalize" => &["id", "op", "profile", "input_b64"],
+        "digest" => &["id", "op", "alg", "input_b64"],
+        _ => return json!({"id": id, "status": "unsupported"}),
+    };
+    if !exact_keys(o, fields) {
+        fail(&format!("case fields do not match op {op}"));
+    }
+    let b64 = need_str("input_b64");
+    let input = decode_base64_strict(b64).unwrap_or_else(|| fail(&format!("case {id}: input_b64 is not canonical base64")));
+    if op == "digest" {
+        return match need_str("alg") {
+            "sha256" => json!({"id": id, "status": "ok", "hex": sha256_hex(&input)}),
+            "sha3-256" => json!({"id": id, "status": "ok", "hex": sha3_256_hex(&input)}),
+            _ => json!({"id": id, "status": "unsupported"}),
+        };
+    }
+    if need_str("profile") != "dcp-jcs-v1" {
+        return json!({"id": id, "status": "unsupported"});
+    }
+    let text = match std::str::from_utf8(&input) {
+        Ok(t) => t,
+        Err(_) => return json!({"id": id, "status": "rejected", "code": "parse"}),
+    };
+    let value: Value = match serde_json::from_str(text) {
+        Ok(v) => v,
+        Err(_) => return json!({"id": id, "status": "rejected", "code": "parse"}),
+    };
+    match canonicalize_v2(&value) {
+        Ok(out) => json!({"id": id, "status": "ok", "output_b64": STANDARD.encode(out.as_bytes())}),
+        Err(e) if is_documented_rejection(&e) => json!({"id": id, "status": "rejected", "code": "profile"}),
+        Err(e) => json!({"id": id, "status": "error", "message": e.chars().take(500).collect::<String>()}),
+    }
+}
+
+fn main() {
+    let mut data = Vec::new();
+    if std::io::stdin().read_to_end(&mut data).is_err() {
+        fail("cannot read stdin");
+    }
+    let text = std::str::from_utf8(&data).unwrap_or_else(|_| fail("the request is not UTF-8"));
+    let req: Value = serde_json::from_str(text).unwrap_or_else(|e| fail(&format!("the request is not JSON: {e}")));
+    let r = req.as_object().unwrap_or_else(|| fail("the request must be an object"));
+    let contract = r.get("contract").and_then(Value::as_str).unwrap_or("");
+    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || ![CONTRACT, CONTRACT_V2, CONTRACT_V3, CONTRACT_V4, CONTRACT_V5].contains(&contract) {
+        fail("the request needs exactly contract dcp-ai-conformance-external/1, /2, /3 or /4, run_id, nonce and cases");
+    }
+    let (v2, v3, v4, v5) = (contract == CONTRACT_V2, contract == CONTRACT_V3, contract == CONTRACT_V4, contract == CONTRACT_V5);
+    let (Some(run_id), Some(nonce), Some(cases)) = (r["run_id"].as_str(), r["nonce"].as_str(), r["cases"].as_array()) else {
+        fail("run_id and nonce must be strings and cases an array");
+    };
+    let results: Vec<Value> = cases.iter().map(|c| run_case(c, v2, v3, v4, v5)).collect();
+    let resp = json!({
+        "contract": contract,
+        "run_id": run_id,
+        "nonce": nonce,
+        "implementation": {
+            "name": "dcp-ai Rust SDK via tools/conformance/wrappers/rust",
+            "version": dcp_ai::observability::DCP_SDK_VERSION,
+            // A registry consumer sets DCP_CONFORMANCE_SDK_SOURCE at compile time; without it, this checkout's path
+            // dependency, as before. A declared label either way: it proves no origin.
+            "resolved_from": option_env!("DCP_CONFORMANCE_SDK_SOURCE").unwrap_or("path dependency ../../../../sdks/rust"),
+            "runtime": format!("native {}-{}", std::env::consts::ARCH, std::env::consts::OS),
+        },
+        "results": results,
+    });
+    let mut out = std::io::stdout().lock();
+    if writeln!(out, "{resp}").is_err() {
+        std::process::exit(3);
+    }
+}

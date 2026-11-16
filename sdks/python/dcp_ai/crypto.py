@@ -11,6 +11,8 @@ from typing import Any
 import nacl.signing
 import nacl.encoding
 
+from dcp_ai import _ed25519_ped1
+
 
 def canonicalize(obj: Any) -> str:
     """Canonical JSON serialization (deterministic key ordering, no whitespace)."""
@@ -74,11 +76,14 @@ def verify_object(obj: Any, signature_b64: str, public_key_b64: str) -> bool:
         sig = _from_b64(signature_b64)
         pk_bytes = _from_b64(public_key_b64)
         verify_key = nacl.signing.VerifyKey(pk_bytes)
-        try:
-            verify_key.verify(msg, sig)
-            ok = True
-        except nacl.exceptions.BadSignatureError:
+        if _ed25519_ped1.rejects(msg, sig, pk_bytes):  # P-ED-1, before libsodium
             ok = False
+        else:
+            try:
+                verify_key.verify(msg, sig)
+                ok = True
+            except nacl.exceptions.BadSignatureError:
+                ok = False
     except Exception as exc:
         dcp_telemetry.end_span(span_id, status="error", error=str(exc))
         dcp_telemetry.record_error("verify", str(exc))

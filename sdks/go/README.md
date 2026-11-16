@@ -1,16 +1,49 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>**English** · [中文](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/zh-CN/sdks/go/README.md) · [Español](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/es/sdks/go/README.md) · [日本語](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/ja/sdks/go/README.md) · [Português](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/pt-BR/sdks/go/README.md)</sub>
 
 # dcp-ai-go — Go SDK
 
-Official Go SDK for the Digital Citizenship Protocol (DCP) v1.0 and v2.0. Supports Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, composite signatures, dual hash chains, and full bundle verification.
+**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](../../docs/GO_RELEASE.md).
+
+Official Go SDK for the Digital Citizenship Protocol (DCP) v1.0 and v2.0. Supports Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, composite signatures, dual hash chains, and bundle verification.
+
+Verification checks integrity and signatures; it does not establish principal trust, admission or authorization to act. The V2 verifier checks the primary audit chain and, from v2.11.1, the optional secondary SHA3-256 links, intent hashes and Merkle root that are present (absent ones are not required); v2.11.0 does not check the secondary fields. See [the documented verification limit](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) and use the admission APIs below when trust is required.
 
 ## Installation
 
+**Requires:** Go 1.26+ for the source on `main` and for the next release. The published v2.14.0 and earlier releases need Go 1.25+.
+
+**Go SDK.** Since v2.11.0 this SDK includes the verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window and the experimental opt-in `dcp-jcs-v2` APIs. The v2.11.0 module tag is `sdks/go/v2.11.0`; the import path keeps `/v2`. Changes remain recorded in the [changelog](../../CHANGELOG.md#unreleased).
+
+**Go SDK v2.11.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. v2.11.0 does not check these fields.
+
+**Go SDK v2.13.0.** Published on 05/11/2026 through the `sdks/go/v2.13.0` tag. The v2.12.0 prepared on 30/10/2026 was never tagged and is superseded. Compared with v2.11.1:
+
+- **V2-2 schema validation.** `v2.VerifySignedBundleV2` and its variants validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
+- **`v2.VerifyPayloadHash`** is `true` only for `"sha256:"` followed by the SHA-256 of the canonical payload, as `SignPayload` writes it; a bare digest, accepted before, is `false`.
+- **`v2.RawAuditEventV2`** (new) keeps a received audit entry as decoded, so every member keeps its presence and `null`-ness.
+- **Mandates.** `v2.VerifyMandateValidity` applies one contract and `v2.VerifyMandateValidityAt` (new) takes the verification time; a missing or malformed date, accepted before, is invalid. `v2.VerifyMandateChain` reads every time the same way and rejects a root mandate that repeats a domain.
+
+In v2.13.0, `SDKVersion` is `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the v2.13.0 module is the one prepared before its publication and reads "prepared, not published"; a published module cannot change.
+
+**Go SDK v2.14.0.** The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with v2.13.0:
+
+- **Added (opt-in).** `v2.AdmitDelegatedBundleV2`, `v2.AdmitSignedBundleV2FromBytes`, `v2.CreateMandateAcknowledgment` and `v2.EvaluateDelegationActivationV2`; no default calls them (see [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Acceptance change: Ed25519 P-ED-1.** V1 object verification and the default V2 Ed25519 provider also reject a public key or R that is not a canonical encoding or is of order dividing 8. Keep failing evidence as it is; sign again with the same key when it meets P-ED-1, rotate a non-canonical public key and replace a key of small order.
+- **SLH-DSA-192f.** The provider reads secret and public keys without a panic; an input of the wrong size gives an error or a rejection.
+
+`SDKVersion` is `2.14.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged.
+
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
-**Requires:** Go 1.21+
+Upgrading from v2.10.0 makes verification stricter: malformed or inconsistent evidence previously accepted may now be rejected. Invalid V1 public-key lengths return an error instead of panicking. Preserve historical evidence. `dcp-jcs-v1` remains the normative default; candidate APIs stay experimental and opt-in. Admission still requires operator trust configuration and does not authorize actions.
+
+For source development only:
+
+```bash
+go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
+```
 
 ## Features
 
@@ -24,21 +57,23 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Domain separation | — | Yes |
 | Dual hash (SHA-256 + SHA3-256) | — | Yes |
 | Bundle verification | Yes | Yes |
+| Admission: principal trust set + `strict-v1` profile (spec/profiles/admission) | — | Yes |
 | Bundle building & signing | — | Yes |
 | Security tier computation | — | Yes |
 | Proof of possession | — | Yes |
 | Key rotation | — | Yes |
-| DCP-04 A2A discovery + handshake + AES-256-GCM session (stdlib) | — | Yes |
+| DCP-04 A2A discovery + handshake + AES-256-GCM session (stdlib; safe for concurrent use, each message accepted once within the window) | — | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | — | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | — | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | — | Yes |
 | DCP-08 rights + obligations + compliance | — | Yes |
-| DCP-09 delegation + awareness threshold + principal mirror | — | Yes |
+| DCP-09 delegation + verifiable delegation chains (`CreateSubMandate`, `VerifyMandateChain`) + awareness threshold + principal mirror | — | Yes |
 | Session nonce helpers, emergency revocation | — | Yes |
 | Lazy PQ checkpoints + `PQCheckpointManager` | — | Yes |
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | — | Yes |
 | Canonical error codes (38 shared across all SDKs) + `DetectWireFormat` | — | Yes |
 | OpenTelemetry / OTLP exporter (build tag `otlp`) | — | Yes |
+| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | — | Experimental and opt-in; not normative |
 
 ## Quickstart — V1
 
@@ -58,6 +93,8 @@ func main() {
     fmt.Println("Verified:", ok) // true
 }
 ```
+
+<a id="quickstart--v2"></a>
 
 ## Quickstart — V2
 
@@ -96,13 +133,14 @@ func main() {
     }
 
     // Build a V2 bundle from the signed artifacts
+    nonce := v2.GenerateSessionNonce()
     bundle, _ := v2.BuildBundleV2(v2.BundleBuildInput{
-        RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "h-1", "session_nonce": "nonce-1", "binding_keys": keys}),
-        Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": "nonce-1", "keys": keys}),
-        Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1"}),
-        Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1", "risk_score": 200}),
+        RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "rpr:alice", "session_nonce": nonce, "binding_keys": keys}),
+        Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": nonce, "keys": keys, "status": "active", "principal_binding_reference": "rpr:alice"}),
+        Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": nonce, "agent_id": "a-1", "human_id": "rpr:alice"}),
+        Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200}),
         AuditEntries: []v2.AuditEventV2{},
-        SessionNonce: "nonce-1",
+        SessionNonce: nonce,
     })
 
     // Sign the manifest with a composite signature
@@ -119,6 +157,7 @@ func main() {
 ### Security Tiers
 
 ```go
+// Fragment, inside a function: intentPayload and policyPayload are decoded V2 payloads.
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
     RiskScore:       600, // from the bundle's PolicyDecision, never the intent
     DataClasses:     []string{"financial_data"},
@@ -136,6 +175,7 @@ tier = v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(intentPayload, po
 ### ML-KEM-768 Key Encapsulation
 
 ```go
+// Fragment, inside a function.
 kem := &providers.MlKem768Provider{}
 kp, _ := kem.GenerateKeypair()
 result, _ := kem.Encapsulate(kp.PublicKeyB64)
@@ -149,10 +189,64 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | Function | Description |
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Signs an artifact into a `SignedPayload` (composite, or classical-only when `pqKey` is nil) |
+| `v2.PreparePayload(payload)` | Returns the `dcp-jcs-v1` canonical bytes and their SHA-256 as bare lowercase hex; the `payload_hash` field is `"sha256:"` followed by that digest |
+| `v2.VerifyPayloadHash(signed)` | `true` only when `payload_hash` is exactly `"sha256:"` followed by the SHA-256 of the canonical payload; any other value, a bare digest included, is `false`. Checks hash consistency only, not the signature, the keys, the policy or admission. From v2.13.0: v2.11.1 compares the bare digest, so it rejects `SignPayload` output and accepts the bare form |
 | `v2.BuildBundleV2(input)` | Assembles a V2 bundle from signed artifacts, with manifest hashes and dual Merkle roots |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Full V2 bundle verification (structure, hashes, signatures, audit chain) under `DefaultVerifierPolicy`, against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `ResolvedTier` and `VerificationMode` |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Same with your own `VerifierPolicy`; only `DefaultMode`, `RiskOverrides` and the Phase 3 fields (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, as in TypeScript) may differ from `DefaultVerifierPolicy()`, any other change fails verification |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature; the signer is the bundle's principal (`signer.id` = the RPR's `human_id`) |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | V2 bundle verification (structure, hashes, signatures, primary audit chain) under `DefaultVerifierPolicy`, against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `ResolvedTier` and `VerificationMode` |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Same with your own `VerifierPolicy`; only `DefaultMode`, `RiskOverrides`, `AcceptedClassicalAlgs`, `AcceptedPQAlgs`, `AllowV1Bundles` (a V1 bundle never verifies here), `MaxSessionDurationSeconds`, `RequireSessionExpiry`, `RequireAudienceBinding`, `VerifierID` and the Phase 3 fields (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, as in TypeScript) may differ from `DefaultVerifierPolicy()`, any other change fails verification |
+| `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | Same at the instant `now`: the session window, the RPR expiry and key expiry compare against it, at millisecond precision. The two functions above call it with `time.Now()` |
+
+**Schema validation (V2-2; from v2.13.0).** `v2.VerifySignedBundleV2`, `…WithPolicy` and `…At` first validate the signed bundle envelope and the four payloads against `schemas/v2`, after the policy and clock checks and before the verifier checks the manifest, payload hashes, keys and signatures; `v2.AdmitSignedBundleV2`, which verifies first, and the experimental candidate verifier go through the same gate, while `v2.EvaluateAdmissionV2` takes an earlier result and does not run it. A bundle that fails returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`) and no cryptographic details. Unknown members of closed objects are rejected; in open objects, such as the intent `target`, the declared members keep their constraints and only additional members are not inspected. The manifest's `session_issued_at` and `session_expires_at` must be strings when present, not `null`. `date-time` follows the ajv-formats 3.0.1 check of the reference verifier, which is not strict RFC 3339. A root that is not a JSON object is still the historical parse error, before V2-2. **Acceptance change:** schema-invalid bundles that verified before are now rejected. There is no schema-only API. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
+
+Every result lists in `SignerKeys` (JSON `signer_keys`), for each composite signature checked (`bundle`, the four artifacts, each `pq_checkpoints[<id>]`), the key entry the verifier resolved for each component (`classical`, `pq`) and whether that component verified.
+
+**Typed structs and received bundles.** `AuditEventV2`, `CitizenshipBundleV2` and `SignedBundleV2` are for producing bundles. In audit evidence, explicit `null` members and unrecognized members (other than `tool`, `result_ref` and `evidence_hash`) are lost by these structs; recognized string-valued members and an empty `evidence` object keep their values. In the entry itself, a `null` or empty `prev_hash_secondary` or `intent_hash_secondary` and any unknown member are lost, and an absent `pq_checkpoint_ref` becomes `null`. These member losses change the canonical evidence and may invalidate the `prev_hash` chain or the audit Merkle root. These structs are not a lossless representation for forwarding signed evidence. To keep a received audit entry, use `v2.RawAuditEventV2` (from v2.13.0): it holds the entry's literal bytes, copied in and out, which `Bytes()` and `MarshalJSON()` called directly return as they are (a `json.Marshal` around it may compact whitespace and escape `<`, `>`, `&`, U+2028 and U+2029 without changing the decoded value), so every member keeps its presence and `null`-ness, unknown members included; it refuses only input that is not exactly one JSON object (`null` included), never repairs or re-signs, and keeps invalid evidence as it is, so a verifier rejects it for the same reason. Always check the error of `json.Unmarshal`: when it fails, a `RawAuditEventV2` keeps its previous content, which does not describe the failed input. Read one from several goroutines only while no `UnmarshalJSON` runs on it. The zero value holds no entry: `MarshalJSON()` and `Typed()` return an error and `Bytes()` returns `nil`; a nil `*RawAuditEventV2` is encoded as `null` by `encoding/json` itself, without calling `MarshalJSON`. `Typed()` is a lossy view for reading fields. To keep a received bundle, keep the received bytes and verify those bytes: the verification functions above take bytes. Do not automatically repair, recompute or re-sign received evidence to make it verify; an explicit migration is a separate step that keeps the original.
+
+<a id="admission-principal-trust-and-strict-v1-unreleased"></a>
+
+### Admission: principal trust and strict-v1
+
+A verified bundle proves integrity and signature, not who the principal is. Admission ([spec/profiles/admission](../../spec/profiles/admission/README.md)) adds, on top of verification, an operator trust set that pins each principal's keys and the operator-fixed `strict-v1` profile (hybrid signatures for every tier, signed audience, a signed session of at most 300 s, a revocation snapshot at most 300 s old). It does no network I/O, and it never authorizes an action: `ActionAuthorized` is always `false`.
+
+| Function | Description |
+|----------|-------------|
+| `v2.NewPrincipalTrustStore(json)` | Validates a trust set (`schemas/v2/principal_trust_set.schema.json`) |
+| `v2.ResolveStrictV1Profile(json)` | Validates a strict-v1 configuration (`schemas/v2/admission_profile.schema.json`); the profile's getters (`VerifierPolicy()`, `VerifierID()`, `MaxSessionDurationSeconds()`, `MaxRevocationAgeSeconds()`) return copies |
+| `v2.RevocationSubjects(json, verification)` | The passport `agent_id` and the kid of every verified signer key, sorted: what the revocation snapshot must answer for |
+| `v2.EvaluateAdmissionV2(json, verification, v2.AdmissionOptions{...})` | Evaluates admission from the verifier's result at `Now`, with no cryptography |
+| `v2.AdmitSignedBundleV2(reg, json, v2.AdmitOptions{...})` | Verifies (under the profile's policy, or `Policy` without a profile) and evaluates |
+
+A trust set or profile that cannot be loaded, a profile without a trust set, or a profile together with a caller `Policy` returns an `*v2.AdmissionConfigError` whose `Code` is one of the `CONFIG_*` codes. An `AdmissionResult` has `Verified`, `Verification`, `PrincipalTrust`, `Profile`, `ProfileCompliance`, `Admitted`, `ActionAuthorized`, `RecordedDecision`, `TrustSetVersion` and `Errors` (`{Code, Message}`), with the field names of the spec in its JSON form. Proceed only when `Admitted` is true.
+
+```go
+// Fragment, inside a function: trustSetJSON, signedBundleJSON, reg (the algorithm registry) and lookupRevocation come from your application.
+trust, err := v2.NewPrincipalTrustStore(trustSetJSON) // operator configuration, never the bundle
+if err != nil {
+    log.Fatal(err) // *v2.AdmissionConfigError
+}
+profile, err := v2.ResolveStrictV1Profile([]byte(`{"profile":"strict-v1","verifier_id":"api.acme.example"}`))
+if err != nil {
+    log.Fatal(err)
+}
+
+now := time.Now()
+verification := v2.VerifySignedBundleV2At(reg, signedBundleJSON, profile.VerifierPolicy(), now)
+subjects := v2.RevocationSubjects(signedBundleJSON, verification)
+snapshot := lookupRevocation(subjects) // your source: a JSON snapshot, or nil when it cannot answer
+
+result, err := v2.EvaluateAdmissionV2(signedBundleJSON, verification, v2.AdmissionOptions{
+    Profile: profile, Trust: trust, Revocation: snapshot, Now: now,
+})
+if err != nil {
+    log.Fatal(err)
+}
+if !result.Admitted {
+    for _, e := range result.Errors {
+        fmt.Println(e.Code, e.Message) // e.g. TRUST_PRINCIPAL_UNKNOWN, REVOCATION_STALE
+    }
+}
+```
 
 ### Security Tiers
 
@@ -161,6 +255,72 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.ComputeSecurityTier(input)` | Computes the adaptive security tier (routine/standard/elevated/maximum), its verification mode and checkpoint interval (spec §14.2); unknown values fail closed to `elevated` |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Builds the tier input from decoded intent and PolicyDecision payloads (`risk_score` comes from the PolicyDecision; one that is missing or not an integer from 0 to 1000 becomes `RiskScore: -1`, which is unknown) |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | The stricter of the policy mode and the tier's mode; `pq_only` stays `pq_only` |
+
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
+
+### Delegation Chains (DCP-09 §3.5)
+
+| Function | Description |
+|----------|-------------|
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | Root mandate signed by the human; `SubDelegation` and `MinimumSecurityTier` are optional |
+| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | Sub-mandate signed by the parent's agent under the `DCP-AI.v2.SubMandate` context |
+| `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | One mandate's `mandate_id`, local revocation and validity window at `now` (RFC 3339 instants in milliseconds, both limits included); a missing, malformed or inverted window is invalid. No signature, scope or chain check, and no authorization. From v2.13.0. `…At` takes `now` as given: the zero time is year 1, not the current time |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifies the chain root first and offline (signatures back to the human, links and depth, `sub_delegation`, nested validity, attenuation of actions, `data_classes` and `limits`, tier floor, revocation); returns `MandateChainResult{Valid, Errors, Depth, EffectiveTier}`. Times are RFC 3339 instants in milliseconds; `now` is truncated to the millisecond and compared as a `time.Time`, and the zero time is the current time (from v2.13.0). A domain repeated in one mandate's `authority_scope`, the root included, rejects the chain; domains are compared as exact strings, with no case folding, trimming or Unicode normalization (from v2.13.0) |
+
+`SecurityTierInput.MandateChainTier` takes the chain's `EffectiveTier` as a floor that can only raise the tier.
+
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
+
+Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
+signer or verifier changes. These functions are available in v2.11.0 only to callers that explicitly opt in. A verified candidate bundle grants no trust or admission. Design and contract:
+[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
+(§15 ingress, §16 router, §17 verifier, §18 producers).
+
+| Function | Description |
+|----------|-------------|
+| `ExperimentalCandidateIngress(input []byte)` | `Accepted`, `Canonical`, `CanonicalSHA256`, or the reject `Class` and `Offset` |
+| `NewExperimentalCandidateRouter(config)` | Routes bytes: `reject`, `v1_path` or `candidate`; the historical decoder is named by the closed name `encoding_json` |
+| `NewExperimentalCandidateVerifier(config)` and `VerifyAt(registry, input, policy, now)` | Verifies from the original bytes with at most one verifier |
+| `ExperimentalCandidateSignPayload(registry, context, input, keys)` | Signs one artifact from `ExperimentalCandidateBytes(b)` or `ExperimentalCandidateHostValue(v)` (exact types; `json.Number` kept) |
+| `ExperimentalCandidateSignBundle(registry, parts, signer, options)` | Assembles and signs a bundle whose manifest names `dcp-jcs-v2` |
+| `*ExperimentalCandidateProduceError`, `ErrExperimentalCandidateUsage` | A rejection of the inputs' domain or form, before any signer is called; a misuse of the API |
+
+```go
+package main
+
+import (
+    "fmt"
+
+    "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
+    v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
+)
+
+func main() {
+    // The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+    ok, _ := v2.ExperimentalCandidateIngress([]byte(`{"b":1.0,"a":[]}`))
+    fmt.Println(string(ok.Canonical)) // {"a":[],"b":1}
+    bad, _ := v2.ExperimentalCandidateIngress([]byte(`{"a":1,"a":2}`))
+    fmt.Println(bad.Class, bad.Offset) // DUPLICATE_KEY 7
+
+    // A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+    reg := v2.NewAlgorithmRegistry()
+    reg.RegisterSigner(&providers.Ed25519Provider{})
+    reg.RegisterSigner(&providers.MlDsa65Provider{})
+    ed, _ := (&providers.Ed25519Provider{}).GenerateKeypair()
+    pq, _ := (&providers.MlDsa65Provider{}).GenerateKeypair()
+    keys := v2.ExperimentalCandidateKeys{
+        Classical: v2.CompositeKeyInfo{Kid: ed.Kid, Alg: "ed25519", SecretKeyB64: ed.SecretKeyB64, PublicKeyB64: ed.PublicKeyB64},
+        PQ:        &v2.CompositeKeyInfo{Kid: pq.Kid, Alg: "ml-dsa-65", SecretKeyB64: pq.SecretKeyB64, PublicKeyB64: pq.PublicKeyB64},
+    }
+    artifact, err := v2.ExperimentalCandidateSignPayload(reg, v2.CtxIntent, v2.ExperimentalCandidateBytes([]byte(`{"intent_id":"intent:1","risk":1.0}`)), keys)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(artifact.SignedPayload["payload_hash"]) // sha256:... of {"intent_id":"intent:1","risk":1}
+}
+```
 
 ### Composite Signatures
 

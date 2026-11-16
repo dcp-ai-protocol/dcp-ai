@@ -2,13 +2,27 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dcp-ai.org/schemas/v2/delegation_mandate.schema.json",
   "title": "DelegationMandate",
-  "description": "DCP-09 v2.0 Delegation Mandate. A human's formal delegation of authority to an AI agent.",
+  "description": "DCP-09 v2.0 Delegation Mandate. A human's formal delegation of authority to an AI agent (root mandate, signed by the human in human_composite_sig), or a sub-mandate by which a delegate agent passes a strictly narrower authority on to another agent (DCP-09 §3.5; signed by the delegating agent in delegator_composite_sig under the DCP-AI.v2.SubMandate context). A root mandate carries human_composite_sig, no parent_mandate_id and delegation_depth 0 (or none); a sub-mandate carries delegator_composite_sig, parent_mandate_id and delegation_depth >= 1, and never human_composite_sig.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "dcp_version", "mandate_id", "session_nonce", "human_id",
     "agent_id", "authority_scope", "valid_from", "valid_until",
-    "revocable", "timestamp", "human_composite_sig"
+    "revocable", "timestamp"
+  ],
+  "oneOf": [
+    {
+      "description": "Root mandate",
+      "required": ["human_composite_sig"],
+      "not": { "anyOf": [ { "required": ["delegator_composite_sig"] }, { "required": ["parent_mandate_id"] } ] },
+      "properties": { "delegation_depth": { "const": 0 } }
+    },
+    {
+      "description": "Sub-mandate",
+      "required": ["delegator_composite_sig", "parent_mandate_id", "delegation_depth"],
+      "not": { "required": ["human_composite_sig"] },
+      "properties": { "delegation_depth": { "minimum": 1 } }
+    }
   ],
   "properties": {
     "dcp_version": {
@@ -67,7 +81,36 @@
       "type": "string",
       "format": "date-time"
     },
+    "parent_mandate_id": {
+      "description": "mandate_id of the mandate this sub-mandate narrows. Absent on a root mandate.",
+      "type": "string",
+      "minLength": 6
+    },
+    "delegation_depth": {
+      "description": "Hops from the human principal: 0 (or absent) on a root mandate, parent + 1 on a sub-mandate.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "sub_delegation": {
+      "description": "Whether the delegate may sub-delegate, and the greatest delegation_depth any descendant may reach. Absent means sub-delegation is not permitted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["permitted", "max_depth"],
+      "properties": {
+        "permitted": { "type": "boolean" },
+        "max_depth": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "minimum_security_tier": {
+      "description": "Floor for the security tier (DCP-AI v2.0 §14.2) of every action under this mandate. A sub-mandate's floor is never below its parent's.",
+      "type": "string",
+      "enum": ["routine", "standard", "elevated", "maximum"]
+    },
     "human_composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    },
+    "delegator_composite_sig": {
+      "description": "Composite signature of the delegating agent (the parent mandate's agent_id) over the canonical sub-mandate under the DCP-AI.v2.SubMandate context.",
       "$ref": "composite_signature.schema.json"
     }
   }

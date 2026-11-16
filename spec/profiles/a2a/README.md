@@ -64,3 +64,16 @@ See [DCP-04](../../DCP-04.md) Section 6.
 
 - [DCP-04](../../DCP-04.md) — Agent-to-Agent Communication (full normative specification)
 - [DCP-AI v2.0](../../DCP-AI-v2.0.md) — Session binding (Section 8), Key Derivation
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- "Published" refers to the specification. On `main`, every SDK builds `A2A_HELLO` and `A2A_WELCOME`, but none
+  implements `A2A_CONFIRM` / `A2A_ESTABLISHED` or the session-key derivation of [DCP-04](../../DCP-04.md) §3.4; only
+  the TypeScript SDK has the hybrid X25519 + ML-KEM-768 KEM the messages announce, and the Rust SDK has no session
+  layer ([tools/interop-matrix](../../../tools/interop-matrix/README.md#roadmap)).
+- The SDK helpers build messages, directories and session objects that the caller supplies keys for. They do not run
+  the handshake, the KEM exchange, bundle verification, admission, networking or audit logging on their own: those
+  are the caller's, and no transport binding is implemented by the reference server.

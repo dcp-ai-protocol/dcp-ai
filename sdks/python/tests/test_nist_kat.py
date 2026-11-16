@@ -3,6 +3,7 @@ NIST KAT (Known Answer Test) Compliance Tests (Python SDK)
 
 Ed25519: RFC 8032 deterministic test vectors.
 ML-DSA-65: FIPS 204 property-based compliance (size, round-trip, rejection).
+ML-DSA-65: independent verification vectors (NIST ACVP tc39 + Wycheproof), empty context.
 SLH-DSA-192f: FIPS 205 NIST ACVP signature verification + properties.
 ML-KEM-768: FIPS 203 NIST ACVP decapsulation and key checks + properties.
 
@@ -12,6 +13,7 @@ Phase 1 gate: no SDK ships V2 without passing all KAT tests.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from pathlib import Path
 
@@ -351,3 +353,73 @@ class TestMlKem768KAT:
         vec = load_cross_sdk("typescript")["ml_kem_768"]
         shared_secret = await kem.decapsulate(vec["ciphertext_b64"], vec["secret_key_b64"])
         assert shared_secret.hex() == vec["shared_secret_hex"]
+
+
+# ---------------------------------------------------------------------------
+# ML-DSA-65 independent verification vectors (NIST ACVP tc39 + Wycheproof)
+# ---------------------------------------------------------------------------
+# The provider verifies with the empty FIPS 204 context, so only cases whose
+# context is empty go through it; the others are checked as excluded. Values
+# are copied verbatim from the pinned sources (tests/nist-kat/README.md).
+
+ML_DSA_65_WYCHEPROOF = KAT_DIR / "ml-dsa-65" / "wycheproof_mldsa_65_verify_test.json"
+ML_DSA_65_NIST_TG3 = KAT_DIR / "ml-dsa-65" / "acvp_sigver_tg3.json"
+ML_DSA_65_VECTOR_PROVIDER = MlDsa65Provider()
+
+
+def _mldsa65_vector_corpus():
+    wy_bytes = ML_DSA_65_WYCHEPROOF.read_bytes()
+    nist_bytes = ML_DSA_65_NIST_TG3.read_bytes()
+    wy, nist = json.loads(wy_bytes), json.loads(nist_bytes)
+    cases, excluded_wy, excluded_nist = [], [], []
+    for g in wy["testGroups"]:
+        for t in g["tests"]:
+            if t.get("ctx"):
+                excluded_wy.append(t["tcId"])
+                continue
+            cases.append(("wycheproof", t["tcId"], g["publicKey"], t["msg"], t["sig"], t["result"] == "valid"))
+    for t in nist["testGroup"]["tests"]:
+        if t.get("context"):
+            excluded_nist.append(t["tcId"])
+            continue
+        cases.append(("nist", t["tcId"], t["pk"], t["message"], t["signature"], t["testPassed"] is True))
+    return wy_bytes, nist_bytes, wy, nist, cases, excluded_wy, excluded_nist
+
+
+class TestMlDsa65IndependentVectors:
+    def test_corpus_integrity(self):
+        wy_bytes, nist_bytes, wy, nist, cases, excluded_wy, excluded_nist = _mldsa65_vector_corpus()
+        assert hashlib.sha256(wy_bytes).hexdigest() == "1ca235f61928421a173a171780beb00264ae9155dc33c52a11e1766cc7979034"
+        assert hashlib.sha256(nist_bytes).hexdigest() == "bacf4ad8e55db0594d8bf2878ca3bd3cb80cfa680aaf05ca8e1788d896f63eb8"
+        assert (wy["algorithm"], wy["numberOfTests"]) == ("ML-DSA-65", 210)
+        g = nist["testGroup"]
+        assert (g["tgId"], g["parameterSet"], g["signatureInterface"], g["preHash"], len(g["tests"])) == (
+            3, "ML-DSA-65", "external", "pure", 15)
+        assert len(cases) == 204
+        assert sum(1 for c in cases if c[5]) == 77
+        assert excluded_wy == [3, 4, 5, 153, 154, 155, 156]
+        assert excluded_nist == [31, 32, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 44, 45]
+        assert [c[1] for c in cases if c[0] == "nist"] == [39]
+
+    def test_provider_is_the_sdk_provider(self):
+        import dcp_ai.providers.ml_dsa_65_provider as module
+
+        assert type(ML_DSA_65_VECTOR_PROVIDER) is MlDsa65Provider
+        assert MlDsa65Provider is module.MlDsa65Provider
+        assert "verify" not in vars(ML_DSA_65_VECTOR_PROVIDER)
+        # The module comes from this checkout, not from an installed copy.
+        assert Path(module.__file__).resolve() == (Path(__file__).resolve().parent.parent / "dcp_ai" / "providers" / "ml_dsa_65_provider.py")
+
+    @pytest.mark.asyncio
+    async def test_verdicts_on_204_cases(self):
+        cases = _mldsa65_vector_corpus()[4]
+        mismatches, executed = [], 0
+        for source, tc_id, pk, msg, sig, valid in cases:
+            # No except: the Python provider returns a boolean, and any error fails the test.
+            observed = await ML_DSA_65_VECTOR_PROVIDER.verify(
+                bytes.fromhex(msg), bytes.fromhex(sig), base64.b64encode(bytes.fromhex(pk)).decode("ascii"))
+            executed += 1
+            if observed is not valid:
+                mismatches.append(f"{source} {tc_id}: {valid} -> {observed}")
+        assert mismatches == []
+        assert executed == 204

@@ -1,0 +1,129 @@
+# Release validation (tools/release-validation): installs the published packages from their official
+# registries into temporary consumers and runs the external conformance kit against what was installed.
+#
+# Manual runs and pull requests that change the tool or its conformance inputs.
+# It publishes nothing, needs no secret and no token beyond read access to this repository.
+# "all" must end in PASS (exit 0). One lane is a diagnostic: PARTIAL (exit 4) is then accepted and
+# reported as such; it is never a validation of the release.
+
+name: Release validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: 'Lane to run. "all" is the complete campaign; one lane is a diagnostic (PARTIAL).'
+        type: choice
+        default: all
+        options:
+          - all
+          - npm-sdk
+          - npm-wasm-node
+          - npm-wasm-browser
+          - npm-cli
+          - pypi-wheel
+          - pypi-sdist
+          - go
+          - crates-default
+          - crates-otlp
+      resolution:
+        description: 'locked: the committed locks. fresh: resolve third-party dependencies now.'
+        type: choice
+        default: locked
+        options:
+          - locked
+          - fresh
+
+  pull_request:
+    paths:
+      - '.github/workflows/release-validation.yml'
+      - 'tools/release-validation/**'
+      - 'tools/conformance-external.js'
+      - 'tools/conformance/**'
+      - 'cli/__tests__/**'
+      - 'tests/conformance/**'
+      - 'tests/interop/**'
+      - 'docs/proposals/canonicalization-candidate/*.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Release validation (${{ inputs.lane || 'all' }}, ${{ inputs.resolution || 'locked' }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The Python lock of this runner is tools/release-validation/consumers/python/cpython-3.12-linux-x86_64.
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.12'
+
+      # The Go patch release the Go lane was run with, not the minimum sdks/go/go.mod allows.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.10'
+          cache: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # The tool gives its subprocesses a PATH of its own, so every toolchain is passed by path. cargo is the
+      # toolchain's own binary: the rustup proxy would not find its toolchain in the tool's clean HOME.
+      - name: Locate the toolchains
+        id: tools
+        env:
+          PYTHON: ${{ steps.python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          {
+            echo "python=$PYTHON"
+            echo "go=$(command -v go)"
+            echo "cargo=$(rustup which cargo)"
+            echo "chrome=$(command -v google-chrome)"
+          } >> "$GITHUB_OUTPUT"
+          "$PYTHON" --version
+          go version
+          "$(rustup which cargo)" --version
+          google-chrome --version
+
+      - name: Tests of the tool (no external network)
+        env:
+          DCP_RELEASE_VALIDATION_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: node --test tools/release-validation/release-validation.test.mjs
+
+      - name: Validate the published packages
+        env:
+          # Inputs reach the script as data: they are compared with fixed lists and never expanded into a command.
+          LANE: ${{ inputs.lane || 'all' }}
+          RESOLUTION: ${{ inputs.resolution || 'locked' }}
+          PYTHON: ${{ steps.tools.outputs.python }}
+          GO: ${{ steps.tools.outputs.go }}
+          CARGO: ${{ steps.tools.outputs.cargo }}
+          CHROME: ${{ steps.tools.outputs.chrome }}
+          WORK: ${{ runner.temp }}/release-validation
+        # ci.mjs checks the inputs against fixed lists and decides the result: PASS only for "all" with exit 0,
+        # PARTIAL only for one lane with exit 4; any other combination fails the job.
+        run: node tools/release-validation/ci.mjs
+
+      # The report, the runner's reports, logs, archives and locks. --clean removed the installed consumers.
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-validation-${{ inputs.lane || 'all' }}-${{ inputs.resolution || 'locked' }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/release-validation
+          if-no-files-found: warn
+          retention-days: 30

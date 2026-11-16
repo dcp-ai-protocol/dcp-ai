@@ -69,12 +69,32 @@ export interface V2VerificationResult {
   verification_mode?: 'classical_only' | 'hybrid_preferred' | 'hybrid_required' | 'pq_only';
   /** V2 only: the security tier of the bundle's intent and policy decision. */
   resolved_tier?: SecurityTierResult['tier'];
+  /**
+   * V2 only: for every composite signature checked, the key resolved for each component and
+   * whether that component verified (spec/profiles/admission § 2.3).
+   */
+  signer_keys?: SignerKeyUse[];
+}
+
+/** The key a signature component was verified with, as the verifier resolved it. */
+export interface SignerKeyUse {
+  /** bundle, responsible_principal_record, agent_passport, intent, policy_decision or pq_checkpoints[<id>]. */
+  signature: string;
+  component: 'classical' | 'pq';
+  kid: string;
+  alg: string;
+  public_key_b64: string;
+  verified: boolean;
 }
 
 /**
- * Verifier policy for V2 bundles, with every field. Without one, `verifyBundle`
- * uses the default policy. Only default_mode, risk_overrides and the optional Phase 3 fields may
- * differ from it.
+ * Verifier policy for V2 bundles (schemas/v2/verifier_policy.schema.json), with every required
+ * field. Without one, `verifyBundle` uses the default policy. Only default_mode, risk_overrides,
+ * accepted_classical_algs (not checked under pq_only), accepted_pq_algs and the optional fields
+ * may differ from it: the Phase 3 fields, max_session_duration_seconds,
+ * require_session_expiry, require_audience_binding and verifier_id, all enforced as in the
+ * TypeScript SDK. allow_v1_bundles may be false too: the V2 verifier never verifies a V1 bundle,
+ * and a V1 bundle is rejected under any policy.
  */
 export interface VerifierPolicy {
   default_mode: NonNullable<V2VerificationResult['verification_mode']>;
@@ -92,6 +112,21 @@ export interface VerifierPolicy {
   allow_classical_fallback_disable?: boolean;
   warn_classical_only_deprecated?: boolean;
   advisory_rejected_algs?: string[];
+  /**
+   * Maximum of the manifest's session_expires_at minus its signed session_issued_at, in seconds;
+   * absent or 0 means no limit. Under a maximum, a bundle without session_expires_at or without
+   * session_issued_at fails verification (spec/VERIFICATION.md V2-4).
+   */
+  max_session_duration_seconds?: number;
+  /** A manifest without session_expires_at fails verification. Absent means false. */
+  require_session_expiry?: boolean;
+  /**
+   * A manifest without intended_verifier, or with one other than verifier_id when that is set,
+   * fails verification. Absent means false.
+   */
+  require_audience_binding?: boolean;
+  /** This verifier's identity, for require_audience_binding. */
+  verifier_id?: string;
 }
 
 export interface KemKeypairResult {
@@ -119,6 +154,14 @@ export interface BundleManifest {
   audit_merkle_root: string;
   audit_merkle_root_secondary: string;
   audit_count: number;
+  canonicalization_profile?: 'dcp-jcs-v1';
+  /**
+   * When the session began, signed with the manifest (spec/VERIFICATION.md V2-4). `signBundle`
+   * sets it to the signing time when the manifest has session_expires_at and no session_issued_at.
+   */
+  session_issued_at?: string;
+  session_expires_at?: string;
+  intended_verifier?: string;
 }
 
 export interface CitizenshipBundleV2 {
@@ -136,7 +179,8 @@ export interface SignedBundleV2 {
   signature: {
     hash_alg: string;
     created_at: string;
-    signer: { type: string; kids: string[] };
+    /** `signBundle` signs as the responsible principal: type `human`, `id` the RPR's `human_id`. */
+    signer: { type: 'human' | 'organization'; id: string; kids: string[] };
     manifest_hash: string;
     composite_sig: CompositeSignature;
   };
@@ -149,6 +193,7 @@ export interface BuildBundleOptions {
   intent: SignedPayload;
   policy: SignedPayload;
   auditEntries: unknown[];
+  /** Defaults to the RPR payload's `session_nonce`; every artifact and audit entry must carry it. */
   sessionNonce?: string;
 }
 
@@ -442,4 +487,89 @@ export interface AwarenessThreshold {
   threshold_rules: ThresholdRule[];
   timestamp: string;
   composite_sig: CompositeSignature;
+}
+
+/** EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 1): rejection classes of the ingress. */
+export type ExperimentalCandidateRejectClass =
+  | 'BOM'
+  | 'UTF8_INVALID'
+  | 'SYNTAX'
+  | 'SURROGATE_UNPAIRED'
+  | 'DUPLICATE_KEY'
+  | 'NUMBER_NOT_INTEGER'
+  | 'NUMBER_OUT_OF_RANGE'
+  | 'DEPTH_EXCEEDED';
+
+/** EXPERIMENTAL, opt-in: the outcome of `experimentalCandidateIngress` for the data. */
+export type ExperimentalCandidateIngressResult =
+  | { status: 'accept'; canonical: Uint8Array; canonicalSha256: string }
+  | { status: 'reject'; class: ExperimentalCandidateRejectClass; offset: number };
+
+/**
+ * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 2): a JS historical decoder for the wasm
+ * router. `path` names the historical path it reproduces: `w1` is the wrapper's own (the object it
+ * decodes, through JSON.stringify, to Rust); `w2` is a text handed to the binding. `decode` returns
+ * that text, or the decoder's refusal of the data as `{ ok: false }`.
+ */
+export interface ExperimentalWasmHistoricalAdapter {
+  readonly name: string;
+  readonly path: 'w1' | 'w2';
+  decode(unit: Uint8Array): { ok: true; text: string } | { ok: false; reason: string };
+}
+
+export type ExperimentalWasmCandidateExtraction =
+  | { status: 'unit'; start: number; end: number }
+  | { status: 'reject'; class: 'TRANSPORT_INVALID' | 'TRANSPORT_AMBIGUOUS'; detail: string; transportOffset: number | null };
+
+export type ExperimentalWasmCandidateRouteResult =
+  | {
+      outcome: 'reject';
+      class: string;
+      detail: string | null;
+      offset: number | null;
+      transportOffset: number | null;
+      unit: { start: number; end: number } | null;
+      profile: string | null;
+      attempts: [];
+      warnings: [];
+    }
+  | {
+      outcome: 'v1_path';
+      unit: { start: number; end: number; bytes: Uint8Array };
+      profile: 'dcp-jcs-v1';
+      profileSource: 'field' | 'absent' | 'historical';
+      attempts: ['dcp-jcs-v1'];
+      warnings: { class: string; offset: number; transportOffset: number }[];
+      historical: { adapter: string; decoded: unknown } | { adapter: string; failed: string };
+    }
+  | {
+      outcome: 'candidate';
+      unit: { start: number; end: number; bytes: Uint8Array };
+      profile: 'dcp-jcs-v2';
+      attempts: ['dcp-jcs-v2'];
+      warnings: [];
+      canonical: Uint8Array;
+      canonicalSha256: string;
+    };
+
+export interface ExperimentalWasmCandidateRouter {
+  readonly configuration: { transport: string; acceptedProfiles: string[]; historical: string };
+  route(bytes: Uint8Array): ExperimentalWasmCandidateRouteResult;
+}
+
+type RouteOf<O> = Extract<ExperimentalWasmCandidateRouteResult, { outcome: O }>;
+
+/**
+ * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 3): the route, the verifier it entered (at
+ * most one) and that verifier's result as is. A delegation whose decoder refused the data enters none.
+ */
+export type ExperimentalWasmCandidateVerifyResult =
+  | { route: RouteOf<'reject'>; entered: 'none'; verification: null }
+  | { route: RouteOf<'v1_path'>; entered: 'none'; verification: null }
+  | { route: RouteOf<'v1_path'>; entered: 'dcp-jcs-v1'; verification: V2VerificationResult }
+  | { route: RouteOf<'candidate'>; entered: 'dcp-jcs-v2'; verification: V2VerificationResult };
+
+export interface ExperimentalWasmCandidateVerifier {
+  readonly configuration: { transport: string; acceptedProfiles: string[]; historical: string };
+  verify(bytes: Uint8Array, policy?: VerifierPolicy): ExperimentalWasmCandidateVerifyResult;
 }

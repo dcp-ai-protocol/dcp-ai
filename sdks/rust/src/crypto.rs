@@ -1,13 +1,12 @@
 //! Ed25519 signing, verification, and SHA-256 hashing for DCP.
 
-use std::time::Instant;
-
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey, Signature};
 use sha2::{Sha256, Digest};
 use serde_json::Value;
 
+use crate::clock::Stopwatch;
 use crate::observability::{attrs, dcp_telemetry, SpanStatus};
 
 /// Canonical JSON serialization (sorted keys, compact).
@@ -52,7 +51,7 @@ pub fn generate_keypair() -> (String, String) {
 pub fn sign_object(obj: &Value, secret_key_b64: &str) -> Result<String, String> {
     let tel = dcp_telemetry();
     let span_id = tel.start_span("dcp.sign", attrs([("algorithm", "ed25519")]));
-    let t0 = Instant::now();
+    let t0 = Stopwatch::start();
 
     let inner = || -> Result<String, String> {
         let canon = canonicalize(obj);
@@ -66,7 +65,9 @@ pub fn sign_object(obj: &Value, secret_key_b64: &str) -> Result<String, String> 
 
     match inner() {
         Ok(s) => {
-            tel.record_sign_latency(t0.elapsed().as_secs_f64() * 1000.0, "ed25519");
+            if let Some(ms) = t0.elapsed_ms() {
+                tel.record_sign_latency(ms, "ed25519");
+            }
             tel.end_span(&span_id);
             Ok(s)
         }
@@ -82,7 +83,7 @@ pub fn sign_object(obj: &Value, secret_key_b64: &str) -> Result<String, String> 
 pub fn verify_object(obj: &Value, signature_b64: &str, public_key_b64: &str) -> Result<bool, String> {
     let tel = dcp_telemetry();
     let span_id = tel.start_span("dcp.verify", attrs([("algorithm", "ed25519")]));
-    let t0 = Instant::now();
+    let t0 = Stopwatch::start();
 
     let inner = || -> Result<bool, String> {
         let canon = canonicalize(obj);
@@ -95,6 +96,10 @@ pub fn verify_object(obj: &Value, signature_b64: &str, public_key_b64: &str) -> 
             sig_bytes.try_into().map_err(|_| "invalid signature length".to_string())?;
 
         let verifying_key = VerifyingKey::from_bytes(&pk_array).map_err(|e| e.to_string())?;
+        // P-ED-1, after the key decodes (its error is kept) and before ed25519-dalek's verify.
+        if crate::ed25519_ped1::rejects(&sig_array, &pk_array) {
+            return Ok(false);
+        }
         let signature = Signature::from_bytes(&sig_array);
 
         Ok(verifying_key.verify(canon.as_bytes(), &signature).is_ok())
@@ -102,7 +107,9 @@ pub fn verify_object(obj: &Value, signature_b64: &str, public_key_b64: &str) -> 
 
     match inner() {
         Ok(ok) => {
-            tel.record_verify_latency(t0.elapsed().as_secs_f64() * 1000.0, "ed25519");
+            if let Some(ms) = t0.elapsed_ms() {
+                tel.record_verify_latency(ms, "ed25519");
+            }
             tel.end_span(&span_id);
             Ok(ok)
         }

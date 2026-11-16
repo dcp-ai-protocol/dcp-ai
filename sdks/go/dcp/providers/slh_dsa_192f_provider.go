@@ -45,7 +45,9 @@ func (p *SlhDsa192fProvider) Sign(message []byte, secretKeyB64 string) ([]byte, 
 	if err != nil {
 		return nil, fmt.Errorf("decode secret key: %w", err)
 	}
-	sk := new(slhdsa.PrivateKey)
+	// circl reads a key only for the parameter set its ID names (keys.go: the caller sets it beforehand); the
+	// zero ID is no parameter set, and reading a key with it panics.
+	sk := &slhdsa.PrivateKey{ID: slhdsa.SHA2_192f}
 	if err := sk.UnmarshalBinary(skBytes); err != nil {
 		return nil, fmt.Errorf("unmarshal slh-dsa-192f sk: %w", err)
 	}
@@ -61,7 +63,7 @@ func (p *SlhDsa192fProvider) Verify(message []byte, signature []byte, publicKeyB
 	if err != nil {
 		return false, fmt.Errorf("decode public key: %w", err)
 	}
-	pk := new(slhdsa.PublicKey)
+	pk := &slhdsa.PublicKey{ID: slhdsa.SHA2_192f}
 	if err := pk.UnmarshalBinary(pkBytes); err != nil {
 		return false, fmt.Errorf("unmarshal slh-dsa-192f pk: %w", err)
 	}

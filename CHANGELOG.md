@@ -4,21 +4,1203 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+> **Informative note (25/10/2026).** Each entry describes a change as it was made, including the successive entries
+> under `[Unreleased]`, where a later entry can refine or replace an earlier one. An entry is not a guarantee of
+> current behaviour, nor of a package version being available in a registry. For current behaviour, see the
+> [README](README.md), the [documentation](docs/README.md), the [specifications](spec/README.md) and the
+> [API reference](docs/API_REFERENCE.md).
+
+**Published versions (26/10/2026).** npm (13 packages, including `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` and Rust `dcp-ai` 2.11.0 are published, including the verifier fixes, admission and the experimental opt-in APIs; `dcp-jcs-v1` remains the normative default. See [Published versions](docs/README.md#published-versions). Entries below retain their development history; `[Unreleased]` does not mean these features are unpublished. The six patch releases of 28/10/2026 are in [their own section](#2026-10-28-sha3-patch-releases), the five releases of 05/11/2026 in [theirs](#2026-11-05-auditable-releases), and the six releases of 09/11/2026 in [theirs](#2026-11-09-six-releases).
+
+## [2026-11-09] Six releases
+
+Published on 09/11/2026 from `main` (`cdb7099b`, #140). The npm tarballs are the files tested before publication, with the same `sha512` integrity; the PyPI wheel and sdist and the crate were rebuilt from `main` by the release workflows and contain the same source files as the tested artifacts (the Python files differ only in metadata: Metadata-Version 2.5, hatchling 1.33.0 and the recomputed RECORD; the crate adds `.cargo_vcs_info.json`, which names `main`); the Go module is the tag `sdks/go/v2.14.0` on `main`, with the same files and `h1` as the tested module. See [Published versions](docs/README.md#published-versions).
+
+| Package | Published | Previous |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.4.0 | 2.3.0 |
+| `dcp-ai` (PyPI) | 2.11.0 | 2.10.2 |
+| Go `sdks/go/v2` | v2.14.0 | v2.13.0 |
+| Rust `dcp-ai` | 2.14.0 | 2.13.0 |
+| `@dcp-ai/wasm` | 2.2.0 | 2.1.3 |
+| `@dcp-ai/cli` | 2.2.0 | 2.1.1 |
+
+- **Added (opt-in).** Delegated admission, admission from bytes and mandate acknowledgment in the TypeScript, Python, Go and Rust SDKs, and the raw WASM export `wasm_canonicalize_v2_result`; see `[Unreleased]`.
+- **Acceptance change.** Ed25519 P-ED-1 in the four SDKs, the WASM build and `dcp-ai verify`: a public key or R that is not a canonical encoding, or is of order dividing 8, is rejected. Keep failing evidence as it is; sign again with the same key when it meets P-ED-1, rotate a non-canonical public key and replace a key of small order.
+- **Fixes.** WASM `hashObject` and `deriveKid` throw instead of returning an error envelope as a value, and `canonicalize` tells an `{ error: … }` value from an error; Go reads SLH-DSA-192f keys without a panic.
+- **Packaging and dependencies.** The `@dcp-ai/wasm` binary is built without the builder's local paths, and a release gate checks the packed files. `@dcp-ai/cli` includes `LICENSE`, requires `@dcp-ai/sdk` `^2.4.0` and reads its version from `package.json`. The Rust `otlp` feature requires `anyhow` 1.0.103 and `tokio` 1.53.3 or later (RUSTSEC-2026-0190, RUSTSEC-2026-0386); the default and `wasm` builds select neither.
+- **Unchanged.** The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs. The npm adapters get no new version: `@dcp-ai/express` 2.1.0 keeps its published files, which include no `LICENSE`, and a new installation resolves `@dcp-ai/sdk` 2.4.0 through its `^2.2.0` range. The `LICENSE` file added to `integrations/express` is in the repository only.
+
+## [2026-11-05] Auditable releases
+
+Published on 05/11/2026 after review as auditable candidates. The npm tarballs are the files tested before publication; the PyPI wheel and sdist and the crate were rebuilt from `main` by the release workflows and contain the same files as the tested artifacts (the crate's `.cargo_vcs_info.json` names `main`); the Go module is the tag `sdks/go/v2.13.0` on `main`. See [Published versions](docs/README.md#published-versions).
+
+| Package | Published | Previous |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.3.0 | 2.2.1 |
+| `dcp-ai` (PyPI) | 2.10.2 | 2.10.1 |
+| Go `sdks/go/v2` | v2.13.0 | v2.11.1 |
+| Rust `dcp-ai` | 2.13.0 | 2.11.1 |
+| `@dcp-ai/wasm` | 2.1.3 | 2.1.1 |
+
+- **Contents.** The SDK changes made on `main` after the published versions (#103, #106, #107, #112 and #116 to #119), described in `[Unreleased]`, in each package README and in the release notes for [npm](docs/NPM_RELEASES.md), [Python](docs/PYTHON_RELEASE.md), [Go](docs/GO_RELEASE.md) and [Rust](docs/RUST_RELEASE.md).
+- **Acceptance changes.** Every V2 verifier runs V2-2 schema validation, so schema-invalid bundles accepted before fail with `schema: <pointer> <keyword>` diagnostics. Go `v2.VerifyPayloadHash` accepts only the prefixed hash that `SignPayload` writes. The mandate validity helpers follow one contract, and mandate chains reject a root mandate that repeats a domain. WASM `dualMerkleRoot` follows V2-11; roots computed before stay as recorded ([migration](docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)).
+- **Unchanged.** The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs.
+- **Packaging.** The npm tarballs, the wheel, the sdist and the crate now include the Apache-2.0 `LICENSE`; the Go module zip already had it.
+- **CLI and adapters.** `@dcp-ai/cli` and the npm adapters get no new version; [npm packages](docs/NPM_RELEASES.md#cli-and-adapters) says what was checked against `@dcp-ai/sdk` 2.3.0.
+- **Earlier candidates.** These versions supersede the candidates of 30/10/2026 below (Go v2.12.0, Rust 2.12.0, `@dcp-ai/wasm` 2.1.2), which were never published; those numbers are not reused.
+- **Package READMEs.** The README inside each published archive is the one prepared before publication and reads "prepared, not published"; published archives cannot change. The READMEs in this repository describe the published versions.
+
+## Prepared, not published: Go v2.12.0, Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2
+
+Prepared in the repository on 30/10/2026 and **not published**: there is no `sdks/go/v2.12.0` tag, and crates.io and npm do not have these versions. At preparation time, [Published versions](docs/README.md#published-versions) and the installation commands kept naming the registry versions of then (Go `v2.11.1`, Rust `dcp-ai` 2.11.1, `@dcp-ai/wasm` 2.1.1); the current ones are in [Published versions](docs/README.md#published-versions). The changes are described in `[Unreleased]` and in the release notes for [Go](docs/GO_RELEASE.md), [Rust](docs/RUST_RELEASE.md) and [npm](docs/NPM_RELEASES.md).
+
+- **Go v2.12.0:** the acceptance change of `v2.VerifyPayloadHash` (the output of `SignPayload` is accepted and a bare digest is rejected; it checks the hash only) and the additive `v2.RawAuditEventV2`. `SDKVersion` is `2.12.0`.
+- **Rust `dcp-ai` 2.12.0:** the additive `v2::types::RawAuditEventV2` and `RawAuditEventError`, and, with the `wasm` feature, the corrected `wasm_dual_merkle_root`. Telemetry reads the package version.
+- **`@dcp-ai/wasm` 2.1.2:** `dualMerkleRoot` and `wasm_dual_merkle_root` compute the V2-11 dual Merkle root; no JavaScript API is added.
+- New tests of the experimental candidate (gate 7) change no default. `dcp-jcs-v1`, the profiles, the wire format, the dependencies and the cryptography are unchanged. The three packages no longer include the translated READMEs, which are under `i18n/`.
+
+> **Note (05/11/2026).** These candidates date from 30/10/2026 and were never published. Later changes on `main` are
+> not part of them: V2-2 schema validation in every V2 verifier (#116) and the mandate chain checks (#117 to #119). The
+> [releases of 05/11/2026](#2026-11-05-auditable-releases) contain those changes and
+> supersede these; the manifests on `main` carry their version numbers, and 2.12.0 and 2.1.2 are not reused. See the
+> [audit dossier](docs/conformance/AUDIT_DOSSIER.md#artifacts).
+
+## [2026-10-28] SHA3 patch releases
+
+Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/cli` 2.1.1 on npm, `dcp-ai` 2.10.1 on PyPI, the Go module `v2.11.1` (tag `sdks/go/v2.11.1`) and Rust `dcp-ai` 2.11.1 on crates.io. The other ten npm packages are unchanged. See [Published versions](docs/README.md#published-versions) and the release notes for [npm](docs/NPM_RELEASES.md), [Python](docs/PYTHON_RELEASE.md), [Go](docs/GO_RELEASE.md) and [Rust](docs/RUST_RELEASE.md).
+
+### Secondary SHA3-256 verification
+
+- **Acceptance change: the secondary SHA3-256 fields are verified when present** (developed on 27/10/2026).
+  The TypeScript, Python, Go and Rust V2 verifiers, and the WASM build from the Rust SDK, now check
+  `audit_merkle_root_secondary` (the SHA3-256 tree built like the primary one; `sha3-256:` followed by 64 zeros for an
+  empty trail), each `prev_hash_secondary` (`"GENESIS"` on the first entry, then the SHA3-256 of the entry before it as
+  carried) and each `intent_hash_secondary` (the SHA3-256 of the intent payload), as `spec/VERIFICATION.md` V2-11 and
+  its erratum of 27/10/2026 state. Absent fields are not required, so a verified bundle may still lack a complete
+  secondary chain; a present field that is `null`, not a string or wrong is rejected. Admission and the experimental
+  candidate routes reuse these checks; no API, result field, canonicalization or `hash_alg` handling changes. The
+  `prev_hash_secondary` schema pattern also accepts `"GENESIS"`, which OpenClaw writes on the first entry. Shared
+  vectors: `tests/interop/v2/secondary_sha3_vectors.json`. Earlier versions do not check these fields. The published adapters `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a` 2.1.0 were not republished: they depend on `@dcp-ai/sdk` `^2.2.0` and get the secondary checks once your lockfile resolves `@dcp-ai/sdk` 2.2.1 or later.
+
+### Package metadata
+
+- `@dcp-ai/cli` 2.1.1 requires `@dcp-ai/sdk` `^2.2.1`, and `dcp-ai --version` reports `2.1.1` instead of the stale `1.0.0`.
+- Telemetry reports the new versions: Go `SDKVersion` `2.11.1`; the TypeScript, Python and Rust SDKs read their package version.
+
 ## [Unreleased]
 
 ### Security
 
-- `ci`: the npm publish workflows (`publish.yml`, `publish-integrations.yml`,
-  `publish-templates.yml`) use npm trusted publishing (OIDC) instead of depending only on a
-  long-lived `NPM_TOKEN`; releases carry a provenance statement. The OIDC permission is held only by
-  jobs that install nothing and run no package script: packages that need an install or build are
-  packed in a read-only job and published from the tarball. `NPM_TOKEN` stays as a transitional
-  fallback until the trusted publishers are configured and verified on npmjs.com (one entry per
-  package, with the workflow filename). crates.io still publishes with a token.
+- **OpenTelemetry Go v1.47.0 in the Go SDK; the source now needs Go 1.26** (source on `main`, not in a published
+  version; no version bump). `go.opentelemetry.io/otel`, `otel/metric`, `otel/sdk`, `otel/sdk/metric` and `otel/trace`
+  move from v1.46.0 to v1.47.0, which fixes [GHSA-q7gw-24fr-5p69](https://github.com/advisories/GHSA-q7gw-24fr-5p69)
+  (CVE-2026-128085, medium): attribute values made of U+FFFD runes bypassed `AttributeValueLengthLimit` in `otel/sdk`
+  and `otel/trace`. The SDK compiles these modules only into the optional telemetry bridge (build tag `otlp`) and sets
+  no attribute length limit itself. The two OTLP HTTP exporters, which the advisory does not list, stay at v1.46.0, and
+  `golang.org/x/sys` (indirect) moves from v0.47.0 to v0.48.0. v1.47.0 declares `go 1.26.0`, so the `go` directive
+  moves from 1.25.0 to 1.26.0 in `sdks/go/go.mod` and in the three helper modules that build against the checkout (the
+  conformance wrapper, the differential fuzzing shim and the interoperability agent). The published v2.14.0 is
+  unchanged and still needs Go 1.25 or later; the next Go SDK release will need Go 1.26 or later. No change to the wire
+  format, the signatures or verification.
+
+- **P-ED-1 in the reference verifier, the CLI and the playground** (local source, not in a published version; no
+  version bump). `verifyObject` in `tools/crypto.js` now checks P-ED-1 before TweetNaCl, as the SDKs do. Through it, so
+  do the reference V1 path of `lib/verify.js` and `bin/dcp.js`, the transparency-log gossip and the revocation
+  service's Ed25519 check. `dcp-ai verify` on V1 files and the playground's `verifyDetached` check it too. Each uses one
+  of three identical copies of a byte helper: `tools/`, `cli/lib/` and `playground/js/core/ed25519-ped1.js`. **Acceptance
+  change:** a key or R that is not a canonical encoding, or is of order dividing 8, was accepted before and now returns
+  `false`; the CLI prints INVALID and exits 1. Errors and their order do not change. Three earlier tests changed only
+  their expectations for the identity key. The published `@dcp-ai/cli` does not include this, nor does any published
+  `@dcp-ai/sdk` (2.3.0 and earlier), so the copies installed from them do not either.
+
+- **Ed25519 acceptance criterion P-ED-1** (local source of the TypeScript, Python, Go and Rust SDKs, not in a
+  published version; no version bump). V1 `verifyObject` and its counterparts, and the default V2 Ed25519 provider,
+  now also reject a signature whose public key or R is not a canonical encoding, or is one of the 8 points of order
+  dividing 8 (the identity included), besides S >= L. The libraries still ensure valid points and
+  [S]B = R + [k]A with k reduced mod L, without cofactor (for R, some by comparing the canonical encoding of
+  [S]B − [k]A with the received bytes); the new checks compare bytes before them. Points with a
+  torsion component that are not of small order are still accepted. This is an intentional change of acceptance:
+  TypeScript, Go and Rust accepted some of these signatures before, and the official PyNaCl build already rejected
+  them. A failed check returns `false`; inputs that raised an error still raise the same one. Signers, formats,
+  contexts, `dcp-jcs-v1`, schemas and APIs do not change, and `pq_only` verifies no component it did not verify
+  before. **Migration:** keep failing evidence as it is, never re-encode or reduce signed bytes; sign again with the
+  same key when the key meets P-ED-1, rotate a non-canonical public key, and replace a key of small order. Not yet
+  applied by the reference V1 verifier, the V1 CLI copy or the playground (S < L only); the reference V2 verifier,
+  server and CLI change only when the SDK is rebuilt and reinstalled; WASM is compiled from the same Rust code but
+  not run. Spec: `spec/profiles/crypto/README.md`; vectors: `tests/interop/v2/ed25519_ped1_vectors.json`.
+
+- **DCP-05 to DCP-09 demo endpoints off by default, operator-only when enabled** (source on `main`, not in a published
+  version; `server/`). The reference server's 31 schema-only endpoints for lifecycle, succession, disputes, rights and
+  delegation records needed no token. Every request under their twelve path families now gets 404 unless the server
+  starts with `DCP_DEMO_ENDPOINTS=dcp-05-09`, which needs an `OPERATOR_TOKEN` of at least 32 RFC 6750 b64token
+  characters (an invalid setting stops the server); enabled, each request, GET included, needs exactly
+  `Authorization: Bearer <OPERATOR_TOKEN>`, checked before the body is read. The endpoints still verify no signature
+  and establish no principal authority. Decommissioning no longer changes a registered passport's status. The
+  capabilities report the DCP-05 to DCP-09 features as `false` and describe the demo in
+  `features.dcp05_09_demo_endpoints` and `demo_endpoints`. **Migration:** set `DCP_DEMO_ENDPOINTS=dcp-05-09` and a long
+  `OPERATOR_TOKEN`, and send the bearer token with every request.
+
+- **Simulated HSM provider removed** (source on `main`, not in a published version). `HsmCryptoProvider` and
+  `HsmProviderFactory` (`sdks/typescript/src/providers/hsm-provider.ts`) had no hardware backend: `initialize()`
+  reported an authenticated session without loading anything, and `verify` accepted any signature of the right
+  length. They were not exported from the package entry point or registered; code that imported the file directly
+  no longer can, and the public API of `@dcp-ai/sdk` does not change. `dcp audit gaps` counted Gap #11 closed
+  because the file existed; it now reports it as open whatever files exist. The reference server's
+  `/.well-known/dcp-capabilities.json` advertises `hsm_provider: false`.
+
+- **Transparency log: split views are told apart from independent logs** (source on `main`, not in a
+  published version; `services/transparency-log/`). Gossip compared every pinned peer's tree head with
+  the local tree, so two independent logs that pin each other alerted as soon as they had the same size
+  and different entries. It kept no history of a peer's heads to compare one view of it with another;
+  a log showing two roots for one size could only trip that comparison by accident.
+  - **What changes:** a log is identified by its pinned key and exact `log_id`, and each log keeps,
+    per witnessed log, the first head of each size. An alert means that one log signed two roots for
+    one size, seen by polling, through `POST /gossip/exchange`, or through two aliases of it. Heads of
+    different logs are never compared, and the local tree only with this log's own heads. History is
+    bounded (256 sizes per log, 8 logs per pinned key), dropped when no alias pins the key any more,
+    and lost on a restart; a poll whose alias changed while it waited is discarded.
+  - **Alerts:** new fields `peer_public_key`, `observed_root`, `source` and `evidence` (both signed
+    heads, the signed fields and `signature` only). `local_root` is kept as a deprecated name of
+    `observed_root`. Deduplication is by log, size and pair of roots, among the 100 alerts kept.
+    `api/openapi.yaml` documents the alert and the evidence, types the roots as `[string, "null"]`, and
+    now describes the tree head signature as Ed25519 and `public_key` as the base64 Ed25519 key.
+  - **Unchanged:** the tree head format and signature, the endpoints and their status codes, the
+    pinned keys, the 16 KB and timeout limits, non-overlapping polls, the environment variables, the
+    SDKs, profiles and canonicalization. There is still no replication between logs and no consistency
+    proof.
+- **Acceptance change: a domain repeated in a root mandate** (source on `main`, not in a published version). The
+  chain verifiers (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) now apply the last sentence of
+  DCP-09 §3.5.2 rule 5, a domain that appears twice in one mandate is not comparable, to every mandate of the chain,
+  the root included. Domains are compared as the exact strings the JSON decodes to, with no case folding, trimming or
+  Unicode normalization, as before.
+  - **What changes:** a chain made of a root mandate alone whose `authority_scope` repeats a domain, with the same or
+    with different actions, was accepted by the four SDKs; it is now rejected. Acceptance only narrows.
+  - **Diagnostics:** a repeated domain is now reported among the errors of that mandate's own fields, once per domain,
+    as `mandate[i]: authority_scope domain "…" is duplicated`. A root that repeats a domain and has sub-mandates was
+    already rejected, at `mandate[1]` with `… is duplicated in the parent`; it is now reported at `mandate[0]`, and
+    that message is no longer produced. A sub-mandate that repeats a domain was already rejected with the same
+    message, which now comes before its link, attenuation and signature checks, so their errors are no longer listed
+    with it. These texts and their order are the SDKs' diagnostics, not a protocol requirement.
+  - **Unchanged:** the wire format, canonicalization, signatures and contexts, the hybrid policy, trust, attenuation
+    between a mandate and its parent, revocation, the tier floor, the validity helpers and the chain times. WASM
+    exports no chain function.
+  - **Shared vectors:** `tests/interop/v2/mandate_domain_vectors.json`, 23 signed chains (8 to accept, 15 to reject),
+    run by the four SDK suites. The verdicts follow rule 5; the exact error lists are a regression of these SDKs.
+- **Acceptance change: mandate chain times** (source on `main`, not in a published version). The chain verifiers
+  (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) now read every time the same way. Validity
+  windows, their nesting in the parent's window and the `expires_at` of the signer keys of both slots are RFC 3339
+  instants of the subset the SDKs already parse, compared in milliseconds, both limits included. The verification
+  time is floored to the millisecond, also before the epoch.
+  - **What changes:** Python read these times as `datetime`, so it rejected year 0000 and any instant an offset moves
+    out of years 1 to 9999, which TypeScript, Go and Rust accept. It also compared them with a `now` in microseconds.
+    Go compared with a `now` in nanoseconds and TypeScript with an unfloored numeric `now`, so a key or window ending
+    in the same millisecond as the verification time could be read as expired. A `now` of another type made
+    TypeScript throw and Python raise; both now return `verification time is not an instant`.
+  - **Acceptance:** it widens in two places, under the common contract and without a normative change. With the
+    floor, a verification time inside the last millisecond of a window or of a key's validity, which a finer clock
+    rejected, is accepted. Python now accepts year 0000 and offsets that cross year 1 or 9999, as the other SDKs do.
+  - **Unchanged:** the clock conventions, which differ from the validity helpers: Python reads a naive `datetime` as
+    UTC, and Go reads the zero time as the current time. Also unchanged: the error messages, signatures, contexts,
+    hybrid policy, trust, attenuation, revocation and the validity helpers. Rust already read times this way, and
+    WASM exports no chain function.
+  - **Shared vectors:** `tests/interop/v2/mandate_chain_time_vectors.json`, 22 signed chains (9 to accept, 13 to
+    reject), run by the four SDK suites.
+- **Acceptance change: mandate validity helpers** (source on `main`, not in a published version).
+  `verifyMandateValidity` (TypeScript), `verify_mandate_validity` (Python), `VerifyMandateValidity` (Go) and
+  `verify_mandate_validity` (Rust) now apply one contract. The mandate is an object with a non-empty `mandate_id`,
+  and revocation is an exact match. `valid_from` and `valid_until` are RFC 3339 instants with `Z` or `±hh:mm`, read
+  by each SDK's existing strict parser, compared in milliseconds and never as text. `valid_from` must not be after
+  `valid_until`, and the verification time lies within the window, both limits included. The first failure is the
+  `reason`, and a value of the wrong type gives a result, not an exception.
+  - **What changes:** TypeScript and Go accepted a missing or malformed date. Python raised, and accepted a space
+    separator. Rust compared the dates as text, so offsets and fractions could be ordered wrongly in either
+    direction. The input contract changes too: Python requires the revoked IDs to be a `collections.abc.Set` (a
+    `set`, a `frozenset` or a dict keys view), so a list or a string, tolerated before, is refused (`in` on a string
+    matches substrings).
+  - **Date format:** the subset the SDKs already parse (`tests/interop/v2/interop_vectors.json#rfc3339`), not all of
+    RFC 3339: uppercase `T` and `Z`, a real calendar date, no second 60, and fraction digits beyond milliseconds
+    dropped.
+  - **Clock:** the verification time can be injected: TypeScript `now` (a `Date` or milliseconds), Python `now=` (an
+    aware `datetime`; a naive one is refused), Go `VerifyMandateValidityAt` (`now` taken as given) and Rust
+    `verify_mandate_validity_at` (milliseconds). The existing calls keep the current time.
+  - **Shared vectors:** `tests/interop/v2/mandate_validity_vectors.json`, 94 cases. TypeScript, Python and Rust run
+    all of them; Go runs 90 and skips by name the 4 whose mandate is neither a JSON object nor `null`, which its typed
+    map cannot take.
+  - **WASM:** it exposes the `DelegationMandate` type only, no helper.
+  - **Scope:** the helpers check no signature, schema, scope or chain and authorize nothing. The chain verifier,
+    admission, signatures, profiles, dependencies and versions are unchanged.
+- **Acceptance change: V2-2 schema validation in every SDK verifier** (source on `main`, not in a published
+  version). The V2 verifiers of the TypeScript, Python, Go, Rust and WASM SDKs (`verifySignedBundleV2` and its
+  counterparts, the combined admission API, which verifies first, and the experimental candidate verifier; evaluating
+  admission from an earlier result does not run it) validate the signed bundle envelope and the four
+  payloads against `schemas/v2` after the policy and clock checks and before checking the manifest, payload hashes,
+  keys and signatures. Every SDK interprets the same representation generated from the schemas (`tools/schema-ir/`),
+  which CI regenerates and compares. Schema-invalid bundles they accepted before now return `verified: false`, among
+  them unknown members in closed objects and `null` session times in the manifest. The errors are then
+  `schema: <JSON pointer> <keyword>[ <member>]` diagnostics (at most 16 and a truncation marker) without
+  cryptographic details, so some rejections change wording: CI judges the evidence catalog's SDK runs on the verdict
+  (`--assessment verdict`), and the committed `error_contains` strings are unchanged. `date-time` keeps the
+  ajv-formats 3.0.1 boundary of the reference verifier, which is not strict RFC 3339. No public API, schema,
+  profile, dependency or version changes. In the experimental phase 4 matrix the 50 results of `S09` are now
+  expected refusals. See [SECURITY_COVERAGE.md](docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
+- **TypeScript `VerificationCache` (source on `main`, not published; `@dcp-ai/sdk` 2.2.1 keeps the
+  previous behaviour).** The cache key stays the bundle hash for existing calls, and an opt-in
+  `context` chosen by the caller separates results under tagged internal keys that a legacy hash
+  cannot collide with. `invalidateByAgent`, which removed nothing, now removes the entries stored
+  with that agent in the new `agentIds` option and every entry stored without one. Replacing an
+  entry no longer leaves its old kids in the index (with the default bound the index grew without
+  limit) or evicts another entry; the kids of `result.details.signer_keys` are indexed too; `''` as
+  a hash no longer disables `maxEntries`. **Acceptance changes:** invalid options (`NaN`,
+  `Infinity`, negative or non-number TTLs, TTLs above `Number.MAX_SAFE_INTEGER`, a `maxEntries` that is not a safe integer from 1 to `Number.MAX_SAFE_INTEGER`) throw instead of disabling expiry or the bound; `set` copies the result and
+  `get` returns a new copy on every hit; an entry expires at exactly its TTL, measured on the
+  monotonic clock as well as the wall clock, so a clock step back no longer extends it; a TTL of 0
+  is never stored; `set` validates its arguments (a hole in `signerKids` or `agentIds` counts as
+  `undefined`) and changes nothing when it throws. A hit still does not verify the evidence or trust again and is not admission, and nothing is invalidated automatically. See
+  [API_REFERENCE.md](docs/API_REFERENCE.md#verificationcache).
+- **Acceptance change: Ed25519 signatures with S >= L are now rejected** by the TypeScript SDK
+  (`Ed25519Provider.verify`, hence every V2 and composite signature, `@dcp-ai/express` and
+  `@dcp-ai/openclaw`; and `verifyObject`, hence `verifySignedBundle` V1) and by the reference
+  verifier (`tools/crypto.js`, hence `lib/verify.js` V1, `bin/dcp.js`, conformance and the
+  transparency-log gossip). RFC 8032 §5.1.7 requires 0 <= S < L, and TweetNaCl does not check it,
+  so it accepted S + k·L, another encoding of a valid signature (§8.4, malleability). Python, Go
+  and Rust already rejected them. TweetNaCl is still the verifier: the range is checked only on
+  input it accepts, so its errors for wrong types, sizes and base64 are unchanged, as are the
+  decoding of keys and R and the acceptance of weak keys. Signers produce S < L, so no newly
+  generated signature changes verdict; a stored signature with S >= L that an earlier version
+  accepted no longer verifies. The repository inventory found such signatures only in the
+  intentional negative review corpus; it does not cover external stored evidence. Evidence
+  verified before this change is not re-signed automatically: keep it as historical, with its hash
+  and the version that verified it, or sign it again.
+- **The same acceptance change in `dcp-ai verify` (`@dcp-ai/cli`) and the playground**, which
+  called TweetNaCl directly. `dcp-ai verify` checks S < L in its own V1 check of
+  `signature.sig_b64`, and V2 bundles get it from `@dcp-ai/sdk`, whose verifier it now uses (see
+  Changed). The historical `signature.classical.value` path had the check too when it was added;
+  that path has since been removed and its format is rejected. The playground checks it in
+  `verifyDetached`. The check is the SDK's, made only on input TweetNaCl accepts, so its errors
+  are unchanged.
+- The four V2 verifiers split on non-canonical encodings of a valid signature: with junk after
+  the padding, extra padding, a newline inside, trailing bits set or no padding, TypeScript
+  accepted every variant, Python and Go some, Rust none. Every `sig_b64` must now be canonical
+  base64 (`spec/VERIFICATION.md` V2-5), so a signature has one encoding and every SDK decodes the
+  same bytes; 13 new `must_reject` vectors cover it.
+- V2 verifiers in all four SDKs accepted bundles that the signatures alone allowed but the
+  protocol does not. Reported by an external review and confirmed by our own; the reference
+  verifier `lib/verify.js` runs the fixed verifier through the workspace SDK until 2.2.0 is on npm
+  (see Changed).
+  - **Any agent could claim any principal.** The bundle signature verified with the passport keys
+    as well as the RPR `binding_keys`, and the agent signs its own passport. Pairing a published,
+    signed RPR with a new passport and keys gave a verified bundle without the principal's private
+    key. The bundle signature now verifies only with the RPR `binding_keys`
+    (`spec/VERIFICATION.md` V2-6), so the principal's signature over the manifest, which commits to
+    `passport_hash`, is what binds the agent.
+  - **Kids were not checked against their keys.** A key list could claim another party's kid for
+    a key of its own. Every kid that verifies a signature must now be derived from its key, and the
+    key must be canonical base64 so every SDK decodes the same bytes (V2-13).
+  - **Signed but inconsistent bundles verified.** A revoked or decommissioned passport, an expired
+    RPR, a policy decision for another intent, and audit entries for another intent, agent or
+    principal, with another `intent_hash` or not recording the policy decision. The V1 checks are
+    now V2-14: the passport is `active` or `declining`, the RPR has not expired, and every artifact
+    names the same principal, agent and intent. An escalated or blocked action is still valid
+    evidence.
+  - **The session duration bound read an unsigned field.** `max_session_duration_seconds` was
+    measured from `signature.created_at`, outside the signed manifest. The manifest has a new
+    `session_issued_at`, which `signBundleV2` and `sign_bundle_v2` write with `session_expires_at`;
+    the maximum is measured from it, and under a maximum a bundle without it is rejected (V2-4).
+    It must not be more than 30 seconds ahead of the verifier's clock, and a maximum also rejects a
+    bundle without `session_expires_at`. Timestamps compare at millisecond precision in every SDK.
+    Bundles signed before this change verify as before under a policy without a maximum session
+    duration.
+  - **The unsigned signature block could contradict the signature.** `signature.signer.id` must now
+    be the RPR's `human_id`, `signature.signer.kids` the kids of the composite signature,
+    `manifest_hash` the hash of the manifest and `hash_alg` one of the two the schema allows.
+    `signBundleV2` and `sign_bundle_v2` refuse a signer id other than the RPR's `human_id`; Go's
+    `SignBundleV2` and Rust's `sign_bundle_v2` already take it from the RPR.
+  - **PQ checkpoints were not verified.** A checkpoint with a changed Merkle root or PQ signature,
+    or a missing one the manifest lists, verified. The bundle must now carry exactly the listed
+    checkpoints, each over its audit entries and signed by the agent with both algorithms (V2-12).
+  - The Go and Rust verifiers accepted an artifact or audit entry without `session_nonce`; every
+    one must now carry the manifest's, as in TypeScript and Python.
+  - New vectors in `tests/interop/v2/bundle_vectors.json`, each signed over one defect: 35
+    `must_reject_bundles` cases, 4 `must_reject` mutations of the unsigned signature block and 8
+    `must_accept_bundles` controls. A case may carry `verifier_policy_overrides`.
+  - `lib/verify.js` pins a `dcp verify-bundle` key among the RPR `binding_keys`, and every entry
+    under the signing kid must carry the pinned key, so the pin also holds with the published SDK
+    2.1.1, which looks the signer up in the passport first.
+- `@dcp-ai/express` (`dcpVerify`), `@dcp-ai/openclaw` (`dcp_verify_bundle`) and the Python FastAPI
+  middleware (`dcp_ai.fastapi.DCPVerifyMiddleware`) accepted V2 signed bundles without verifying any
+  signature: they checked only the bundle's structure and session nonces (the FastAPI middleware
+  also set `composite_sig_valid` from the `binding` field), so an unsigned or forged bundle, or one
+  whose intent was changed after signing, was reported as verified. All three now verify every V2
+  bundle with the SDK verifier (`verifySignedBundleV2` from `@dcp-ai/sdk`, `verify_signed_bundle_v2`
+  from `dcp_ai.v2`) and an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry, under the configured
+  policy over `DEFAULT_VERIFIER_POLICY` (`verifierPolicy`; `verifier_policy`, a new
+  `DCPVerifyMiddleware` argument; the OpenClaw operator policy below). `requireHybrid` raises every
+  risk tier below `hybrid_required` to it (an operator's `pq_only` stays `pq_only`), and a
+  `default_mode` without `risk_overrides` applies to every tier. The verifier's errors and
+  warnings are returned, and `composite_sig_valid` comes from it. Until `@dcp-ai/sdk` 2.2.0 is on
+  npm, both TypeScript packages depend on the workspace SDK
+  (`"@dcp-ai/sdk": "file:../../sdks/typescript"`), whose verifier has the fixes above; CI builds it
+  before testing them, and all three pass every case of `tests/interop/v2/bundle_vectors.json`
+  under its `verifier_policy_overrides`. Publishing them needs the dependency raised to `^2.2.0`
+  first: `publish-integrations.yml` now refuses a package that depends on a local path.
+- The same three verifiers sent every bundle not detected as V2 to the V1 verifier, whatever the
+  verifier policy: a V1 bundle (one Ed25519 signature, no post-quantum one) got past
+  `requireHybrid` or a `hybrid_required` policy, and a bundle of undetectable version was tried as
+  V1. A V1 bundle is now accepted only where VERIFICATION.md V2-10 would accept a classical-only
+  bundle: `allow_v1_bundles` is true, `requireHybrid` is off, and the stricter of the policy mode
+  for the V1 passport's `risk_tier` and the mode of the security tier of the V1 intent and policy
+  decision (V1 `risk_score`, 0 to 1, scaled by 1000; a missing one counts as `elevated`) is
+  `classical_only` or `hybrid_preferred`. Under `DEFAULT_VERIFIER_POLICY` the V1 conformance bundle
+  (a standard-tier `send_email`) passes and the same bundle with an `initiate_payment` intent is
+  refused. A bundle of undetectable version is rejected.
+- `@dcp-ai/openclaw`: `dcp_verify_bundle` took its verifier policy from the `verifier_policy` tool
+  parameter, which the calling model controls, and returned the unverified bundle's `agent_id` and
+  `human_id` with a failed result. The policy is now the operator's (`register(api,
+  { verifierPolicy })` or the new `configureVerifier`, over `DEFAULT_VERIFIER_POLICY`); the
+  parameter can only make it stricter (a stricter mode per tier, with `pq_only` and any other
+  mode giving `hybrid_required` so the model cannot drop the classical signature the operator
+  requires, `require_*` only turned on, `allow_v1_bundles` only turned off, any other field an
+  error). The result echoes
+  `verification_mode`, and names the agent, principal and session only when the bundle verified.
+- `@dcp-ai/express`: the verdict cache was keyed by `signature.composite_sig` and shared by every
+  middleware, so a different bundle carrying a cached signature, or a middleware with a stricter
+  policy, reused a "verified" verdict; it also grew without bound and kept a verdict for the whole
+  TTL after the session or a key had expired or the agent had been revoked. Each middleware now has
+  its own cache keyed by the SHA-256 of the bundle's canonical form (`canonicalizeV2`; a bundle
+  without one, such as one holding `1e999`, which `JSON.stringify` printed like `null`, is verified
+  but not cached), holding at most `cacheMaxEntries` (new, default 1000) bundles, least recently
+  used evicted first; an entry expires at the earliest of the TTL, the manifest's
+  `session_expires_at`, the RPR's `expires_at` and the `expires_at` of every passport key and RPR
+  binding key. A deeply nested bundle no longer gives a 500.
+- `@dcp-ai/express`: `checkRevocation` asked only about the agent and its passport keys, and failed
+  open silently. It now also asks about every RPR binding key and the bundle signature's classical
+  and PQ kids, on every request including cache hits. A lookup that gives no answer (service
+  unreachable, a non-2xx response, a body that is not JSON or has no `revoked`) still lets the
+  request through by default; the new `revocationFailClosed: true` rejects it.
+- `@dcp-ai/express`: an unknown option or `verifierPolicy` field (`defaultMode`) and a value of the
+  wrong type (`allow_v1_bundles: "false"`) were ignored, leaving the default in force. They now
+  throw when the middleware is created.
+- `dcp_ai.fastapi`: an `X-DCP-Bundle` header holding an integer over Python's 4300-digit limit or
+  nested too deeply, and a bundle too deep for the verifier, gave a 500; they now get a 403.
+  `pq_checkpoints` that is not a list is rejected (it was read as no checkpoints).
+  `verifier_policy={"risk_overrides": None}` now keeps the default tiers instead of applying
+  `default_mode` to all of them, and an unknown risk tier raises. `dcp_version` is documented as
+  not enforced.
+- The three READMEs now say what "verified" means: the bundle is internally consistent and signed
+  by the keys it lists itself, which does not prove who the principal is unless the verifier pins
+  the principal's keys (none of the middlewares can yet), and `require_audience_binding` with a
+  `verifier_id` limits replay to the intended verifier.
+- Go and Rust verifiers accepted an audit entry (or PQ checkpoint) whose `session_nonce` differed
+  from the manifest's, although the manifest committed to it (`spec/VERIFICATION.md` V2-4: every
+  artifact and audit entry that carries a nonce shares the manifest's). Both now check the trail
+  and the checkpoints as TypeScript and Python do, with the error `Session nonce mismatch in
+  audit_entries[i]`. Shared vector `audit_entry_session_nonce_differs`.
+- The Rust verifier did not check `manifest.canonicalization_profile` at all, and the Go verifier
+  ignored a value that was not a string, so a bundle could claim a profile no verifier implements
+  (`spec/CANONICALIZATION_PROFILE.md` § 4, V2-3). Both now reject any value other than
+  `"dcp-jcs-v1"`, as TypeScript and Python do. Shared vectors `canonicalization_profile_unknown`
+  and `canonicalization_profile_not_a_string`.
+
+- **npm trusted publishing (OIDC) in the publish workflows** (CI on `main`; no package or version change).
+  `publish.yml`, `publish-integrations.yml` and `publish-templates.yml` use npm trusted publishing instead of depending
+  only on a long-lived `NPM_TOKEN`; releases carry a provenance statement. The OIDC permission is held only by jobs
+  that install nothing and run no package script: the packages that need an install or a build (`@dcp-ai/sdk`,
+  `@dcp-ai/wasm`, `@dcp-ai/cli` and the `anthropic-mcp`, `google-a2a`, `express` and `openclaw` integrations) are
+  packed in a read-only job and published from the tarball. `NPM_TOKEN` stays as a transitional fallback until the
+  trusted publishers are configured and verified on npmjs.com (one entry per package, with the workflow filename).
+  crates.io still publishes with a token.
+
+### Added
+
+- **Enterprise integration rehearsal** (new [tools/enterprise-rehearsal/README.md](tools/enterprise-rehearsal/README.md);
+  an optional kit outside the protocol, the SDKs and the adapters, with no SDK, adapter, profile, default or wire
+  change, `dcp-jcs-v1` unchanged, and nothing published). It builds the TypeScript SDK, the Express adapter and the
+  Python SDK from one commit, installs them into a new consumer, and runs an Express and a FastAPI application on
+  loopback against expectations written before the run, under a supervisor that owns every process. Keys, tokens
+  and tenants are synthetic and marked TEST ONLY, and the run deletes the secrets. The guide also states what the
+  rehearsal does not show: Go, Rust or WASM end to end, production TLS, PKI or OIDC, KMS or HSM, exactly-once
+  execution, or anything about the published packages.
+
+- **Conformance through the public interfaces** (local source; no new rule, schema or profile, and `dcp-jcs-v1` is
+  unchanged; the one new export is the WASM fix below).
+  `tools/conformance/wrappers/wasm-browser.mjs` runs kit catalogs through the public `DcpWasm` class in Chrome:
+  `/1`, `/2`, policy, structural, schema and `/5`, 590 cases. Separate direct sections add 103 cases: domain
+  separation, security tier, hybrid sign-verify round trips and the P-ED-1 composite preimages. The runner has
+  self-tests.
+  - `sdks/rust/tests/wasm_ped1_vectors.rs` runs the P-ED-1 corpus at the provider level on wasm32 in Node.
+  - Each of the four SDKs adds tests of the configuration errors of admission from bytes and of delegation activation.
+  - CI runs all of these.
+  - WASM still has no admission, mandate chain or activation API.
+
+- **Delegated admission, admission from bytes and mandate acknowledgment (opt-in)** (local source of the
+  TypeScript, Python, Go and Rust SDKs, not in a published version; no version bump). No default calls them, and
+  existing functions, results, codes and vectors do not change. WASM, the CLI, the playground, the reference server,
+  the adapters and the kit do not expose them.
+  - `admitDelegatedBundleV2` and its counterparts admit a leaf bundle with its DCP-09 mandate chain and one bundle per
+    delegating agent, at one `now`, under the operator's trust set, profile or policy and revocation snapshots of
+    agents, keys and mandates (`spec/profiles/admission` § 10, `DELEGATION_*` codes,
+    `tests/interop/v2/delegated_admission_vectors.json`).
+  - `admitSignedBundleV2FromBytes` and its counterparts take the signed bundle as bytes, reject before any parser what
+    the experimental scanner rejects and numbers that are not plain integers (`NUMBER_NOT_PORTABLE`), and require the
+    SDK parser to reproduce the scanner's canonical bytes (`INGRESS_PARSER_MISMATCH`); § 11,
+    `tests/interop/v2/v1_ingress_vectors.json`. `dcp-jcs-v1` does not change.
+  - A new record, `schemas/v2/mandate_acknowledgment.schema.json` (`dcp09-mandate-ack-v1`), signed under the new
+    context `DCP-AI.v2.MandateAcknowledgment`, with `createMandateAcknowledgment` and
+    `evaluateDelegationActivationV2` and their counterparts (DCP-09 § 3.3.1, admission profile § 12, ordered `ACK_*`
+    codes, `tests/interop/v2/mandate_acknowledgment_vectors.json`). The `DCP_CONTEXTS` maps of TypeScript and
+    Python keep their 19 entries; the context is a separate constant. Activation authorizes no action and does not
+    show that the agent understood the mandate.
+
+- **Effective-policy catalog (contract `/5`, opt-in)** (kit and tests on `main`, not a package release;
+  `tools/conformance/`). `external-effective-policy-catalog.json` judges 130 signed-bundle verifications on the
+  verdict and on the verification mode and security tier that each implementation's verifier resolved in that same
+  verification: 112 cases require both values; in 14 bundles that fail V2-2 and 4 earlier rejections they may be
+  absent, and reported values must be known and consistent. `tests/interop/v2/effective_policy_vectors.json` adds 17
+  cases signed with the committed TEST-ONLY keys: elevated and maximum positives under each requested mode,
+  `risk_score` boundaries, `security_tier` floors and passport overrides that replace the default. The five wrappers
+  answer `/5` from their SDK's own result fields; `/1` to `/4`, their catalogs, the SDKs and their APIs are unchanged.
+  CI runs the self-tests and the catalog through the five wrappers.
+
+- ML-DSA-65 verification vectors (`tests/nist-kat/ml-dsa-65/`), developed on 05/11/2026; tests, CI and documentation
+  only, with no SDK code, API, manifest or lock changes. The existing ML-DSA-65 property tests are unchanged.
+  - 204 cases with an empty context go through the real provider of the TypeScript, Python, Go and Rust SDKs, and
+    through the Rust provider compiled to wasm32 (Node in CI, a browser locally): NIST ACVP sigVer tc39 (test group 3,
+    ML-DSA-65, external interface, pure mode, commit `a7f283cd`) and 203 C2SP Wycheproof cases (commit `20b25694`,
+    Apache-2.0, not a NIST source); 77 are valid and 127 invalid. Each file's SHA-256 is checked.
+  - The providers verify with the empty FIPS 204 context, so the cases with a non-empty context (NIST tc31 to tc45
+    except tc39; Wycheproof tc3 to tc5 and tc153 to tc156) are excluded and checked by ID. An error counts as a
+    rejection only for the key and signature length cases, with the provider's exact error.
+  - The WASM CI job runs the wasm32 target and fails unless its three tests pass. Passing these cases is not NIST
+    validation of a library or module. [NIST KAT](tests/nist-kat/README.md#ml-dsa-65-verification-vectors).
+- Bounded workload scaling (`tools/conformance-perf-scale.js`, report contract `dcp-ai-perf-scale/1`), developed on
+  05/11/2026; no SDK, manifest or lock changes, and `dcp-ai-perf/1` with its children is unchanged.
+  - It covers four dimensions with three sizes each (string bytes, nesting, audit entries, mandate chain length). Each
+    size has a re-signed valid control, a stale control and a schema control, with the category of each negative checked
+    in its first errors. Bundles run in five SDKs, mandate chains in four, through separate `dcp-ai-perf-mandate/1`
+    children.
+  - The corpus is generated once with TEST-ONLY keys, measured from its exact bytes, and checked before any child with
+    Ajv and the SDK-free integrity and signature checks.
+  - Memory is the kernel high-water RSS of a fresh child per observation (`tools/conformance/perf/rusage.py`); the heap
+    is not measured.
+  - A supervisor stops the run and every process it started at the deadline, and reports an incomplete cleanup as such.
+  - CI runs its self-tests and a smallest-size smoke run; they check verdicts, counts, units and cleanup, and set no speed or memory threshold.
+    [Conformance kit](tools/conformance/README.md#bounded-workload-scaling).
+- Differential testing (`tools/difffuzz`), developed on 05/11/2026; no SDK, manifest or lock changes.
+  - `run-mandates.mjs` sends the same re-signed DCP-09 mandate chain to the TypeScript, Python, Go and Rust chain
+    verifiers through contract `/4` (format `dcp-mandatefuzz/1`). Every run covers 73 variants in 11 families at every
+    depth they apply to (167 cases), then bounded random mutants. It keeps positive and stale-signature controls in
+    every batch, writes expectations only where DCP-09 §3.5.2, the canonicalization profile or RFC 8259 decides, and
+    stops at the first finding for review. Its minimization re-signs each candidate, and its replay is typed and bound
+    by hashes.
+  - `--transport-probe` records, per wrapper, what contract `/4` does with a `NaN` token, a byte order mark and
+    `1e400`: an observation. A wrapper's refusal is never counted as an SDK rejection, and the rejection the
+    TypeScript and Python SDKs return for `1e400` credits no semantic rule.
+  - The bundle fuzzer takes `--sdks five` to add the Rust SDK compiled to WASM (Node-hosted) as a fifth verifier.
+    Reports and new findings record their SDK set; older findings replay with exactly four.
+  - The differential CI job runs both harnesses.
+
+- External conformance kit: an opt-in delegation catalog, `--catalog delegation` (contract
+  `dcp-ai-conformance-external/4`, `tools/conformance/external-delegation-catalog.json`, 97 cases from
+  `mandate_chain_vectors.json`, `mandate_chain_time_vectors.json` and `mandate_domain_vectors.json`, pinned by
+  SHA-256). Its one operation, `verify_mandate_chain`, sends the chain and the keys as the exact bytes of the
+  fixtures, with the revoked ids and the verification time. Only the verdict is judged: `valid`, and the effective
+  tier of an accepted chain (DCP-09 §3.5.2 rule 6); error texts and depth are reported as diagnostics. 87 cases are
+  normative. 10 `chain_time` cases rest on conventions DCP-09 does not state (millisecond precision, signer key
+  validity) and are informative: reported apart, never a pass or a fail, though a failed answer to one is an error.
+  Each rejection names its rule and counts only if its control passed; the runner checks on the bytes how the two
+  relate. The TypeScript, Python, Go and Rust wrappers answer through their SDK at the request's time; WASM exports
+  no chain function and refuses `/4`. CI runs the judge's self-tests (17), the wrapper tests (19, the four wrappers
+  required) and the 97 cases through each of the four wrappers. `/1`, `/2` and `/3` are unchanged.
+- A performance baseline tool for the external conformance kit, `tools/conformance-perf.js` (contract
+  `dcp-ai-perf/1`): the normative V2 verifier of the five SDKs of this checkout on six committed workloads (a
+  hybrid bundle, an invalid Ed25519 and an invalid ML-DSA-65 signature, and three secondary SHA3-256 cases), with
+  the same input bytes, policy and verification instant. One in-process child per SDK through its public entry
+  point, warmed and timed round-robin, every call checked; every sample is kept, with nearest-rank statistics. It
+  builds what it measures and records sources, manifests and locks, artifact hashes and tool versions per SDK
+  (`--no-build` refuses any difference or gap). No speed threshold, ranking or attributed percentage; results stay
+  local. CI runs its self-tests and a five-SDK smoke run in the native job.
+- `RawAuditEventV2` in the Rust (`dcp_ai::v2::types`) and Go (`v2`) SDKs: one received V2 audit entry kept as it
+  was decoded, every member at every depth with its presence and `null`-ness, unknown members included, so wherever
+  the dcp-jcs-v1 canonicalizer accepts it its canonical bytes, `prev_hash` and Merkle leaf stay those of the input.
+  Rust holds the decoded `serde_json::Value` (`RawAuditEventError` for anything but an object); Go holds the
+  literal bytes, copied in and out, and refuses anything but exactly one JSON object. Neither repairs nor re-signs:
+  invalid evidence stays invalid, for the same reason. The existing `AuditEventV2` and `AuditEvidenceV2` are
+  unchanged and now documented as lossy for forwarding (an explicit `null`, an unknown member, an absent
+  `pq_checkpoint_ref` that becomes `null`). New shared vectors,
+  `tests/interop/v2/audit_entry_roundtrip_vectors.json`, give 14 entries with their hand-written dcp-jcs-v1 text,
+  which the TypeScript, Python, Go and Rust canonicalizers reproduce, and a signed bundle whose mutations the new
+  type keeps rejected with the same errors. The Go bundle builder, the V1 types and the Python `AuditEventV2` model
+  are unchanged.
+- `--assessment verdict` for the evidence catalog (contract `/2`) of the external conformance kit: the 146
+  rejections that carry an `error_contains` are judged on `verified: false` alone, with every other rule, control
+  and exit code unchanged, so an implementation with correct verdicts and messages of its own can show it. The
+  wording is reported as a diagnostic: `matched`, `differs`, `no_message`, or `not_evaluated` with its reason. Each
+  of those cases names its step of `spec/VERIFICATION.md`, and before the run the runner checks those anchors and
+  that every control is a plain positive. The report declares `dcp-ai-conformance-assessment/1`, apart from the
+  `/2` wire contract, and keeps the catalog's prose in `catalog_claim` and `catalog_limits`. Without the option, or
+  with `--assessment legacy`, judgement and report are unchanged, and the `/1` and `/3` catalogs refuse it. The
+  catalog, the fixtures and the wrappers are unchanged; CI runs the assessment through the five wrappers, all
+  required.
+- External conformance kit: an opt-in admission catalog, `--catalog admission` (contract
+  `dcp-ai-conformance-external/3`, `tools/conformance/external-admission-catalog.json`, 140 cases:
+  the 65 outcome vectors of `admission_vectors.json`, 71 configuration cases and 4 cases composed
+  from the vectors' inputs). The TypeScript, Python, Go and Rust wrappers answer through their SDK's
+  combined admission function and loaders, at the request's `now`. The judge checks the field types,
+  the rules of spec/profiles/admission (`action_authorized` is `false`; `admitted` exactly when no
+  code was added), the exact fields, the order of the raw codes by phase and their repetition; a
+  negative counts only if its controls passed. The answer is a projection: the embedded verification
+  is not judged. The WASM build has no admission API and is not emulated. CI runs the judge's
+  self-tests (60), the wrapper tests (26, the four wrappers required) and the 140 cases through each
+  of the four wrappers. The fake of the evidence self-tests now reaches the TypeScript wrapper
+  through an asynchronous spawn, with a deadline and its exit checked: a synchronous spawn with the
+  9 MB request was observed waiting until the deadline. `/1` and `/2` are unchanged.
+- **Canonicalization candidate: gate 7 measured on the `dcp-jcs-v1` side.** The new public fixture
+  `tests/interop/candidate/gate7-v1-negatives.json` injects a defect of each of the 8 unit classes, at 18 byte
+  positions, into two frozen `dcp-jcs-v1` bases: 38 cases, the 2 bases included as controls. It records a reasoned
+  expectation for 10 configurations of five implementations: the TypeScript, Python, Go and Rust SDKs, and the WASM
+  package hosted in Node. New tests in each run the 380 comparisons: the experimental verifier must give the result
+  of today's route of the same implementation on the same bytes, clock and policy, and both must match the
+  expectation. Three envelope cases (30 checks) stay a separate boundary, with no equivalence claimed. A strict
+  standard-library checker and its negative controls run in the conformance CI job. The ledger marks gate 7 met, on
+  samples. Tests and documentation only: no SDK API, profile, default or `dcp-jcs-v1` change; the candidate stays
+  experimental and opt-in, and nothing is published. See
+  [docs/proposals/canonicalization-candidate/README.md](docs/proposals/canonicalization-candidate/README.md#185-gate-7-on-the-dcp-jcs-v1-side-testsinteropcandidategate7-v1-negativesjson).
+- **Evidence catalog for the external conformance runner: Merkle and signature verification.**
+  `--catalog evidence` runs an opt-in catalog (`tools/conformance/external-evidence-catalog.json`,
+  contract `dcp-ai-conformance-external/2`, 241 cases) on committed public fixtures: exact dual Merkle
+  roots for 1, 2, 3 and 5 leaves, composite and classical-only signature verification with the
+  committed attacks and deterministic alterations, normative V2 signed-bundle verification of
+  `bundle_vectors.json` under `default_verifier_policy` with each case's committed overrides, and the
+  secondary SHA3-256 vectors, all at a pinned `verification_time`. A negative case counts only if its
+  control passed; `verified: true` with errors, `error` and `unsupported` are never a pass. The five
+  wrappers accept both contracts; the default catalog, contract `/1` and its 38 cases are unchanged.
+  CI runs the 241 cases and the self-tests through all five wrappers. A pass is not admission, trust
+  or authorization. Apart from the `wasm_dual_merkle_root` fix under Fixed, no SDK changes; no package
+  is published. See
+  [tools/conformance/README.md](tools/conformance/README.md#evidence-catalog-merkle-and-signature-verification).
+- **Go, Rust and WASM wrappers for the external conformance runner.**
+  `tools/conformance/wrappers/build.mjs` builds wrappers for the Go SDK, the Rust SDK and the WASM
+  build of the Rust SDK from this checkout (`-mod=readonly`, `--locked`; no SDK manifest or lockfile
+  changes), and each runs the same 38 cases through the real API, with one call to the canonicalizer
+  and only its documented rejection classified as such. The WASM wrapper runs the real `.wasm`
+  hosted in Node, not in a browser, and treats the export's in-band `{"error": …}` collision
+  conservatively. CI builds the three and runs them as required jobs. No package is published. See
+  [tools/conformance/README.md](tools/conformance/README.md#go-rust-and-wasm-wrappers).
+- **External conformance runner (`tools/conformance-external.js`).** It runs a separate, versioned
+  catalog (`tools/conformance/external-catalog.json`, contract `dcp-ai-conformance-external/1`)
+  against any implementation given as argv, through one JSON request on stdin and one JSON response
+  on stdout: 30 `dcp-jcs-v1` canonicalization cases (including the 19 committed `edge_cases`, 3 of
+  which must be rejected) and 8 SHA-256 / SHA3-256 digests, all with committed expectations.
+  Wrappers for `@dcp-ai/sdk` and the Python `dcp_ai` are included, and CI runs both. The existing
+  conformance command, catalog and report are unchanged. A pass shows these 38 cases passed, nothing more. See
+  [tools/conformance/README.md](tools/conformance/README.md#external-implementations).
+- `cancel_on_disconnect` in FastAPI works in any order of middlewares. The ASGI response of a client
+  that left now ends with an empty `499` ("client closed request": not registered, not a DCP
+  status), with `Content-Length: 0` and `Cache-Control: no-store`, instead of no message at all.
+  - These are two ASGI messages from DCP's response, sent only after `http.disconnect` was received,
+    never for a client that stays. A `BaseHTTPMiddleware` outside DCP needs `http.response.start`,
+    and before this it failed with "No response returned."; it now completes normally and records a
+    499.
+  - What reaches the network is up to the server: uvicorn (measured, 0.54 with h11) writes and logs
+    nothing for a connection that is gone; under ASGI another server may raise an `OSError` subclass.
+  - The admission's `request.state.dcp_agent` is now published only once the client is known to be
+    still there, so a client that left leaves no admitted context. A value set by the operator's own
+    code is left alone.
+  - A client that leaves in the middle of its body gets the same ending (instead of nothing).
+  - Genuine errors of any layer still propagate. Nothing else changes: options, defaults, the body
+    budget, the supervisor and `DenyListWorkers`.
+- Client disconnect, opt-in: `cancelOnDisconnect` in `@dcp-ai/express`,
+  `cancel_on_disconnect=True` in `dcp_ai.fastapi.DCPVerifyMiddleware`.
+  - **What it does.** When the client really leaves during admission, the supervised source
+    invocation of that request, and only that one, is cancelled. Its slot stays taken until the
+    source really settles. Nothing more is done or sent for the request: no handler, `next`,
+    cache write, `onFailure` or response.
+  - **Express.** Leaving means the response closing before it was sent, or the request closing with
+    its body incomplete; a healthy request's own `close` is not it.
+    - It needs every source function supervised, no `checkRevocation`, and a supervisor that supports
+      cancellation: the new `runWithSignal` capability of this version's supervisors (ESM and CJS,
+      both packages).
+    - `run`, its four arguments and `version: 1` are unchanged, and a supervisor from an older
+      package keeps working without the option.
+    - The decision of a supervised invocation is now taken once, before its signal is aborted: an
+      abort listener that re-enters `close()` changes nothing.
+    - New `cancelled` result, counter (`stats().cancelled`, optional in the type) and telemetry
+      reason.
+  - **FastAPI.** It needs `max_body_bytes`, every source callable supervised and a synchronous
+    `tenant` callable.
+    - The middleware watches one pending `receive()` during admission and hands it over to the next
+      reader: nothing is read twice or lost, and the `http.disconnect` sent after a complete
+      response is not taken as the client leaving.
+    - With the option, a client that leaves in the middle of its body gets nothing instead of the
+      400.
+    - In its first form the middleware had to wrap the application's other `BaseHTTPMiddleware`
+      layers; that requirement is gone (see the entry above).
+    - `SourceSupervisor` and `DenyListWorkers` are unchanged. OpenClaw has no such option.
+  - Without the option nothing changes.
+- `dcp_ai.v2.DenyListWorkers` and `deny_list_revocation_source(..., workers=...)`, opt-in: a budget
+  of real download threads for the Python deny-list helper (`max_workers` from 1 to 64,
+  `max_workers_per_tenant` optional, per object). Each download runs in a non-daemon thread of its
+  own, started after its slot is reserved and freeing it only when the download has really ended,
+  also after a timeout, a cancelled call, C3's supervisor deadline or a closed event loop; a call
+  that finds no free slot gets `REVOCATION_UNAVAILABLE` at once, with no queue and no connection.
+  The download, the body checks, the parsing and the errors are those without the option; a result
+  that arrives or is used after `timeout` is `REVOCATION_UNAVAILABLE`. `close()` refuses new
+  downloads without waiting for or stopping running ones; `stats()` has no URL, tenant or header. In
+  a forked process it refuses without touching the parent's lock. Process exit waits for a download
+  still running, as it does with `asyncio.to_thread`; nothing stops DNS, TLS or urllib. Without
+  `workers` nothing changes. The documentation of `timeout` is corrected: it bounds each socket
+  operation and the reading of the body, not DNS resolution or a status line that trickles in.
+- Revocation under the source supervisor (C3), opt-in, in `@dcp-ai/express`, `@dcp-ai/openclaw`
+  and `dcp_ai.fastapi.DCPVerifyMiddleware`: `supervise: { revocation: true }` /
+  `supervise={"revocation": True}`, refused until now, runs the strict-v1 revocation source under
+  the supervisor with `revocationTimeoutMs` / `revocation_timeout` as its deadline, then limited
+  to the timer range (an integer from 1 to 2147483647 ms; up to 2147483.647 s). `supervise` takes
+  the trust deadline, `revocation` or both, so revocation can be supervised with a static trust
+  set; trust and revocation calls share the supervisor's capacity, and a slot is freed only when
+  its source really settles. The responses do not change: a timeout, no free slot or a closed
+  supervisor give the `REVOCATION_UNAVAILABLE` a failing source gives (403 in Express and
+  FastAPI), and a `REVOCATION_INVALID` error counts only before the deadline. TypeScript sources
+  get `(subjects, { tenant, signal })`, `denyListRevocationSource` also aborts its fetch on that
+  signal, and telemetry reports `source: 'revocation'`; OpenClaw's `configureVerifier` refuses to
+  replace a supervisor with calls in flight whichever source it supervises. FastAPI needs an async
+  `revocation_source`. Behaviour change with the option only: a FastAPI source that suppresses its
+  cancellation gives `REVOCATION_UNAVAILABLE` at the deadline instead of its late snapshot. Not
+  bounded: work a source starts on its own, such as `deny_list_revocation_source`'s
+  `asyncio.to_thread` worker, whose I/O is not cancelled. Without the option nothing changes.
+- `dcp_ai.fastapi.DCPVerifyMiddleware`: a deadline and a capacity for an async `trusted_principals`,
+  opt-in. `SourceSupervisor(max_in_flight=..., max_in_flight_per_tenant=None)`, exported from
+  `dcp_ai.fastapi` only, and `source_supervisor` with `supervise={"trust_timeout": seconds}` (both
+  together). The source runs as a Task the supervisor owns. A trust set that arrives after the
+  deadline (`loop.time()`, checked on arrival and on use), a call with no free slot (no queue), a
+  closed supervisor or one bound to another event loop gives the same 503 as a failing source. A
+  slot is freed only when the Task really finishes. `close(drain_timeout)` and `stats()` are
+  provided. A static or synchronous `trusted_principals` with these options raises
+  `AdmissionConfigError`; so did `{"revocation": True}` in this first step, now accepted (see the
+  revocation entry above). One supervisor per event loop; it does not
+  stop a source that ignores cancellation or isolate CPU. Without these options nothing changes.
+- `@dcp-ai/express` and `@dcp-ai/openclaw`: a deadline and a capacity for a `trustedPrincipals`
+  function, opt-in. `createSourceSupervisor({ maxInFlight, maxInFlightPerTenant?, onSourceEvent? })`
+  makes a supervisor, and `sourceSupervisor` with `supervise: { trustTimeoutMs }` applies it (both
+  together, with `trustedPrincipals` as a function). The function then gets `{ tenant, signal }`.
+  A trust set that arrives after the deadline, measured on a monotonic clock when it arrives, is
+  not used, and neither is a call that finds no free slot (no queue) or a closed supervisor: the
+  result is the same as for a failing source (`TRUST_SOURCE_FAILED`, 503 in Express). A slot is
+  freed only when the function really settles. The capacity is per supervisor object, shareable
+  between both packages and their ESM and CJS builds. `close({ drainMs })` and `stats()` are
+  provided; counters stop at `Number.MAX_SAFE_INTEGER`. OpenClaw's `configureVerifier` refuses to
+  replace or remove a supervisor while a call that started under it is in progress (also before it
+  calls its source) or its source still runs, even after `close()`. It does not stop a source's
+  work or isolate CPU. Without these options nothing changes. In this first step
+  `supervise.revocation: true` was refused and revocation kept `revocationTimeoutMs`; it is now
+  accepted (see the revocation entry above).
+- `dcp_ai.fastapi.DCPVerifyMiddleware(max_body_bytes=...)`: an opt-in budget, in bytes, on the
+  request body (default `None`, no budget, as before; a positive integer, else
+  `AdmissionConfigError` `CONFIG_INVALID_VALUE`). The middleware then reads the body first, also
+  with the bundle in the header or `require_bundle=False`: a `Content-Length` over the budget, or
+  received bytes over it (no `Content-Length`, chunked, or a wrong one), get `413` without
+  receiving the rest, parsing, resolving trust, verifying or reaching the route; an invalid or
+  repeated `Content-Length` or a disconnect while sending gets `400`. A body within the budget is
+  handled as before and still reaches the route. It bounds the bytes received, not
+  decompression, JSON depth or time, and it is a deployment limit, not part of the protocol.
+  The option needs Starlette 0.28.0 or later, which passes a body read in the middleware on to
+  the route; with an older or unidentified Starlette it raises `AdmissionConfigError`
+  `CONFIG_INVALID_VALUE` when the middleware is built. The package's minimum versions are
+  unchanged, and without the option nothing is checked.
+- Admission: trusted principals and the `strict-v1` profile (`spec/profiles/admission`,
+  `docs/ADMISSION.md`). A verified bundle proves integrity and signature by the keys it lists; an
+  operator trust set (`schemas/v2/principal_trust_set.schema.json`) now lets a verifier admit a
+  bundle only when the keys that verified its principal signatures (RPR and manifest, classical
+  and PQ) are trusted, active keys of that `human_id`. `strict-v1`
+  (`schemas/v2/admission_profile.schema.json`) adds operator-fixed requirements: V2 only, hybrid
+  signatures for every tier, session binding, a signed `intended_verifier` equal to the
+  operator's `verifier_id`, a signed session of at most 300 s, and a revocation snapshot
+  (`schemas/v2/revocation_snapshot.schema.json`) at most 300 s old covering the agent and every
+  verified signer key. Its configuration can only tighten it; a weakening value is a
+  `CONFIG_PROFILE_CONTRADICTION`. Results keep `verified` and add `principal_trust`,
+  `profile_compliance`, `admitted`, `recorded_decision`, `trust_set_version`, coded `errors`, and
+  `action_authorized`, always `false`: admission does not authorize an action.
+  - SDKs: TypeScript (`admitSignedBundleV2`, `evaluateAdmissionV2`, `createPrincipalTrustStore`,
+    `resolveStrictV1Profile`, `revocationSubjects`, `revocationSnapshotFromDenyList`), with the same
+    functions in Python, Go and Rust. The four verifiers take an optional clock and report the
+    key each signature component was verified with (`signer_keys`). In Rust, `V2VerificationResult`
+    keeps its ten fields and `verify_signed_bundle_v2` / `verify_signed_bundle_v2_with_policy`
+    their types, so code built against them still compiles: the keys come from the new
+    `verify_signed_bundle_v2_at`, which returns `V2VerificationDetails` (`#[non_exhaustive]`; the
+    result as `result`, and `signer_keys`, from the same verification). Admission takes and returns
+    it; its JSON is the result's fields followed by `signer_keys`.
+  - Integrations: `@dcp-ai/express` `dcpVerify`, `dcp_ai.fastapi` `DCPVerifyMiddleware` and
+    `@dcp-ai/openclaw` `configureVerifier` take `trustedPrincipals`, `profile`,
+    `revocationSource` and, in the middlewares, an operator `tenant` function. A request reaches
+    the route only when admitted. A trust function that throws or returns no valid trust set
+    (`undefined`, `null`, an invalid set) refuses the request: `503` in the middlewares,
+    `admitted: false` in OpenClaw. The Express cache keeps only the cryptographic verification,
+    keyed by the bundle, the policy and the tenant; trust, the profile and revocation are
+    evaluated on every request. `denyListRevocationSource` reads a complete deny list; a source
+    that fails or times out refuses the request.
+  - Reference verifier, server and CLI: `admitSignedBundle` in `lib/verify.js`, `POST /v2/admit`
+    configured by `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE` and
+    `DCP_REVOCATION_LIST_URL`, and `dcp admit-bundle`.
+  - `tests/interop/v2/admission_vectors.json`: 65 cases with hand-written expected outcomes and the
+    rule each checks, and 49 configuration cases, run by the four SDKs and by `npm run
+    conformance`.
+- Rust SDK: native V2 bundle building and signing, `dcp_ai::v2::bundle`. `build_bundle_v2(&rpr,
+  &passport, &intent, &policy, &audit_entries, session_nonce)` checks each `payload_hash` and the
+  `session_nonce` of every artifact and audit entry, and writes the manifest with both audit
+  Merkle roots (an empty trail gets roots of 64 zeros, as in Go); `sign_bundle_v2(bundle,
+  &classical, &pq)` composite-signs the manifest, with `signer.id` the RPR's `human_id`, as the
+  Go `SignBundleV2` does. Like Go's, the builder does not take PQ checkpoints yet. The interop
+  matrix's Rust agent uses them instead of assembling the bundle by hand.
+- `tools/interop-matrix`: live interoperability between the four SDKs. One agent process per SDK
+  (TypeScript, Python, Go, Rust) creates its identity, declares intents, acts and signs its
+  citizenship bundles (DCP-01 to DCP-03); every other agent, and the reference verifier
+  `lib/verify.js`, verifies them under the default policy and `hybrid_required`, untouched and
+  after seven tamperings in transit (changed intent, reordered or dropped audit entries, spliced
+  session, swapped bundle signature or passport, stripped PQ signature). The agents share only the
+  messages the orchestrator relays. `.github/workflows/interop-matrix.yml` runs it on every pull
+  request and nightly.
+- `@dcp-ai/google-a2a` 2.1.0: the signed DCP Agent Passport travels inside the A2A Agent Card.
+  `passportToAgentCard(signedPassport, url)` (or `attachPassportToAgentCard(card, signedPassport)`)
+  puts the `SignedPayload<AgentPassportV2>` in the card's `capabilities.extensions` under
+  `https://dcp-ai.org/a2a/extensions/passport/v2`, A2A's own extension mechanism;
+  `verifyAgentCardPassport(card)` verifies it offline (payload hash, `pq_over_classical`
+  composite signature under the AgentPassport context with the active, unexpired keys the
+  passport lists, `status: active`, and `metadata.dcp_agent_id` naming the same agent), failing
+  closed on anything malformed; `agentCardToPassport` returns that passport instead of a
+  skeleton when the card carries one. The package is now TypeScript (`dist/` build, vitest suite
+  in CI).
+- `@dcp-ai/anthropic-mcp` 2.1.0: signed receipts for MCP tool calls. `withDcpReceipt(name, handler,
+  { identity })` wraps any MCP tool handler: the call is classified into an Intent (DCP-02) and
+  composite-signed before the tool runs, the policy decides (approve runs the tool; escalate and
+  block return an `isError` result without running it; a throwing handler yields `outcome:
+  "failed"`), and one audit entry (DCP-03) records the SHA-256 of the arguments and of the result.
+  The receipt in `_meta.dcp_receipt` is an ordinary DCP v2.0 signed bundle, so any DCP verifier
+  checks it offline; `verifyDcpReceipt` also recomputes the evidence hash from the arguments and
+  result the caller saw and checks the tool name. `createReceiptIdentity` issues a session identity
+  (Ed25519 + ML-DSA-65 keys, signed RPR and passport) for tests and first runs. The package is now
+  TypeScript (`dist/` build, vitest suite in CI) and `dcp_verify_bundle` runs the real
+  `verifySignedBundleV2` instead of a structural check; its unused `security_tier` input is gone.
+- `tests/interop/v2/bundle_vectors.json`: 28 more rejection cases (5 `must_reject` mutations, 23 `must_reject_bundles`), one per vulnerability of
+  the v2.10 round, that all four SDK verifiers (Python included) run under every verification
+  mode: artifacts without any `composite_sig` (V2-8); `dcp_bundle_version` `1.0` and `3.0`
+  (V2-1); a key expired with a non-UTC offset, malformed key `expires_at` values (impossible date,
+  date only, no offset) on the passport and an impossible date on the RPR (V2-13); classical-only bundles whose intent
+  or policy decision implies `elevated` while the intent declares `security_tier: "routine"` or
+  `estimated_impact: "high"` (V2-10); prototype keys (`constructor`, `__proto__`, `toString`,
+  `hasOwnProperty`) in the passport `risk_tier` and `constructor` in `action_type`,
+  `estimated_impact` and `security_tier` (V2-9); an unknown or non-string
+  `canonicalization_profile` (V2-3); an intent, an audit entry or the manifest with another
+  `session_nonce` (V2-4); a manifest hash, audit root or chain hash that does not match (V2-3).
+- `tools/difffuzz`: a differential fuzzer that runs the same mutated V2 signed bundle through the
+  TypeScript, Python, Go and Rust verifiers (one shim per SDK, built from this checkout) and fails
+  on any disagreement, crash or timeout, saving each finding under `tools/difffuzz/findings/`.
+  Seeds are the V2 signed bundles in `tests/interop/v2/`; mutators cover deleted and null fields,
+  type swaps, sibling swaps, base64 character flips, prototype keys, unknown keys, duplicated
+  artifacts, number and RFC 3339 variants, oversized strings, deep nesting and key reordering
+  (which must never change a verdict).
+- `.github/workflows/difffuzz.yml` runs the fuzzer on every pull request (300 iterations), on
+  `workflow_dispatch` and nightly (3000 iterations).
+- Verifiable delegation chains (DCP-09 §3.5) in all four SDKs. `schemas/v2/delegation_mandate.schema.json`
+  gains the optional fields `parent_mandate_id`, `delegation_depth`, `sub_delegation`
+  (`{ permitted, max_depth }`), `minimum_security_tier` and `delegator_composite_sig`; a root mandate
+  keeps `human_composite_sig` and is unchanged byte for byte, a sub-mandate carries
+  `delegator_composite_sig` instead, signed by the delegating agent under the new domain-separation
+  context `DCP-AI.v2.SubMandate` (`domain-separation.{ts,py,go,rs}`, `interop_vectors.json`).
+  `verifyMandateChain` / `verify_mandate_chain` / `VerifyMandateChain` verifies an ordered chain
+  offline back to the human: root signature against the human's keys, each hop's signature against the
+  parent agent's keys, parent link and depth, `sub_delegation.permitted` and the smallest `max_depth`
+  of the ancestors, the same `human_id`, nested validity windows compared as RFC 3339 instants,
+  attenuation (`actions_permitted` and `data_classes` subsets, `limits` never looser, a child cannot add
+  `data_classes` its parent has none of, and numeric `limits` only as integers within ±(2^53 − 1): beyond
+  them a verifier that reads JSON numbers as doubles and one that keeps every digit disagree on what a
+  mandate says, so such a limit is `not comparable` at any depth), a `minimum_security_tier` that never drops below the
+  parent's, and revocation, where a revoked ancestor invalidates every descendant. The result carries
+  the chain's effective tier (the greatest `minimum_security_tier` along it). Anything unknown,
+  missing for the depth or not comparable fails closed. Signing keys must be `active` and unexpired
+  at the verification time, and a mandate signature must be `pq_over_classical`.
+- Sub-mandate builders next to the root builder: `createSubMandate` / `create_sub_mandate` /
+  `CreateSubMandate`, and `sub_delegation` / `minimum_security_tier` on the root builder
+  (`create_delegation_mandate_with_options` and `MandateChainOptions` in Rust).
+- `computeSecurityTier` / `compute_security_tier` / `SecurityTierInput.MandateChainTier` /
+  `compute_security_tier_with_floor`, and the root `lib/security-tier.js` copy (`computeSecurityTier(intent,
+  policyDecision, mandateChainTier)`), take the effective tier of a verified chain as an optional input
+  that can only raise the tier (spec §14.2); in Go an empty `MandateChainTier` means no chain, any other
+  name that is not a tier counts as `elevated`. The bundle verifiers do not read it yet: a bundle has no
+  field that carries its mandate chain.
+- `tests/interop/v2/mandate_chain_vectors.json` (generated by
+  `sdks/typescript/src/__tests__/generate-mandate-chain-vectors.ts`): chains of depth 1 and 2 every
+  SDK must accept with their depth and effective tier, chains every SDK must reject (widened actions,
+  added data classes, loosened limits, a limit of 2^53 or of 2^53 + 1 written as the wire integer a
+  double cannot hold, validity outside the parent's, depth beyond `max_depth`,
+  missing or wrong `parent_mandate_id`, lowered tier, revoked root or intermediate, a sub-mandate
+  signed by the wrong agent, both signatures present, wrong `delegation_depth`, and more) and the
+  tier-floor cases. All four SDK suites run it.
+- Experimental, opt-in APIs for the canonicalization candidate `dcp-jcs-v2`
+  (`docs/proposals/canonicalization-candidate`, §15–§18). The candidate is not normative and not
+  active: `dcp-jcs-v1` stays the only normative and default canonicalization profile, and no default, builder, signer or
+  verifier changes. Only callers who opt in reach these APIs, in TypeScript, Python, Go, Rust and
+  WASM.
+  - **Ingress:** checks the original bytes of one unit (UTF-8, BOM, duplicates, exact integers in
+    ±(2^53−1), depth 64) and gives its canonical bytes or a class and offset.
+  - **Router:** extracts the unit from its transport, reads the profile and decides: reject,
+    delegate to `dcp-jcs-v1` through a named historical decoder, or select the candidate.
+  - **Verifier:** verifies from the original bytes with at most one verifier: today's for
+    `dcp-jcs-v1`, and today's accepting exactly `dcp-jcs-v2` for the candidate. A verified bundle
+    grants no trust or admission.
+  - **Producers:** sign artifacts (`experimentalCandidateSignPayload` and its equivalents) and
+    bundles whose manifest names `dcp-jcs-v2` (`experimentalCandidateSignBundle`), from original
+    bytes or strictly checked host values. A rejection for the domain or form of the inputs is raised
+    before any signer is called; a key, registry or provider error can still come after a signature was
+    made.
+  - **Tests:** a cross matrix of five producers × five consumers
+    (`tests/interop/candidate/phase4`, 975 results with an all-or-nothing verdict) and its cost
+    measurement, run by the new `canonicalization-candidate-matrix` workflow, which publishes
+    nothing. Vectors are in `tests/interop/candidate/`.
+
+### Changed
+
+- Verifier policy, a dated clarification (05/11/2026, normative): `spec/VERIFICATION.md` Step V2-10 settles three
+  questions the policy corpus left open.
+  - Q1: under an effective `pq_only` mode, the classical algorithm lists and advisories do not apply to the classical
+    component.
+  - Q2: under `pq_only`, a classical component that fails cryptographic verification does not reject a bundle whose
+    PQ component verifies over those classical bytes. Canonical base64, contexts, kid lookup and key checks still
+    apply.
+  - Q3: PQ lists do not reject a bundle without a PQ component; the effective mode alone admits or rejects its binding.
+
+  `spec/DCP-AI-v2.0.md` § 7.3 replaces two items that read as if `pq_only` accepted a signature without
+  `pq_over_classical`, or a classical-only bundle with a warning. The five SDK verifiers already gave these verdicts,
+  so no SDK changes. `tests/interop/v2/verifier_policy_clarification_vectors.json` (34 cases, with its generator) is
+  new, and `verifier_policy_vectors.json` does not change. The opt-in policy catalog is now version
+  `2026-11-05.verifier-policy-2.0`, with a second suite, `external.v2.verifier_policy_clarification` (108 cases in
+  all). Version 1.1 (74 cases) is archived byte for byte as `tools/conformance/external-policy-catalog-1.1.json` and
+  still runs by its path.
+- Delegation, a dated clarification (05/11/2026, normative): DCP-09 §3.5.2 compares the instants of rule 4 and the
+  signer keys' `expires_at` in milliseconds, and requires the key each signature slot names to be `active` and
+  unexpired at the verification time, as for bundles (V2-4, V2-13). Nothing is required of `created_at`. The four
+  chain verifiers already behaved so, so no SDK changes. The opt-in delegation catalog is now version 2.0.0 and judges
+  all 97 cases: the ten `chain_time` cases version 1.0.0 kept informative are normative (rule 1 or 2 for the signer
+  keys, every rule for the three accepted chains). Version 1.0.0 is archived byte for byte as
+  `tools/conformance/external-delegation-catalog-1.0.0.json` and still runs by its path, with 87 normative and 10
+  informative cases. The runner pins each version's classification, so neither is judged with the other's. An
+  implementation that differed on one of the ten passed 1.0.0 and fails 2.0.0.
+
+- Translations now live under `i18n/<locale>/`, at the same path as their English source, which does not move:
+  `<dir>/<name>.<locale>.md` is now `i18n/<locale>/<dir>/<name>.md` for `es`, `pt-BR`, `ja` and `zh-CN` (388
+  files). The move changed only link paths: those in the moved files, and the language links of ten English
+  documents. The English README of each SDK links to its translations by absolute URL, so its language links do not
+  depend on paths outside the package. The documentation site keeps its URLs, anchors and language selector in all
+  five languages. The old paths no longer exist on `main` and there are no redirect files; an earlier commit or tag
+  still has each file at its old path. Future versions of the npm packages of the SDKs and integrations, packaged
+  from this tree, no longer include the translated READMEs; packages already published are not modified, and their
+  links to the old GitHub paths may become outdated. The documentation check (`scripts/docs_i18n.py`) also rejects
+  files under `i18n/` that are not a listed translation, links into `i18n/` that do not reach one, and translation
+  notices that do not link to the exact English source, and it checks links to this repository's `main` branch like
+  local links.
+- `dcp-ai verify` (`@dcp-ai/cli`) verifies V2 bundles (`bundle.dcp_bundle_version` "2.0" or a
+  `bundle.manifest`) with the normative verifier: the envelope and the four signed payloads are
+  validated against `schemas/v2`, whose copies ship in the package, then `verifySignedBundleV2`
+  from `@dcp-ai/sdk` runs under `DEFAULT_VERIFIER_POLICY` with the Ed25519, ML-DSA-65 and
+  SLH-DSA-192f providers. The pre-normative envelope (top-level `dcp_version` "2.0" or
+  `bundle_manifest`, or `signature.binding: "composite"`) is rejected before anything else, also
+  when those markers sit on a V1 or a V2 bundle, and its `signature.classical.value` check is
+  gone, with no classical fallback. When `.dcp/keys/ed25519_public.key` exists it pins the
+  principal's signing key among the RPR `binding_keys` (an empty file is rejected); without it the
+  bundle's own keys are used, which checks the signatures, not trust or admission. V1 verification
+  is unchanged. `dcp-ai sign` is unchanged too: it appends to `signatures[]`, a format `verify`
+  does not read; V2 bundles are signed with `signBundleV2` or `dcp sign-bundle --composite`. The
+  package now requires `@dcp-ai/sdk` `^2.2.0` and declares `ajv` and `ajv-formats`.
+- `dcp-ai verify` (`@dcp-ai/cli`) exits 0 only when it prints VALID. On V1 files it now exits 1,
+  where it exited 0, when the Ed25519 signature is INVALID, when there is no key or no usable
+  signature (it prints "No public key available", also when the key is there and the signature is
+  missing or empty), and when the file is not a signed bundle (an object without a truthy
+  `bundle`, an array or a primitive). Those messages are unchanged, and a missing argument or
+  file, invalid JSON, base64 or a wrong size still exit 1 with their error. A script that took
+  exit 0 to mean "ran" must now expect 1 in those cases. On a V1 file exit 0 means that the
+  Ed25519 signature over the canonical bundle verified, nothing more; on a V2 bundle it means the
+  schemas and the normative verifier passed (above). Neither is an admission decision.
+- Go and Rust V2 verifiers: a policy that narrows `accepted_classical_algs` or `accepted_pq_algs`
+  was refused as a field they did not enforce, so every bundle failed under it; they now enforce
+  both lists as TypeScript and Python do (the classical list except under `pq_only`), and a
+  signature with an algorithm outside them fails as not accepted by the verifier policy. They
+  also accept `allow_v1_bundles: false`, which strict-v1 sets: they verify V2 bundles only, so
+  the field changes nothing for them. Policies that verified before behave the same.
+- The reference verifier (`lib/verify.js`, `dcp verify-bundle`, the verification server and its
+  Docker image) depends on the workspace `@dcp-ai/sdk` (`file:sdks/typescript`, packed through
+  `install-links` in `.npmrc`) until 2.2.0 is on npm, so it runs the verifier fixes of this release
+  instead of the published 2.1.1, which accepted 39 of the 79 `must_reject_bundles` vectors. Build
+  `sdks/typescript` before `npm install` at the root; CI and `docker/Dockerfile` do. Publishing
+  needs the dependency raised back to `^2.2.0`.
+- `lib/verify.js`: schema validation builds one Ajv per schema root and compiles each schema once,
+  on first use, instead of loading and compiling every schema on each `validateOne` call (five per
+  V2 bundle). Validating a V2 bundle's schemas went from about 34 ms to 0.14 ms (median of 20 runs
+  after the first, which still compiles).
 
 ### Fixed
 
-- `@dcp-ai/wasm`: add the `repository` field to `package.json`, which npm provenance requires.
+- **WASM: error results told apart from values** (local source, not in `@dcp-ai/wasm` 2.1.3).
+  - `DcpWasm.canonicalize` threw for a value whose canonical form begins with an `error` member, such as
+    `{ error: 'x' }`. It now reads `wasm_canonicalize_v2_result`, a new raw export (additive) that returns a tagged
+    result.
+  - The `{"error": …}` the wasm exports return is now escaped JSON. A message with a backslash or a control character,
+    from a key name for instance, could be invalid JSON or decode to other text. Messages without such characters keep
+    their bytes, double quotes still shown as apostrophes.
+  - `hashObject` and `deriveKid` throw an `Error` instead of returning that envelope as a hash or a key id.
+  - `wasm_canonicalize_v2` is unchanged: it still cannot tell its error from a value whose canonical form is that
+    object.
+
+- **Go: SLH-DSA-192f keys are read without a panic** (local source, not in a published version;
+  `sdks/go/dcp/providers/slh_dsa_192f_provider.go`). The provider read secret and public keys with no parameter set
+  (a zero `ID`), and circl panicked on reading them; it now sets `slhdsa.SHA2_192f` first, so signing and verifying
+  with SLH-DSA-192f keys work, and an input of the wrong size gives an error or a rejection, not a panic. No format or
+  API changes.
+
+- Transparency log: a peer added by `POST /gossip/peers` to a log started without `GOSSIP_PEERS` was never
+  polled (source on `main`, not in a published version). Polling started only at startup, and only with configured
+  peers. The first accepted addition now starts it. `startPolling` keeps one schedule, so repeated additions or
+  replacements do not multiply polls, and a refused request (401 or 400) starts nothing. Each poll still reads 16 KB
+  at most and times out after the interval or 10 s, whichever is shorter; cycles never overlap, and an answer whose
+  alias changed meanwhile is still discarded. The exchange, pinned keys, alerts and the other endpoints are unchanged.
+- **Acceptance change: Go `v2.VerifyPayloadHash` now checks the normative `payload_hash`** (source on
+  `main`, not published; Go v2.11.1 keeps the defect). It compared the bare hex SHA-256 with
+  `payload_hash`, so it returned `false` for `SignPayload` output and for every schema-valid value
+  (`sha256:<hex>`), and `true` for the bare digest. It now returns `true` only when `payload_hash` is
+  exactly `"sha256:"` followed by the lowercase hex SHA-256 of the `dcp-jcs-v1` bytes, the value that
+  `SignPayload`, `schemas/v2/signed_payload.schema.json` and the TypeScript, Python and Rust helpers
+  use. A bare digest, uppercase hex, surrounding spaces or any other form is now `false, nil`.
+  Migration: pass `payload_hash` as received; to build it from `PreparePayload`, write
+  `"sha256:" + hash`. `PreparePayload` still returns the bare digest (its comment now says so), the
+  `nil` and canonicalization errors are unchanged, and the bundle verifier, which never used this
+  helper, does not change. The helper checks hash consistency only, not the signature, the keys, the
+  policy or admission. New `sdks/go/dcp/v2/signed_payload_test.go`. The Go README and the
+  `AuditEvidenceV2` comment now also say that decoding a received bundle into the typed structs drops
+  `null` and unknown `evidence` members, so the received bytes are the ones to keep and verify.
+- **Acceptance change: WASM `wasm_dual_merkle_root` and `@dcp-ai/wasm` `dualMerkleRoot` now compute
+  the V2-11 dual Merkle root** (source on `main`, not published; `@dcp-ai/wasm` 2.1.1 and earlier
+  keep the old helper). The helper hashed the hex text of two digests concatenated and promoted the
+  odd node, so for 2 or more leaves its roots matched neither `spec/VERIFICATION.md` V2-11 (raw
+  32-byte digests concatenated, the last node duplicated on an odd layer) nor the TypeScript,
+  Python, Go and Rust SDKs. It now delegates to the Rust core `v2::dual_hash::dual_merkle_root`.
+  The change is not limited to multi-leaf roots: those change because they were incompatible with
+  V2-11; a leaf that is not a 32-byte hex digest is now an error instead of being hashed as text;
+  and the roots are always lowercase hex, so a single leaf given in uppercase now comes back in
+  lowercase. A single valid lowercase leaf, the result format and the errors for an empty array and
+  for input that is not JSON are unchanged. Bundle verification, the WASM verifier included,
+  already used the correct reduction and does not change; earlier bundles and their evidence are
+  not rewritten or re-signed, since the change is confined to this helper. New public vectors `tests/conformance/v2/merkle_vectors.json`
+  (exact roots for 1, 2, 3 and 5 leaves and reordered leaves, generated offline with the Python
+  standard library and anchored on the golden 2-leaf roots) are checked by
+  `sdks/wasm/test/dual-merkle-root.mjs` and `sdks/rust/tests/dual_merkle_vectors.rs`.
+- `denyListRevocationSource` (`@dcp-ai/express`, `@dcp-ai/openclaw`) left responses open. A non-2xx
+  answer or a declared `Content-Length` over 16 MiB was refused without reading or closing its
+  body: the response stayed open after the call settled and its slot was freed, out of reach of the
+  timeout and the caller's signal. And with Node 22.15 (undici 6.21.2), a garbage collection after
+  the headers kept the fetch's signal from reaching a body being read: its own timeout and the
+  supervisor's deadline no longer stopped a body still arriving, and the call never settled,
+  holding its slot. It now aborts its fetch and cancels the body on every exit, stops its own read
+  on its signal and releases the reader. Codes, defaults and capacities are unchanged; nothing is
+  drained, and the remote close is not waited for.
+- Reference CLI (`bin/dcp.js`): paths were confined to the working directory as written, not
+  where they lead, and several reads and writes skipped the check. A symlink inside the working
+  directory, or a path to another directory (`keys rotate --key-dir`, `governance sign-advisory
+  --key-dir`, `governance verify-advisory --sigs`), let a command read files outside it, secret
+  keys included; a symlink or hard link at an output path (`keygen`, `keys rotate`,
+  `recovery-setup`, the governance commands, the V1 `sign-bundle` output) made it write outside it;
+  an existing secret key file kept a wider mode; and `dcp validate`, `conformance` and V1
+  `sign-bundle` ran `tools/*.js` from the working directory, so a planted script ran. Every path is
+  now resolved with its symlinks (a dangling one is refused) and checked, every read and write of a
+  user path goes through that check, files are written to a new file (`O_EXCL`, exact mode) renamed
+  over the target, and the CLI runs its own tools. The CLI assumes nothing else changes the working
+  directory while a command runs; on Windows, where `O_NOFOLLOW` does not exist, the rename still
+  replaces a link instead of writing through it.
+- `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a`: the `"types"` export condition came first, so
+  a CommonJS consumer got the ESM declarations (`dist/index.d.ts`) and TypeScript refused
+  `require()` under `node16` with TS1471. The condition is removed, so `require` gets
+  `dist/index.d.cts` and `import` gets `dist/index.d.ts`. `@dcp-ai/sdk`, `@dcp-ai/express` and
+  `@dcp-ai/openclaw` drop the same condition, which came after `"import"` and `"require"`, never
+  matched and made tsup warn on every build. In `@dcp-ai/wasm`, whose exports have no `"require"`,
+  it gave a CommonJS consumer types under `nodenext` for a `require()` that Node refuses with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. TypeScript now reports TS2307 there as well.
+- Go SDK: `VerifySignedBundleV2WithPolicy` failed every bundle under a policy that set
+  `require_session_expiry`, `require_audience_binding` or `verifier_id`, fields that
+  `verifier_policy.schema.json` lists and the TypeScript and Python verifiers enforce. `VerifierPolicy`
+  now has them (`RequireSessionExpiry`, `RequireAudienceBinding`, `VerifierID`, off when zero) and
+  the verifier applies them as TypeScript does: a manifest without `session_expires_at`, without
+  `intended_verifier`, or intended for another verifier than `verifier_id` is rejected.
+- Rust SDK and `@dcp-ai/wasm`: `VerifierPolicy` refused `require_session_expiry`,
+  `require_audience_binding` and `verifier_id`, which `schemas/v2/verifier_policy.schema.json`
+  lists and the TypeScript and Python verifiers enforce, so a policy that set any of them failed
+  every verification. They are now enforced as in TypeScript: under `require_session_expiry` a
+  manifest without `session_expires_at` is rejected, and under `require_audience_binding` one
+  without `intended_verifier` or, with `verifier_id` set, with another one. Rust's
+  `BundleManifest` gains `intended_verifier`.
+- Python SDK, `dcp_ai.langchain` (`DCPTool.run`, `DCPTool.arun`) and `dcp_ai.openai`
+  (`dcp_verify_bundle` in `handle_dcp_tool_call`): both sent every bundle to the V1 verifier, so
+  every V2 bundle was rejected and a V1 bundle was accepted under no verifier policy. They now
+  verify V2 bundles with `verify_signed_bundle_v2` and an Ed25519 / ML-DSA-65 / SLH-DSA-192f
+  registry built once, under a verifier policy the caller sets (`DCPTool(verifier_policy=...)`,
+  `handle_dcp_tool_call(..., verifier_policy=...)`, over `DEFAULT_VERIFIER_POLICY`), and return the
+  verifier's errors, at most 20 errors and 20 warnings of 500 characters each, with the control and
+  format characters of bundle-supplied text (an `agent_id`, an invalid timestamp) escaped, so a
+  bundle cannot put megabytes or new lines into the model's context. A V1 bundle is accepted only
+  under the V2-10 rule of the FastAPI middleware, now shared by all three entry points
+  (`dcp_ai._verify_any`) and extended to the whole policy: the policy allows V1 bundles, accepts
+  ed25519 (in `accepted_classical_algs`, not in `advisory_rejected_algs`), requires no audience
+  binding, session expiry or maximum session duration (a V1 bundle has no `intended_verifier` and
+  no session window), and would accept a classical-only bundle for its risk tier and security
+  tier; the FastAPI middleware applies the added conditions too. A V1 bundle whose artifacts are
+  not objects, or whose `audit_entries` is not a list of objects, is refused in all three (the
+  FastAPI middleware answered 500 for a non-object `agent_passport`, now 403), and
+  `dcp_ai.verify.verify_signed_bundle` returns an error instead of raising on a malformed
+  signature block, key or audit trail. A V1 bundle whose passport `agent_id` or RPR `human_id` is
+  not a string (or whose passport `public_key`, `status` or `capabilities` has the wrong type) is
+  refused too, instead of reaching the FastAPI agent context. The FastAPI middleware's 403
+  responses and its context's `warnings` are bounded and escaped like the bridges' output. A
+  `VerifierPolicy` instance is validated like a dict, so one built with `model_construct` or
+  changed by assignment cannot carry an invalid value, and a risk tier its `risk_overrides` leaves
+  out gets its `default_mode`, as the V2 verifier and the TypeScript SDK's `resolveMode` resolve
+  it (a V1 bundle for that tier was refused with "is not low, medium or high"). The
+  sync entry points work inside a running event loop (the verification runs on a worker thread)
+  and run on a private loop, leaving the thread's current event loop as it was; `DCPTool.arun`
+  awaits the verification, and the new `averify_bundle_tool_call` is the async form of the OpenAI
+  tool call. Both pass every case of `tests/interop/v2/bundle_vectors.json`.
+- Go SDK: `BundleManifest` had no `intended_verifier`, so a manifest decoded into it and encoded
+  again lost the field and its signature no longer verified. The field is there now
+  (`IntendedVerifier`, omitted when empty); a test round-trips a manifest with every schema field.
+- Python SDK, `dcp_ai.crewai`: the agents of a `DCPCrew` never shared the crew's session nonce.
+  `DCPCrewAgent` always generated its own, so the crew's check for an agent without one never
+  applied, and each agent's audit entries carried a different `session_nonce`. A crew now gives
+  its nonce to every agent that still has the nonce it generated for itself and has not logged
+  yet; a nonce given to the agent, or set on it later, stays.
+- Rust `wasm` feature and `@dcp-ai/wasm`: `wasm_sign_bundle` (`signBundle`) wrote
+  `created_at ""` and no `signer.id`, so the reference verifier, the CLI and the server rejected
+  every bundle it signed (`created_at must match format "date-time"`, `signer must have required
+  property 'id'`). `wasm_build_bundle` (`buildBundle`) joined the SHA3-256 audit leaves with
+  SHA-256, unlike every other SDK, and skipped an audit entry it could not canonicalize while
+  still counting it. Both now call `build_bundle_v2` and `sign_bundle_v2`, so `buildBundle` also
+  rejects a `payload_hash` that does not match its payload and an artifact or entry from another
+  session. Without `sessionNonce`, `buildBundle` generated a nonce no artifact carried, so even
+  `verifyBundle` rejected the bundle; it now takes the RPR's `session_nonce`. The `example.html`
+  demo passed raw payloads to `wasm_build_bundle`, which never accepted them; it now signs each
+  artifact first. The `SignedBundleV2` type declares `signer.id`.
+- Rust SDK: `Ed25519Provider::sign` panicked on a secret key shorter than 32 bytes (in wasm, a
+  trap instead of a JSON error); it now returns `invalid secret key length`.
+- Mandate chains (all four SDKs): a sub-mandate entry without `data_classes` under a parent entry
+  that has them passed attenuation, although nothing then bound it to the parent's data classes.
+  It is now rejected (`data_classes for domain "<d>" missing`), as a missing `limits` key already
+  was; DCP-09 §3.5.2 rule 5 says so. Shared vector `dropped_data_classes`.
+- Go SDK: an `A2ASession` used from several goroutines crashed the process (`fatal error:
+  concurrent map writes` in `DecryptMessage`). The session now holds a mutex, so
+  `EncryptMessage`, `DecryptMessage` and `NeedsRekeying` may run concurrently; sequences stay
+  unique and each message is still accepted once. `IntentV2` gains `SecurityTier` and
+  `PolicyDecisionV2` gains `ResolvedTier` (both optional in the schema and omitted when empty), so a
+  Go integrator using the typed payloads can declare them.
+- `tools/difffuzz`: `prototype_key_as_key` assigned `__proto__` as a plain property, which sets the
+  prototype instead of adding a key, so those mutants never carried the key they claimed (and a
+  cycle could crash the run); it now defines an own key. A shim that cannot start or that died
+  between verdicts is reported as a crash instead of an unhandled error. `spec/VERIFICATION.md` now
+  names Rust's bundle builder correctly (`wasm_build_bundle`, `wasm` feature only).
+- Go SDK: `SignBundleV2` left `signature.signer.id` empty, which `signed_bundle.schema.json`
+  forbids, so the reference verifier, the CLI and the server rejected every bundle it signed while
+  the four SDK verifiers accepted it (found by `tools/interop-matrix`). The signer is now the
+  bundle's responsible principal (`signer.id` = the RPR's `human_id`), and a bundle whose RPR has
+  no `human_id` is refused before signing.
+- A2A sessions (TypeScript, Python, Go): `decryptMessage` / `decrypt_message` / `DecryptMessage`
+  keep the sequences accepted within the receive window and accept each one once, out of order
+  included; a sequence that is not a non-negative integer is rejected, and a sequence is only
+  recorded after its authentication tag verifies. A sequence a full window or more ahead of the
+  receive counter is rejected (DCP-04 §8.4). A session restored without the new field (TypeScript
+  `undefined`, Go `nil`, Python `None`, the constructor default) counts every sequence of the window
+  below its receive counter as received. `verifyResumeProof`
+  (TypeScript) compares in constant time, as Python and Go already did. The Go session is
+  documented as not safe for concurrent use.
+
+- Rust SDK: `serde_json` now has `float_roundtrip`. Its fast float parser is off by one ULP on long
+  decimal literals, so `9007199254740991.0` (which `dcp-jcs-v1` reads as the integer
+  9007199254740991, as every other SDK does) became 9007199254740990 and `2251799813685247.0`
+  a non-integer, and the Rust verifier rejected signatures and limits the TypeScript, Python and Go
+  verifiers accept. Shared vector `limits_written_in_decimal_form`.
+- `@dcp-ai/wasm`: the npm package ships `pkg/` (the `.wasm` binary and its glue). wasm-pack writes
+  `pkg/.gitignore` = `*`, npm honours nested `.gitignore` files, and `@dcp-ai/wasm@2.0.0` was published
+  without `pkg/`, so its runtime import of `../pkg/dcp_ai.js` failed. The build removes that file and the
+  test suite checks the tarball.
+- `@dcp-ai/sdk`: the bundled telemetry version is read from `package.json` at build time (`tsup.config.ts`)
+  instead of a literal in the build script; 2.2.0 would have reported itself as 2.1.2.
+- Python `verify_signed_bundle_v2` reported an artifact without a `composite_sig` as
+  `Malformed signed bundle: KeyError('composite_sig')`; the error now names the artifact
+  (`intent: Missing composite signature`), as in the other SDKs.
+- TypeScript `verifySignedBundleV2` returns a failed verdict (`Malformed signed bundle: ...`) for a
+  structurally malformed signed bundle instead of throwing: a missing, `null` or non-object
+  `bundle`, `signature`, `manifest` or `audit_entries`, a `null` audit entry, or a non-integer
+  number (`0.5`, `1e400`) in a canonicalized object (`spec/VERIFICATION.md` V2-3, V2-5). The
+  Python, Go and Rust verifiers already rejected these; found by `tools/difffuzz`.
+- Go V1 `VerifyObject` panicked on a public key that did not decode to 32 bytes (`ed25519.Verify`
+  panics on any other length). It now checks the decoded length and returns an error instead.
+  `VerifySignedBundle` keeps its behaviour around it: an empty public key falls back to the one
+  embedded in the signature, both missing gives `missing public key`, and an error from
+  `VerifyObject` is reported as `SIGNATURE INVALID`.
+- The TypeScript CBOR decoder (`sdks/typescript/src/wire/cbor.ts`, optional) rejects duplicate map
+  keys, invalid UTF-8, and integers and lengths outside the safe integer range. It keeps U+FEFF as
+  text data, defines a `__proto__` key as an own property instead of invoking the setter, and the
+  encoder rejects unpaired surrogates instead of replacing them. This hardens the decoder's input
+  handling; it is not a complete canonical CBOR decoder and adds no canonicalization profile.
+
+- **`@dcp-ai/wasm` declares its repository** (source on `main`, not in a published version). `package.json` gains the
+  `repository` field, which npm provenance requires.
+
+### Documentation
+
+- **Operational limits** (new [docs/OPERATIONAL_LIMITS.md](docs/OPERATIONAL_LIMITS.md); no code, default, profile or
+  wire change). What bounds inputs, trust and revocation sources, concurrency, client disconnection and the Express
+  verdict cache, which layer sets each limit, what the operator has to set, and a sample pilot configuration that is
+  neither a default nor normative. Linked from `docs/ADMISSION.md` and the Express and FastAPI READMEs; the Express
+  README now says that `req.dcpAgent.mandateId` is the manifest's value, with no mandate chain verified.
+
+- `spec/profiles/admission/README.md` (admission profile): editorial precisions, with no change to
+  any vector, schema or SDK behaviour; the four SDKs already behave as they say. §5.1 step 2
+  verifies the bundle as a V2 signed bundle: a bundle that is not V2 is not verified, whatever
+  `allow_v1_bundles` says, and under the profile P1 stops before verification and reports the bundle
+  as not verified. A profile requires a trust set: the combined function and step 3 on its own
+  refuse a profile without one with `CONFIG_PROFILE_CONTRADICTION`, and the combined function
+  refuses a profile together with a caller's verifier policy with the same code; whether that
+  happens before or after verification is not fixed. In §4.1, a mode outside the enumeration of the
+  four modes is `CONFIG_INVALID_VALUE`, like a value of the wrong type, while a mode of that
+  enumeration other than `hybrid_required`, or an algorithm outside the allowed subset, is
+  `CONFIG_PROFILE_CONTRADICTION`. §2.2: when a trust set has several problems, the code of any one
+  of them may be reported; it is rejected whichever is reported, with no precedence defined. §5.2:
+  `errors` follow the order of the phases of §5.1, a check may add its code once per component or
+  subject, and no order is fixed within a phase. `tools/conformance/README.md`: the `error_contains`
+  strings that the evidence catalog judges (146 of its 241 cases) are the SDKs' diagnostic wording,
+  not normative.
+- `docs/QUICKSTART_CREWAI.md`: neither example ran. The V1 one imported `build_bundle`, which the
+  Python SDK does not have, and wrote signatures where `intent_hash` and `prev_hash` take hashes;
+  the V2 one used an API that was never released and said the Python SDK had no V2 bundle
+  builder, signer or verifier, although `dcp_ai.v2` ships them (from 2.9.0). Both now use the SDK
+  as it is: a policy gate decides before the tool runs, the search query stays out of the record,
+  each tool call seals its own bundle, and verification pins the operator (V1: its public key;
+  V2: its RPR hash and kids under `hybrid_required`, and that every kid is derived from its key,
+  since the bundle's own keys only make it self-consistent). The bundles verify in Python and with `dcp verify-bundle`, the V2 ones also
+  with the TypeScript, Go and Rust SDKs. The guide imports `tool` from `crewai.tools`, as CrewAI
+  documents it, and describes the `npm create @dcp-ai/crewai` scaffold as the placeholder
+  walkthrough it is.
+- `integrations/crewai/README.md`: the examples used V1 payloads with values the schemas refuse
+  (`liability_mode: "full"`, capability `write_file`) and printed an `action_type` field audit
+  entries do not have. They now run; the README says that `DCPCrewAgent` and `DCPCrew` keep
+  unsigned records and do not run CrewAI, and lists the `session_nonce` parameters.
+- Documentation in English and in the es, zh-CN, ja and pt-BR translations brought up to date:
+  delegation chains in every SDK README, the A2A receive window, Testing & Assurance (interop matrix,
+  differential fuzzer, shared vectors), corrected facts (Go 1.25, Rust's FIPS crates, a TypeScript
+  DCP-09 example that used fields outside the schema), and the README rows the translations had
+  missed.
+- `docs/EU_AI_ACT_MAPPING.md`: how DCP-AI artifacts support the logging, human oversight,
+  record-keeping, explanation and incident-evidence obligations of Regulation (EU) 2024/1689 (EU AI
+  Act) as amended by Regulation (EU) 2026/1744, with the application timeline, an implementer
+  checklist and the gaps DCP does not cover. Articles verified on EUR-Lex on 22 October 2026.
+- `spec/DCP-09.md` §3.5 now specifies sub-delegation on the real wire fields with normative chain
+  verification rules; §2, §10.3 and §10.6 list the `DCP-AI.v2.SubMandate` context.
+  `spec/DCP-AI-v2.0.md` §4.1 lists the `DCP-AI.v2.Delegation` and `DCP-AI.v2.SubMandate` context tags,
+  and §14.2 states that a delegation chain's effective tier is an input that can only raise the tier.
+
 
 ## [2.10.0] - 2026-10-22
 
@@ -848,6 +2030,7 @@ session-nonce validator regex, and signed checkpoint payloads under the
 ### What's not in v2.4
 
 Deliberately scoped out (will ship as follow-up releases if demand appears):
+
 - Shamir secret sharing (Gap #1) — requires careful crypto review; TS-only.
 - Verification cache — app-level concern, not protocol.
 - Rate limiting / circuit breaker / retry — app-level patterns best
@@ -876,15 +2059,18 @@ Principal Mirror) behavior — matching the TypeScript feature set.
 **New function groups (identical semantics across PY/RS/GO, matching TS):**
 
 DCP-07 Conflict Resolution:
+
 - `create_dispute` · `escalate_dispute` · `resolve_dispute` · `create_objection`
 - Arbitration: `create_arbitration_panel` · `submit_resolution` ·
   `build_jurisprudence_bundle` · `lookup_precedent`
 
 DCP-08 Rights & Obligations:
+
 - `declare_rights` · `record_obligation` · `report_violation` ·
   `check_rights_compliance`
 
 DCP-09 Delegation & Representation:
+
 - Delegation: `create_delegation_mandate` · `verify_mandate_validity` ·
   `revoke_delegation` · `generate_interaction_record`
 - Awareness threshold: `evaluate_significance` · `should_notify_human` ·
@@ -923,6 +2109,7 @@ cross-SDK crosswalk.
 **New functions (identical semantics across Python/Rust/Go, matching TS):**
 
 DCP-05 Agent Lifecycle:
+
 - `validate_state_transition` / `ValidateStateTransition`
 - `compute_vitality_score` / `ComputeVitalityScore`
 - `create_commissioning_certificate` / `CreateCommissioningCertificate`
@@ -931,6 +2118,7 @@ DCP-05 Agent Lifecycle:
 - `create_decommissioning_record` / `CreateDecommissioningRecord`
 
 DCP-06 Digital Succession:
+
 - `create_digital_testament` / `CreateDigitalTestament`
 - `update_digital_testament` / `UpdateDigitalTestament`
 - `classify_memory` / `ClassifyMemory`
@@ -963,6 +2151,8 @@ schema to integers (or basis-points) to eliminate the gap entirely.
 - `dcp-ai` (crates.io) 2.1.0 -> 2.2.0
 - `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` -> v2.2.0
 - `@dcp-ai/sdk` (npm) stays at 2.1.0 (TS already had these functions)
+
+<a id="210---2026-04-22"></a>
 
 ## [2.1.0] - 2026-04-22
 

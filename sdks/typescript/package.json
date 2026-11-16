@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/sdk",
-  "version": "2.2.0",
+  "version": "2.4.0",
   "description": "TypeScript SDK for the Digital Citizenship Protocol for AI Agents",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -9,13 +9,12 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean --define.__DCP_SDK_VERSION__=\\\"2.1.2\\\"",
+    "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",

@@ -51,7 +51,9 @@ def _is_risk_score(value: Any) -> bool:
 
 
 def compute_security_tier(
-    intent: dict[str, Any], policy_decision: dict[str, Any] | None = None
+    intent: dict[str, Any],
+    policy_decision: dict[str, Any] | None = None,
+    mandate_chain_tier: str | None = None,
 ) -> str:
     """Compute the security tier (spec §14.2) from an intent and the bundle's policy decision.
 
@@ -59,7 +61,9 @@ def compute_security_tier(
     to 1000; with no policy decision it counts as 0. A value outside the schemas,
     including a missing ``action_type``, ``estimated_impact``, ``data_classes`` or
     ``risk_score``, fails closed to at least ``elevated``. An explicit
-    ``intent["security_tier"]`` can only raise the result.
+    ``intent["security_tier"]`` can only raise the result, and so can
+    ``mandate_chain_tier``, the effective tier of a verified delegation chain
+    (``verify_mandate_chain``, DCP-09 §3.5): a floor that never lowers the tier.
     """
     if not isinstance(intent, dict):
         intent = {}
@@ -98,9 +102,11 @@ def compute_security_tier(
         tier = "routine"
 
     explicit = intent.get("security_tier")
-    if explicit is None:
+    if explicit is not None:
+        tier = max_tier(tier, explicit)
+    if mandate_chain_tier is None:
         return tier
-    return max_tier(tier, explicit)
+    return max_tier(tier, mandate_chain_tier)
 
 
 def _known_tier(tier: Any) -> str:

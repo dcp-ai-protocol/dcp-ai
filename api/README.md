@@ -2,11 +2,17 @@
 
 Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol Buffers for gRPC. Use these definitions to generate clients in any language.
 
+What they cover (25/10/2026):
+
+- `openapi.yaml` describes the reference gateway (`server/`) and the anchor, transparency log and revocation services. It does not cover `POST /v2/admit` or the gateway's DCP-05 to DCP-09 endpoints; for those, see [server/README.md](../server/README.md) and [docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md).
+- `proto/dcp.proto` is a definition only: no gRPC server or client in this repository implements it.
+- The repository does not configure a hosted DCP-AI API. Besides the local development addresses, `openapi.yaml` lists `https://api.dcp-ai.org`; a URL declared there is not evidence of a running service, and these instructions neither check nor call it. They cover services run by the operator.
+
 ## Files
 
 | File | Format | Description |
 |------|--------|-------------|
-| `openapi.yaml` | OpenAPI 3.1.0 | Full REST spec (V1 + V2 + Phase 3) with Swagger UI |
+| `openapi.yaml` | OpenAPI 3.1.0 | REST spec (V1 + V2 + Phase 3), with the exclusions listed above |
 | `proto/dcp.proto` | Protocol Buffers 3 | gRPC definition with 5 services |
 
 ## OpenAPI Spec
@@ -15,8 +21,10 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | Environment | URL |
 |-------------|-----|
-| Local | `http://localhost:3000` |
-| Production | `https://api.dcp-ai.org` |
+| Gateway (local) | `http://localhost:3000` |
+| Anchor service (local) | `http://localhost:3001` |
+| Transparency log (local) | `http://localhost:3002` |
+| Revocation service (local) | `http://localhost:3003` |
 
 ### Endpoints
 
@@ -48,7 +56,7 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /v2/intent/declare` | Declare intent, get policy | Response: `{ policy_decision, security_tier, verification_mode }` |
+| `POST /v2/intent/declare` | Declare intent, get policy | Request: `{ signed_intent }` (its `composite_sig` is not verified) → Response: `{ ok, policy_decision, security_tier, verification_mode, checkpoint_interval }` |
 | `GET /v2/policy` | Current verifier policy | Response: `{ policy, policy_hash, mode }` |
 | `POST /v2/policy/mode` | Switch verifier mode (operator token) | Request: `{ mode }` (pq_only, hybrid_required, etc.) |
 
@@ -79,11 +87,11 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /anchor` | Anchor bundle hash | Request: `{ bundle_hash, chain? }` → Response: `{ anchored, chain, tx_hash }` (`tx_hash: null` until on-chain submission is implemented) or 501 |
+| `POST /anchor` | Anchor bundle hash | On the anchor service (`:3001`): request `{ bundle_hash }` → response `{ anchored, chain, tx_hash }` (`tx_hash: null` until on-chain submission is implemented), or 202 in batch mode. On the gateway (`:3000`): 501 |
 
 #### Revocation (service on port 3003)
 
-Gateway paths use the `/revocations` prefix. When accessing the revocation service directly on port 3003, use the direct paths shown below.
+`openapi.yaml` lists these under a `/revocations` prefix, as a gateway that proxies the service would expose them. The reference gateway does not proxy them: call the revocation service on port 3003 with the direct paths.
 
 | Method | Gateway path | Direct path (`:3003`) | Description |
 |--------|-------------|----------------------|-------------|
@@ -93,7 +101,7 @@ Gateway paths use the `/revocations` prefix. When accessing the revocation servi
 
 #### Transparency Log (service on port 3002)
 
-Gateway paths use the `/transparency-log` prefix. When accessing the service directly on port 3002, strip the prefix.
+`openapi.yaml` lists these under a `/transparency-log` prefix, as a proxying gateway would expose them. The reference gateway does not proxy them: call the service on port 3002 without the prefix.
 
 | Method | Gateway path | Direct path (`:3002`) | Description |
 |--------|-------------|----------------------|-------------|
@@ -104,7 +112,7 @@ Gateway paths use the `/transparency-log` prefix. When accessing the service dir
 ### Main Schemas
 
 - `SignedBundleV1` / `SignedBundleV2` — Signed bundles (V1: Ed25519, V2: composite signatures)
-- `CitizenshipBundleV1` / `CitizenshipBundleV2` — Citizenship bundles with manifest and signed payloads
+- `CitizenshipBundleV1` / `CitizenshipBundleV2` — Citizenship bundles; only V2 has a manifest and signed payloads
 - `CompositeSignature` — Classical + PQ signature with binding mode
 - `SignedPayload` — Individually signed artifact envelope
 - `BundleManifest` — V2 manifest with per-artifact hashes and session nonce
@@ -124,8 +132,8 @@ Gateway paths use the `/transparency-log` prefix. When accessing the service dir
 To view the spec interactively:
 
 ```bash
-# With Swagger UI
-npx @redocly/cli preview-docs api/openapi.yaml
+# With Redocly CLI 1.x (downloads it)
+npx @redocly/cli@1 preview-docs api/openapi.yaml
 
 # Or with Docker
 docker run -p 8080:8080 -e SWAGGER_JSON=/api/openapi.yaml \
@@ -140,6 +148,8 @@ docker run -p 8080:8080 -e SWAGGER_JSON=/api/openapi.yaml \
 package dcp.v1;
 option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
 ```
+
+The `go_package` path is not a published module; set your own when you generate code.
 
 ### Services
 
@@ -188,6 +198,8 @@ option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
 | `RotateKey` | `RotateKeyRequest` | `RotateKeyResponse` |
 
 ### Generate Clients
+
+These commands need their tools (`protoc` and its plugins, `grpc_tools`, `tonic-build`) installed; they were not run for this page.
 
 #### Go
 

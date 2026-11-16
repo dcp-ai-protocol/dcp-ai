@@ -1,0 +1,621 @@
+{
+  "contract": "dcp-ai-conformance-external/1",
+  "catalog_version": "1.0.0",
+  "collections": [
+    {
+      "file": "tests/conformance/v2/golden_vectors.json",
+      "path": [
+        "canonicalization"
+      ],
+      "coverage": "all",
+      "variants": [
+        {
+          "op": "canonicalize"
+        }
+      ]
+    },
+    {
+      "file": "tests/conformance/v2/golden_vectors.json",
+      "path": [
+        "v2_canonicalization"
+      ],
+      "coverage": "all",
+      "variants": [
+        {
+          "op": "canonicalize"
+        }
+      ]
+    },
+    {
+      "file": "tests/interop/v2/interop_vectors.json",
+      "path": [
+        "canonicalization"
+      ],
+      "coverage": "all",
+      "exclude": [
+        "edge_cases"
+      ],
+      "variants": [
+        {
+          "op": "canonicalize"
+        }
+      ]
+    },
+    {
+      "file": "tests/interop/v2/interop_vectors.json",
+      "path": [
+        "canonicalization",
+        "edge_cases",
+        "vectors"
+      ],
+      "coverage": "all",
+      "variants": [
+        {
+          "op": "canonicalize"
+        }
+      ]
+    },
+    {
+      "file": "tests/conformance/v2/golden_vectors.json",
+      "path": [
+        "hash_vectors"
+      ],
+      "coverage": "all",
+      "variants": [
+        {
+          "op": "digest"
+        }
+      ]
+    },
+    {
+      "file": "tests/conformance/v2/golden_vectors.json",
+      "path": [
+        "dual_hash_vectors"
+      ],
+      "coverage": "listed",
+      "members": [
+        "raw_dual_hash",
+        "intent_canonical"
+      ],
+      "variants": [
+        {
+          "op": "digest",
+          "alg": "sha256"
+        },
+        {
+          "op": "digest",
+          "alg": "sha3-256"
+        }
+      ]
+    }
+  ],
+  "suites": [
+    {
+      "id": "external.dcp-jcs-v1.canonicalize",
+      "title": "dcp-jcs-v1 canonical bytes of an external implementation",
+      "claim": "For each committed input (JSON text; input_json vectors are sent exactly as committed), the implementation returns the expected dcp-jcs-v1 bytes, or rejects the three committed fractional inputs. It covers the parser the implementation uses plus its canonicalizer on these 30 vectors only.",
+      "limits": [
+        "Not a complete dcp-jcs-v1 implementation: only these committed vectors.",
+        "The dcp-jcs-v2 candidate and new edge cases are outside this suite."
+      ],
+      "cases": [
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.golden.simple_sorted_keys",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "canonicalization",
+              "simple_sorted_keys"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.golden.nested_objects",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "canonicalization",
+              "nested_objects"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.golden.mixed_types",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "canonicalization",
+              "mixed_types"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.golden.integer_only_v2",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "canonicalization",
+              "integer_only_v2"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.golden.with_null",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "canonicalization",
+              "with_null"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.golden.unicode",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "canonicalization",
+              "unicode"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.golden_v2.integer_only",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "v2_canonicalization",
+              "integer_only"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.golden_v2.with_null",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "v2_canonicalization",
+              "with_null"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.interop.agent_passport",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "agent_passport"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.interop.intent",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "intent"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.interop.audit_event",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "audit_event"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.null_preservation",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "null_preservation"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.integer_exact_float",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "integer_exact_float"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.trailing_zeros",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "trailing_zeros"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.scientific_notation_integer",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "scientific_notation_integer"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.non_integer_float_rejected",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "non_integer_float_rejected"
+            ]
+          },
+          "expect": "reject"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.fractional_rejected",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "fractional_rejected"
+            ]
+          },
+          "expect": "reject"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.scientific_fractional_rejected",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "scientific_fractional_rejected"
+            ]
+          },
+          "expect": "reject"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.negative_integer",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "negative_integer"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.key_sort_unicode",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "key_sort_unicode"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.nested_null",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "nested_null"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.empty_object",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "empty_object"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.empty_array",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "empty_array"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.array_with_null",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "array_with_null"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.deeply_nested",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "deeply_nested"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.negative_zero",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "negative_zero"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.string_html_chars_verbatim",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "string_html_chars_verbatim"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.string_line_separators_verbatim",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "string_line_separators_verbatim"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.string_control_char_escapes",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "string_control_char_escapes"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.dcp-jcs-v1.canonicalize.edge.key_sort_code_point_astral",
+          "op": "canonicalize",
+          "source": {
+            "file": "tests/interop/v2/interop_vectors.json",
+            "path": [
+              "canonicalization",
+              "edge_cases",
+              "vectors",
+              "key_sort_code_point_astral"
+            ]
+          },
+          "expect": "accept"
+        }
+      ]
+    },
+    {
+      "id": "external.digest",
+      "title": "SHA-256 / SHA3-256 digests of an external implementation",
+      "claim": "The implementation returns the committed SHA-256 and SHA3-256 hex digests of the given bytes.",
+      "limits": [
+        "Digests of bytes only: no Merkle roots, dual hashes of audit entries or signatures."
+      ],
+      "cases": [
+        {
+          "id": "external.digest.sha256_hello",
+          "op": "digest",
+          "alg": "sha256",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "hash_vectors",
+              "sha256_hello"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.digest.sha3_256_hello",
+          "op": "digest",
+          "alg": "sha3-256",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "hash_vectors",
+              "sha3_256_hello"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.digest.sha256_empty",
+          "op": "digest",
+          "alg": "sha256",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "hash_vectors",
+              "sha256_empty"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.digest.sha3_256_empty",
+          "op": "digest",
+          "alg": "sha3-256",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "hash_vectors",
+              "sha3_256_empty"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.digest.dual.raw.sha256",
+          "op": "digest",
+          "alg": "sha256",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "dual_hash_vectors",
+              "raw_dual_hash"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.digest.dual.raw.sha3_256",
+          "op": "digest",
+          "alg": "sha3-256",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "dual_hash_vectors",
+              "raw_dual_hash"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.digest.dual.intent_canonical.sha256",
+          "op": "digest",
+          "alg": "sha256",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "dual_hash_vectors",
+              "intent_canonical"
+            ]
+          },
+          "expect": "accept"
+        },
+        {
+          "id": "external.digest.dual.intent_canonical.sha3_256",
+          "op": "digest",
+          "alg": "sha3-256",
+          "source": {
+            "file": "tests/conformance/v2/golden_vectors.json",
+            "path": [
+              "dual_hash_vectors",
+              "intent_canonical"
+            ]
+          },
+          "expect": "accept"
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "A pass shows that the argv that was run passes these cases on these vectors; the implementation's name and version are self-declared.",
+    "The implementation runs with the operator's privileges and environment; this is not a sandbox. Descendants that leave the process group (setsid) cannot be seen or killed; on Windows only the direct child is killed."
+  ]
+}

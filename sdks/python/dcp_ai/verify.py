@@ -24,7 +24,8 @@ def verify_signed_bundle(
         public_key_b64: Optional Ed25519 public key; falls back to signer.public_key_b64.
 
     Returns:
-        dict with 'verified' (bool) and optional 'errors' list.
+        dict with 'verified' (bool) and optional 'errors' list. A malformed bundle
+        fails verification instead of raising.
     """
     if not signed_bundle or not isinstance(signed_bundle, dict):
         return {"verified": False, "errors": ["Invalid signed bundle format."]}
@@ -32,10 +33,11 @@ def verify_signed_bundle(
     bundle = signed_bundle.get("bundle")
     signature = signed_bundle.get("signature", {})
 
-    if not bundle or not signature.get("sig_b64"):
+    if not isinstance(bundle, dict) or not bundle or not isinstance(signature, dict) or not signature.get("sig_b64"):
         return {"verified": False, "errors": ["Invalid signed bundle format."]}
 
-    pub_key = public_key_b64 or signature.get("signer", {}).get("public_key_b64")
+    signer = signature.get("signer", {})
+    pub_key = public_key_b64 or (signer.get("public_key_b64") if isinstance(signer, dict) else None)
     if not pub_key:
         return {
             "verified": False,
@@ -45,7 +47,13 @@ def verify_signed_bundle(
     errors: list[str] = []
 
     # 1) Signature verification
-    if not verify_object(bundle, signature["sig_b64"], pub_key):
+    try:
+        signature_valid = verify_object(bundle, signature["sig_b64"], pub_key)
+    except RecursionError:
+        raise
+    except Exception:  # a malformed key or signature, or a bundle that does not canonicalize
+        signature_valid = False
+    if not signature_valid:
         return {"verified": False, "errors": ["SIGNATURE INVALID"]}
 
     # 2) bundle_hash
@@ -69,6 +77,8 @@ def verify_signed_bundle(
     intent_obj = bundle.get("intent")
     expected_intent_hash = intent_hash(intent_obj)
     audit_entries = bundle.get("audit_entries", [])
+    if not isinstance(audit_entries, list) or not all(isinstance(e, dict) for e in audit_entries):
+        return {"verified": False, "errors": ["audit_entries is not a list of objects"]}
     prev_hash_expected = "GENESIS"
 
     for i, entry in enumerate(audit_entries):

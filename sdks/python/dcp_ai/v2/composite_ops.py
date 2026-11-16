@@ -110,7 +110,9 @@ async def composite_verify(
     dsm = domain_separated_message(context, canonical_payload_bytes)
 
     if composite_sig["binding"] == "classical_only":
-        if composite_sig["pq"] is not None:
+        # A classical_only signature carries "pq": null; one without the field does not
+        # verify, as in the TypeScript SDK (rather than raising KeyError).
+        if "pq" not in composite_sig or composite_sig["pq"] is not None:
             return CompositeVerifyResult(valid=False, classical_valid=False, pq_valid=False)
         classical_provider = registry.get_signer(composite_sig["classical"]["alg"])
         classical_sig_bytes = base64.b64decode(composite_sig["classical"]["sig_b64"])

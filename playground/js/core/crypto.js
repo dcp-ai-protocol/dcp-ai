@@ -3,6 +3,7 @@
 import { sha256Bytes } from './hash.js';
 import { canonicalize } from './hash.js';
 import { b64encode } from './utils.js';
+import { rejectedByPed1 } from './ed25519-ped1.js';
 
 export async function generateKeypair() {
   const kp = nacl.sign.keyPair();
@@ -41,6 +42,20 @@ export function signDetached(payload, context, secretKey) {
   return nacl.sign.detached(msg, secretKey);
 }
 
+// P-ED-1 (spec/profiles/crypto/README.md): S < L, A and R canonical and not of order dividing 8, then TweetNaCl's
+// equation. As verifyDetached in sdks/typescript/src/core/ed25519-scalar.ts, the checks run only on input TweetNaCl
+// accepts, so its errors and their order stay the same.
+function naclVerifyDetached(msg, sig, pk) {
+  if (
+    msg instanceof Uint8Array && sig instanceof Uint8Array && pk instanceof Uint8Array &&
+    sig.length === nacl.sign.signatureLength && pk.length === nacl.sign.publicKeyLength &&
+    rejectedByPed1(sig, pk)
+  ) {
+    return false;
+  }
+  return nacl.sign.detached.verify(msg, sig, pk);
+}
+
 export function verifyDetached(payload, context, sigBytes, publicKey) {
   const canonical = typeof payload === 'string' ? payload : canonicalize(payload);
   const encoder = new TextEncoder();
@@ -51,5 +66,5 @@ export function verifyDetached(payload, context, sigBytes, publicKey) {
   msg.set(ctxBytes, 0);
   msg.set(sep, ctxBytes.length);
   msg.set(payloadBytes, ctxBytes.length + 1);
-  return nacl.sign.detached.verify(msg, sigBytes, publicKey);
+  return naclVerifyDetached(msg, sigBytes, publicKey);
 }

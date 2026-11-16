@@ -13,6 +13,7 @@ This specification defines mechanisms for AI agents to prepare for and execute s
 When an AI agent reaches the end of its lifecycle (DCP-05), its accumulated operational knowledge, established relationships, and ongoing commitments do not simply vanish. Organizations need a formal protocol for transferring relevant context from a retiring agent to its successor while maintaining the cryptographic integrity of both agents' records.
 
 DCP-06 addresses three fundamental challenges:
+
 1. **Continuity**: Ensuring that a successor agent can resume the predecessor's responsibilities without disruption
 2. **Integrity**: Preserving the cryptographic boundary between predecessor and successor — a successor is a new entity, not a continuation of the old one
 3. **Selectivity**: Not all knowledge should transfer; some operational context is ephemeral, some is sensitive, and some is tightly bound to the predecessor's identity
@@ -421,6 +422,7 @@ Schema reference: `schemas/v2/memory_transfer_manifest.schema.json`
 The `transfer_merkle_root` is computed as a dual-hash (SHA-256 + SHA3-256) Merkle tree over the `content_hash` values of all successfully transferred items. This enables the successor to verify that it received exactly the items listed in the manifest, without the predecessor needing to be available for re-verification.
 
 Construction:
+
 1. Collect the `content_hash.sha256` values of all items with `transfer_status: "completed"`, ordered by `item_id`
 2. Build a SHA-256 Merkle tree; the root is `transfer_merkle_root.sha256`
 3. Repeat with `content_hash.sha3_256` values for `transfer_merkle_root.sha3_256`
@@ -455,6 +457,7 @@ Relational memory items (interaction histories, trust assessments for specific c
 ### 6.1 Principle
 
 A successor agent is a new, distinct entity. It does NOT inherit the predecessor's:
+
 - Agent ID
 - Cryptographic keys
 - DCP-01 identity binding
@@ -493,6 +496,7 @@ Succession ceremonies require principal authorization. An agent cannot unilatera
 ### 7.3 Memory Exfiltration
 
 Memory transfer is a potential vector for data exfiltration. Mitigations:
+
 - Transfer items are classified and policy-controlled
 - Restricted items require explicit principal approval
 - Relational items require counterparty consent
@@ -502,11 +506,13 @@ Memory transfer is a potential vector for data exfiltration. Mitigations:
 ### 7.4 Emergency Succession Risks
 
 Emergency succession operates with reduced safeguards due to time pressure and predecessor unavailability:
+
 - No predecessor signature on the succession record
 - No interactive consent for relational memory
 - Memory state may be stale (from last backup, not current state)
 
 Mitigations:
+
 - Principal must explicitly authorize emergency succession
 - Successor must verify transferred data against the predecessor's last known Merkle roots
 - A post-succession audit SHOULD be conducted within 24 hours
@@ -522,6 +528,7 @@ All signatures under this specification use the domain separation tag `DCP-SUCCE
 ## 8. Conformance
 
 An implementation is DCP-06 conformant if it:
+
 1. Supports creation and hash-chained versioning of digital testaments as defined in Section 3
 2. Implements all three succession ceremony types (planned, forced, emergency) as defined in Section 4
 3. Enforces memory classification and transfer policies as defined in Section 5
@@ -543,3 +550,25 @@ An implementation is DCP-06 conformant if it:
 ---
 
 *This specification recognizes that the knowledge an AI agent accumulates during its lifetime has value beyond the agent itself. Succession ensures that value is preserved — selectively, securely, and with full accountability — across generational boundaries.*
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **Records in `schemas/v2/`.** The testament, succession record and memory transfer manifest that the SDKs build and
+  that `schemas/v2/` validates have other fields than the examples of §3 to §5: for example `testament_version` and
+  `prev_testament_hash` (`GENESIS` for version 1, then `sha256:` of the previous version, SHA-256 only), a
+  `memory_classification` that maps each category to `transfer`, `retain` or `destroy`, and `transfer_hash` in the
+  manifest. The four classifications and four transfer policies of §3.4 and §5.1 are not in the schemas.
+- **Signatures.** Each record carries one `composite_sig` (Ed25519 + ML-DSA-65) by whoever holds the keys passed in,
+  under the context `DCP-AI.v2.Succession`; the SDKs do not use the tag `DCP-SUCCESSION-SIG-v2` and do not produce the
+  three signatures (predecessor, successor, principal) of §7.2.
+- **What the helpers do.** They build and sign records. `executeSuccession` only refuses an empty
+  `ceremony_participants`; it does not run a ceremony, check principal authorization, verify the successor or move any
+  memory. `classifyMemory` sorts entries by the testament's disposition: `transfer` goes to the manifest, `destroy` and
+  categories not in the testament are listed as destroyed, and `retain` entries appear in neither list.
+  `createMemoryTransferManifest` takes `transfer_hash` from the caller and does not compute the Merkle root of §5.3.
+  Encryption, consent requests and counterparty notification (§5.4, §5.5, §4.2) are the caller's.
+- These records are signed declarations of whoever signs them. The examples are illustrations with placeholders, not
+  fixtures. For the SDK types, see [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).

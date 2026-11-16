@@ -1,0 +1,7635 @@
+{
+ "schema": "dcp-ai.candidate.gate7-v1/1",
+ "title": "Gate 7, dcp-jcs-v1 side: a defect of each unit class in a dcp-jcs-v1 bundle keeps today's verdict",
+ "status": "Experimental evidence for docs/proposals/canonicalization-candidate/README.md \u00a79 gate 7. Not normative; activates nothing.",
+ "how_to_read": {
+  "bases": "The frozen bases of phase3-signed-vectors.json, by reference: their bytes are that file's input_json, checked by hash. No new signing.",
+  "mutations": "The same 18 byte-level edits on both bases. Edits apply in order: prefix, prefix_hex, append, append_hex, drop_last, replace_once (the text occurs exactly once) with with or with_hex.",
+  "cases": "36 mutated cases and 2 controls, each with an expectation for each of the 10 configurations. Expectations are reasoned from the parsers and verifiers (each shape's why), never generated from an output.",
+  "expected.route": "The experimental route (\u00a716): v1_path with profile_source, warning_classes and historical (decoded or failed), or reject with class and offset (relative to the unit).",
+  "expected.today": "Today's route of the same implementation, coded directly: verified_result (the verifier returned a result); host_decode_error (the host decoder before any verifier refused; kind is its exception type or serde category); in_band_parse_error (a verifier or binding that parses itself returned a parse failure in strict form, kept whole: Go and the WASM binding; kind is its message prefix).",
+  "expected.verification": "null when no verifier ran on the experimental route; otherwise the name of a shared shape in verification_shapes, pinning verified, errors_contain (substrings), error_count, warnings (null: the key is absent) and the stable fields (null: absent). Equality between the two routes covers every declared field of the implementation, not only these.",
+  "boundary": "Envelope cases outside the 38 and outside any equivalence claim: G7E-1 must verify; G7E-2 and G7E-3 must not enter a verifier.",
+  "trust": "A verified bundle grants no trust or admission and authorizes nothing."
+ },
+ "bases_source": {
+  "file": "tests/interop/candidate/phase3-signed-vectors.json",
+  "sha256": "2cc19e169ab7a8340fb085ae5258a8bffe2422eeed91d10861b960b749553482"
+ },
+ "bases": {
+  "B-v1": {
+   "input_sha256": "1c232727a5b7218bc8356205dfb9e4985ed435129bf05a1784bf70d56540cc9c"
+  },
+  "B-absent": {
+   "input_sha256": "d33a48dce994a92f8e65bc24b6eaba1fce9959e2676660d585a5fec6295ef8e5"
+  }
+ },
+ "now": "2026-10-25T00:00:00Z",
+ "now_ms": 1792886400000,
+ "transport": "bare",
+ "accepted_profiles": [
+  "dcp-jcs-v1"
+ ],
+ "policy": "default",
+ "configurations": [
+  "ts.textDecoderJsonParse",
+  "ts.bufferUtf8JsonParse",
+  "py.json_loads_bytes",
+  "py.json_loads_strict_decode",
+  "go.encoding_json",
+  "rust.serde_json_from_slice",
+  "wasm.w1TextDecoderJsonParse",
+  "wasm.w1BufferUtf8JsonParse",
+  "wasm.w2TextDecoder",
+  "wasm.w2BufferUtf8"
+ ],
+ "families": {
+  "ts": [
+   "ts.textDecoderJsonParse",
+   "ts.bufferUtf8JsonParse"
+  ],
+  "py": [
+   "py.json_loads_bytes",
+   "py.json_loads_strict_decode"
+  ],
+  "go": [
+   "go.encoding_json"
+  ],
+  "rust": [
+   "rust.serde_json_from_slice"
+  ],
+  "wasm": [
+   "wasm.w1TextDecoderJsonParse",
+   "wasm.w1BufferUtf8JsonParse",
+   "wasm.w2TextDecoder",
+   "wasm.w2BufferUtf8"
+  ]
+ },
+ "mutations": {
+  "M01": {
+   "class": "BOM",
+   "position": "prefix",
+   "edits": [
+    {
+     "prefix_hex": "efbbbf"
+    }
+   ],
+   "why": "A UTF-8 BOM before the unit."
+  },
+  "M02": {
+   "class": "UTF8_INVALID",
+   "position": "unsigned",
+   "edits": [
+    {
+     "drop_last": 1
+    },
+    {
+     "append_hex": "2c2278223a22ff227d"
+    }
+   ],
+   "why": "A byte FF in a new unsigned root member x."
+  },
+  "M03": {
+   "class": "UTF8_INVALID",
+   "position": "signed (intent)",
+   "edits": [
+    {
+     "replace_once": "send_email",
+     "with_hex": "73656e645fff6d61696c"
+    }
+   ],
+   "why": "A byte FF inside the signed intent action_type."
+  },
+  "M04": {
+   "class": "SYNTAX",
+   "position": "end",
+   "edits": [
+    {
+     "drop_last": 1
+    },
+    {
+     "append": ",}"
+    }
+   ],
+   "why": "A trailing comma before the final brace."
+  },
+  "M05": {
+   "class": "SYNTAX",
+   "position": "end",
+   "edits": [
+    {
+     "drop_last": 1
+    }
+   ],
+   "why": "The final byte removed: the unit ends early."
+  },
+  "M06": {
+   "class": "SURROGATE_UNPAIRED",
+   "position": "unsigned",
+   "edits": [
+    {
+     "drop_last": 1
+    },
+    {
+     "append": ",\"x\":\"\\ud800\"}"
+    }
+   ],
+   "why": "A lone high surrogate escape in a new unsigned root member x."
+  },
+  "M07": {
+   "class": "SURROGATE_UNPAIRED",
+   "position": "signed (intent)",
+   "edits": [
+    {
+     "replace_once": "\"action_type\":\"send_email\"",
+     "with": "\"action_type\":\"send_\\ud800mail\""
+    }
+   ],
+   "why": "A lone high surrogate escape inside the signed intent action_type."
+  },
+  "M08": {
+   "class": "DUPLICATE_KEY",
+   "position": "unsigned",
+   "edits": [
+    {
+     "drop_last": 1
+    },
+    {
+     "append": ",\"x\":1,\"x\":2}"
+    }
+   ],
+   "why": "A duplicated unsigned root member x."
+  },
+  "M09": {
+   "class": "DUPLICATE_KEY",
+   "position": "signed, the same value last",
+   "edits": [
+    {
+     "replace_once": "\"action_type\":\"send_email\"",
+     "with": "\"action_type\":\"other\",\"action_type\":\"send_email\""
+    }
+   ],
+   "why": "action_type twice in the signed intent; the original value is the last one."
+  },
+  "M10": {
+   "class": "DUPLICATE_KEY",
+   "position": "signed, a different value last",
+   "edits": [
+    {
+     "replace_once": "\"action_type\":\"send_email\"",
+     "with": "\"action_type\":\"send_email\",\"action_type\":\"other\""
+    }
+   ],
+   "why": "action_type twice in the signed intent; another value is the last one."
+  },
+  "M11": {
+   "class": "NUMBER_NOT_INTEGER",
+   "position": "unsigned",
+   "edits": [
+    {
+     "drop_last": 1
+    },
+    {
+     "append": ",\"x\":1.5}"
+    }
+   ],
+   "why": "A fraction in a new unsigned root member x."
+  },
+  "M12": {
+   "class": "NUMBER_NOT_INTEGER",
+   "position": "signed (policy decision)",
+   "edits": [
+    {
+     "replace_once": "\"risk_score\":450",
+     "with": "\"risk_score\":450.5"
+    }
+   ],
+   "why": "The signed risk_score becomes 450.5."
+  },
+  "M13": {
+   "class": "NUMBER_NOT_INTEGER",
+   "position": "audit entry",
+   "edits": [
+    {
+     "replace_once": "\"prev_hash\":\"GENESIS\"",
+     "with": "\"prev_hash\":\"GENESIS\",\"x\":1.5"
+    }
+   ],
+   "why": "A member x with a fraction added to the first audit entry."
+  },
+  "M14": {
+   "class": "NUMBER_OUT_OF_RANGE",
+   "position": "unsigned",
+   "edits": [
+    {
+     "drop_last": 1
+    },
+    {
+     "append": ",\"x\":9007199254740993}"
+    }
+   ],
+   "why": "2^53+1 in a new unsigned root member x."
+  },
+  "M15": {
+   "class": "NUMBER_OUT_OF_RANGE",
+   "position": "signed (policy decision)",
+   "edits": [
+    {
+     "replace_once": "\"risk_score\":450",
+     "with": "\"risk_score\":9007199254740993"
+    }
+   ],
+   "why": "The signed risk_score becomes 2^53+1."
+  },
+  "M16": {
+   "class": "DEPTH_EXCEEDED",
+   "position": "unsigned, level 65",
+   "edits": [
+    {
+     "drop_last": 1
+    },
+    {
+     "append": ",\"x\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}"
+    }
+   ],
+   "why": "64 nested arrays in a new unsigned root member x: the 64th [ opens level 65 (the unit is level 1)."
+  },
+  "M17": {
+   "class": "DEPTH_EXCEEDED",
+   "position": "unsigned, level 200",
+   "edits": [
+    {
+     "drop_last": 1
+    },
+    {
+     "append": ",\"x\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}"
+    }
+   ],
+   "why": "199 nested arrays in a new unsigned root member x: level 200, past serde_json's recursion limit of 128."
+  },
+  "M18": {
+   "class": "DEPTH_EXCEEDED",
+   "position": "signed (policy decision), 64 nested arrays",
+   "edits": [
+    {
+     "replace_once": "\"risk_score\":450",
+     "with": "\"risk_score\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"
+    }
+   ],
+   "why": "64 nested arrays replace the signed risk_score. With the payload's ancestors (unit, bundle, policy_decision, payload), the 61st [ opens level 65."
+  }
+ },
+ "verification_shapes": {
+  "ts.ok": {
+   "verified": true,
+   "errors_contain": [],
+   "error_count": 0,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_preferred",
+    "resolved_tier": "standard"
+   },
+   "why": "verify-v2.ts verifyV2: every check passes. Mode: policy risk_overrides.medium = hybrid_preferred; tier: risk_score 450 and impact medium give standard (contact_info is neither elevated nor maximum), so the effective mode stays hybrid_preferred."
+  },
+  "ts.intent_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "intent: payload_hash mismatch"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "verify-v2.ts verifyV2: step 2 returns at the first payload_hash mismatch, before manifest_valid, the mode or the tier are set."
+  },
+  "ts.policy_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "policy_decision: payload_hash mismatch"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "verify-v2.ts verifyV2: step 2 returns at the payload_hash mismatch of policy_decision."
+  },
+  "py.ok": {
+   "verified": true,
+   "errors_contain": [],
+   "error_count": 0,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_preferred",
+    "resolved_tier": "standard"
+   },
+   "why": "dcp_ai/v2/verify.py _verify: every check passes. Mode: policy risk_overrides.medium = hybrid_preferred; tier: risk_score 450 and impact medium give standard (contact_info is neither elevated nor maximum), so the effective mode stays hybrid_preferred."
+  },
+  "py.intent_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "intent: payload_hash mismatch"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "dcp_ai/v2/verify.py _verify: step 2 returns at the first payload_hash mismatch, before manifest_valid, the mode or the tier are set."
+  },
+  "py.policy_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "policy_decision: payload_hash mismatch"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "dcp_ai/v2/verify.py _verify: step 2 returns at the payload_hash mismatch of policy_decision."
+  },
+  "ts.malformed_policy_float": {
+   "verified": false,
+   "errors_contain": [
+    "Malformed signed bundle: Float value prohibited in DCP v2.0 at $.risk_score: 450.5"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "verifyPayloadHash -> preparePayload -> canonicalizeV2 -> assertNoFloats throws; verifySignedBundleV2WithProfile catches it with details {}."
+  },
+  "ts.malformed_audit_float": {
+   "verified": false,
+   "errors_contain": [
+    "Malformed signed bundle: Float value prohibited in DCP v2.0 at $.x: 1.5"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "Step 4 computes auditMerkleRootHex, which canonicalizes each entry; assertNoFloats throws on the entry's x and the top-level catch returns details {}."
+  },
+  "py.malformed_policy_float": {
+   "verified": false,
+   "errors_contain": [
+    "Malformed signed bundle: TypeError(",
+    "Non-integer number at",
+    "450.5"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "verify_payload_hash -> prepare_payload -> canonicalize_v2 -> assert_no_floats raises TypeError, caught by _verify_signed_bundle_v2_with_profile (KeyError, TypeError, AttributeError, ValueError, IndexError)."
+  },
+  "py.malformed_audit_float": {
+   "verified": false,
+   "errors_contain": [
+    "Malformed signed bundle: TypeError(",
+    "Non-integer number at",
+    "1.5"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "The audit Merkle root canonicalizes each entry before manifest_valid is set; assert_no_floats raises TypeError on x."
+  },
+  "py.malformed_intent_surrogate": {
+   "verified": false,
+   "errors_contain": [
+    "Malformed signed bundle: UnicodeEncodeError(",
+    "surrogates not allowed"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "json.loads keeps the lone surrogate; canonicalize_v2 uses ensure_ascii=False and prepare_payload encodes UTF-8, which raises UnicodeEncodeError (a ValueError), caught as Malformed."
+  },
+  "go.ok": {
+   "verified": true,
+   "errors_contain": [],
+   "error_count": 0,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_preferred",
+    "resolved_tier": "standard"
+   },
+   "why": "verify_bundle.go verifySignedBundleV2AtProfile: every check passes; ManifestValid is the manifest's presence; mode hybrid_preferred, tier standard."
+  },
+  "go.intent_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "intent: payload_hash mismatch",
+    "Manifest intent_hash mismatch",
+    "audit_entries[0] intent_hash is not the intent payload hash",
+    "audit_entries[1] intent_hash is not the intent payload hash",
+    "intent signature verification failed"
+   ],
+   "error_count": 5,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "verify_bundle.go verifySignedBundleV2AtProfile accumulates: the artifact hash and the manifest intent_hash, the two audit entries' intent_hash (V2-14), and the intent signature. The changed action_type is not a schema action type, so the tier is elevated and the mode hybrid_required."
+  },
+  "go.policy_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "policy_decision: payload_hash mismatch",
+    "Manifest policy_hash mismatch",
+    "policy_decision signature verification failed"
+   ],
+   "error_count": 3,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "verify_bundle.go verifySignedBundleV2AtProfile accumulates the payload_hash and manifest policy_hash mismatches and the policy_decision signature. A risk_score that is not an integer in 0..1000 is unknown, so the tier is elevated."
+  },
+  "go.policy_float": {
+   "verified": false,
+   "errors_contain": [
+    "Cannot hash policy_decision payload",
+    "policy_decision signature: canonicalize: non-integer float at .risk_score: 450.5"
+   ],
+   "error_count": 2,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "verify_bundle.go verifySignedBundleV2AtProfile: the manifest hash step cannot canonicalize the payload (skipping its two comparisons), and the signature check fails to canonicalize it. 450.5 is not an integer risk score, so the tier is elevated."
+  },
+  "go.audit_float": {
+   "verified": false,
+   "errors_contain": [
+    "Cannot hash audit entry 0"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_preferred",
+    "resolved_tier": "standard"
+   },
+   "why": "verify_bundle.go verifySignedBundleV2AtProfile: the audit trail check cannot canonicalize entry 0 and stops; everything else passes."
+  },
+  "rust.ok": {
+   "verified": true,
+   "errors_contain": [],
+   "error_count": 0,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_preferred",
+    "resolved_tier": "standard"
+   },
+   "why": "v2/verify_bundle.rs verify: every check passes; ManifestValid is the manifest's presence; mode hybrid_preferred, tier standard."
+  },
+  "rust.intent_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "intent: payload_hash mismatch",
+    "Manifest intent_hash mismatch",
+    "audit_entries[0] intent_hash is not the intent payload hash",
+    "audit_entries[1] intent_hash is not the intent payload hash",
+    "intent signature verification failed"
+   ],
+   "error_count": 5,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "v2/verify_bundle.rs verify accumulates: the artifact hash and the manifest intent_hash, the two audit entries' intent_hash (V2-14), and the intent signature. The changed action_type is not a schema action type, so the tier is elevated and the mode hybrid_required."
+  },
+  "rust.policy_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "policy_decision: payload_hash mismatch",
+    "Manifest policy_hash mismatch",
+    "policy_decision signature verification failed"
+   ],
+   "error_count": 3,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "v2/verify_bundle.rs verify accumulates the payload_hash and manifest policy_hash mismatches and the policy_decision signature. A risk_score that is not an integer in 0..1000 is unknown, so the tier is elevated."
+  },
+  "rust.policy_float": {
+   "verified": false,
+   "errors_contain": [
+    "Cannot hash policy_decision payload",
+    "policy_decision signature: ",
+    "Non-integer number in V2 canonical form: 450.5"
+   ],
+   "error_count": 2,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "v2/verify_bundle.rs verify: the manifest hash step cannot canonicalize the payload (skipping its two comparisons), and the signature check fails to canonicalize it. 450.5 is not an integer risk score, so the tier is elevated."
+  },
+  "rust.audit_float": {
+   "verified": false,
+   "errors_contain": [
+    "Cannot hash audit entry 0"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_preferred",
+    "resolved_tier": "standard"
+   },
+   "why": "v2/verify_bundle.rs verify: the audit trail check cannot canonicalize entry 0 and stops; everything else passes."
+  },
+  "wasm.ok": {
+   "verified": true,
+   "errors_contain": [],
+   "error_count": 0,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_preferred",
+    "resolved_tier": "standard"
+   },
+   "why": "the binding wasm_verify_signed_bundle_v2, which runs the Rust verify_signed_bundle_v2_at: every check passes; ManifestValid is the manifest's presence; mode hybrid_preferred, tier standard."
+  },
+  "wasm.intent_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "intent: payload_hash mismatch",
+    "Manifest intent_hash mismatch",
+    "audit_entries[0] intent_hash is not the intent payload hash",
+    "audit_entries[1] intent_hash is not the intent payload hash",
+    "intent signature verification failed"
+   ],
+   "error_count": 5,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "the binding wasm_verify_signed_bundle_v2, which runs the Rust verify_signed_bundle_v2_at accumulates: the artifact hash and the manifest intent_hash, the two audit entries' intent_hash (V2-14), and the intent signature. The changed action_type is not a schema action type, so the tier is elevated and the mode hybrid_required."
+  },
+  "wasm.policy_mismatch": {
+   "verified": false,
+   "errors_contain": [
+    "policy_decision: payload_hash mismatch",
+    "Manifest policy_hash mismatch",
+    "policy_decision signature verification failed"
+   ],
+   "error_count": 3,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "the binding wasm_verify_signed_bundle_v2, which runs the Rust verify_signed_bundle_v2_at accumulates the payload_hash and manifest policy_hash mismatches and the policy_decision signature. A risk_score that is not an integer in 0..1000 is unknown, so the tier is elevated."
+  },
+  "wasm.policy_float": {
+   "verified": false,
+   "errors_contain": [
+    "Cannot hash policy_decision payload",
+    "policy_decision signature: ",
+    "Non-integer number in V2 canonical form: 450.5"
+   ],
+   "error_count": 2,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_required",
+    "resolved_tier": "elevated"
+   },
+   "why": "the binding wasm_verify_signed_bundle_v2, which runs the Rust verify_signed_bundle_v2_at: the manifest hash step cannot canonicalize the payload (skipping its two comparisons), and the signature check fails to canonicalize it. 450.5 is not an integer risk score, so the tier is elevated."
+  },
+  "wasm.audit_float": {
+   "verified": false,
+   "errors_contain": [
+    "Cannot hash audit entry 0"
+   ],
+   "error_count": 1,
+   "warnings": [],
+   "fields": {
+    "manifest_valid": true,
+    "verification_mode": "hybrid_preferred",
+    "resolved_tier": "standard"
+   },
+   "why": "the binding wasm_verify_signed_bundle_v2, which runs the Rust verify_signed_bundle_v2_at: the audit trail check cannot canonicalize entry 0 and stops; everything else passes."
+  },
+  "wasm.in_band_surrogate": {
+   "verified": false,
+   "errors_contain": [
+    "JSON parse error: unexpected end of hex escape"
+   ],
+   "error_count": 1,
+   "warnings": null,
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "The binding's serde_json::from_str (serde_json 1.0.149, read.rs parse_unicode_escape) refuses a leading surrogate \\ud800 that is not followed by a backslash with ErrorCode::UnexpectedEndOfHexEscape (\"unexpected end of hex escape\"); it returns only {verified:false, errors:[...]} (no warnings key). On w1, JSON.stringify writes the surrogate as an escape again. Corrected in phase B: phase A reasoned LoneLeadingSurrogateInHexEscape, which serde raises only for a trailing surrogate first or a second escape that is not a trailing surrogate; both routes returned the same text."
+  },
+  "wasm.in_band_recursion": {
+   "verified": false,
+   "errors_contain": [
+    "JSON parse error: recursion limit exceeded"
+   ],
+   "error_count": 1,
+   "warnings": null,
+   "fields": {
+    "manifest_valid": null,
+    "verification_mode": null,
+    "resolved_tier": null
+   },
+   "why": "The binding's serde_json::from_str stops at its recursion limit of 128 and returns only {verified:false, errors:[...]}."
+  }
+ },
+ "cases": [
+  {
+   "id": "G7-V1-C00",
+   "base": "B-v1",
+   "mutation": null,
+   "input_sha256": "1c232727a5b7218bc8356205dfb9e4985ed435129bf05a1784bf70d56540cc9c",
+   "why": "The base with no edit: the control of the 18 cases on it.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M01",
+   "base": "B-v1",
+   "mutation": "M01",
+   "input_sha256": "19a7bff79f4d0d8e0f21fea28581bf235b6882344191986fd7a1b0c715c75dc7",
+   "why": "A UTF-8 BOM before the unit.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "BOM"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "BOM"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "BOM"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "BOM"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M02",
+   "base": "B-v1",
+   "mutation": "M02",
+   "input_sha256": "290e3dc0bd3d37b49667177faa62955584b44247573ac7b1a155bd7bd5a6d54e",
+   "why": "A byte FF in a new unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 33707
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "UnicodeDecodeError"
+     },
+     "verification": null
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 33707
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "UnicodeDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 33707
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M03",
+   "base": "B-v1",
+   "mutation": "M03",
+   "input_sha256": "5d9a2174080d6a899deb9afa6d257624ad20c88bf25f7b09155d8adf3fa10be4",
+   "why": "A byte FF inside the signed intent action_type.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 17330
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "UnicodeDecodeError"
+     },
+     "verification": null
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 17330
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "UnicodeDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.intent_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 17330
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M04",
+   "base": "B-v1",
+   "mutation": "M04",
+   "input_sha256": "e2990e6ed42fd11b15d6e1a02d158be255fd0a0773f7da7de59a33cee9c810a1",
+   "why": "A trailing comma before the final brace.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33702
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M05",
+   "base": "B-v1",
+   "mutation": "M05",
+   "input_sha256": "1b80970437ab4158afc55600b251d603d9e31132d0d3c1c1062a778075aee3b4",
+   "why": "The final byte removed: the unit ends early.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Eof"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33701
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M06",
+   "base": "B-v1",
+   "mutation": "M06",
+   "input_sha256": "43b8fe2f455adb65deccb930d8528e9a34b8e4af380d34566111bbdf61d80895",
+   "why": "A lone high surrogate escape in a new unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M07",
+   "base": "B-v1",
+   "mutation": "M07",
+   "input_sha256": "61748dca029d4623af8a00f94302dd81d7c1b429e6675cab8ab2403b171a0e79",
+   "why": "A lone high surrogate escape inside the signed intent action_type.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_intent_surrogate"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_intent_surrogate"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.intent_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M08",
+   "base": "B-v1",
+   "mutation": "M08",
+   "input_sha256": "29e120c5f72d6d112556b77750ae399c391274d4506aeb553fe0671a1a35a9da",
+   "why": "A duplicated unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M09",
+   "base": "B-v1",
+   "mutation": "M09",
+   "input_sha256": "db4ebd3848c2a0df3456e85b3fd973d7a4e314e4139beeaede90d1805f07d2cd",
+   "why": "action_type twice in the signed intent; the original value is the last one.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M10",
+   "base": "B-v1",
+   "mutation": "M10",
+   "input_sha256": "3084a1927b72c7fcc0726c77d0eb32eac8ece3efce200f35cfc12a16d4416ee2",
+   "why": "action_type twice in the signed intent; another value is the last one.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.intent_mismatch"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.intent_mismatch"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.intent_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.intent_mismatch"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M11",
+   "base": "B-v1",
+   "mutation": "M11",
+   "input_sha256": "0eb89e4cfa7ba74ca7afdcd5295e84357d464dc628f9f5b43d9a6d890031869e",
+   "why": "A fraction in a new unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M12",
+   "base": "B-v1",
+   "mutation": "M12",
+   "input_sha256": "8ea8016220fd7471d199be37a1ebd6d3aa46fb3e58d5f3e95726b82cd5093c93",
+   "why": "The signed risk_score becomes 450.5.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.malformed_policy_float"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.malformed_policy_float"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_policy_float"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_policy_float"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.policy_float"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.policy_float"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_float"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_float"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_float"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_float"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M13",
+   "base": "B-v1",
+   "mutation": "M13",
+   "input_sha256": "48c8d5bebd60f5de58175e0d43f5daa6713a446637c50acd6d18880f33b6cc3b",
+   "why": "A member x with a fraction added to the first audit entry.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.malformed_audit_float"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.malformed_audit_float"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_audit_float"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_audit_float"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.audit_float"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.audit_float"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.audit_float"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.audit_float"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.audit_float"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.audit_float"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M14",
+   "base": "B-v1",
+   "mutation": "M14",
+   "input_sha256": "942f006f1d9318a8999032c8af7b0064150935675f4c1bb0e9c65285d41f8bba",
+   "why": "2^53+1 in a new unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M15",
+   "base": "B-v1",
+   "mutation": "M15",
+   "input_sha256": "54af166ed564ad073538e80492c253da052b5ef778caf267685daef3812131a4",
+   "why": "The signed risk_score becomes 2^53+1.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.policy_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.policy_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.policy_mismatch"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.policy_mismatch"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.policy_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.policy_mismatch"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M16",
+   "base": "B-v1",
+   "mutation": "M16",
+   "input_sha256": "2c1b5549af12dc148bf825cd1e97fb40964c2fcf9791bda531761879b8b869c9",
+   "why": "64 nested arrays in a new unsigned root member x: the 64th [ opens level 65 (the unit is level 1).",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M17",
+   "base": "B-v1",
+   "mutation": "M17",
+   "input_sha256": "e61fdd5a6ff8eb0190c678f08ef697854c264ba267c43beef3533584590b5bc1",
+   "why": "199 nested arrays in a new unsigned root member x: level 200, past serde_json's recursion limit of 128.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_recursion"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_recursion"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_recursion"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_recursion"
+    }
+   }
+  },
+  {
+   "id": "G7-V1-M18",
+   "base": "B-v1",
+   "mutation": "M18",
+   "input_sha256": "9c3bf9b1da8a9ef4df8bc40b94791789f8c66da63592725b459f6ec7ab6fcc40",
+   "why": "64 nested arrays replace the signed risk_score. With the payload's ancestors (unit, bundle, policy_decision, payload), the 61st [ opens level 65.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.policy_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.policy_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.policy_mismatch"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.policy_mismatch"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.policy_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.policy_mismatch"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-C00",
+   "base": "B-absent",
+   "mutation": null,
+   "input_sha256": "d33a48dce994a92f8e65bc24b6eaba1fce9959e2676660d585a5fec6295ef8e5",
+   "why": "The base with no edit: the control of the 18 cases on it.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M01",
+   "base": "B-absent",
+   "mutation": "M01",
+   "input_sha256": "50c4710a5050cb5f1dbf4a861196f94ac0c131f0b0bba23f4843d9780bf0405c",
+   "why": "A UTF-8 BOM before the unit.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "BOM"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "BOM"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "BOM"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "BOM"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M02",
+   "base": "B-absent",
+   "mutation": "M02",
+   "input_sha256": "c1ea92ae56a6378b4b37704b8019e99d6a804b51e76169753d4ee1c32acdb079",
+   "why": "A byte FF in a new unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 33667
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "UnicodeDecodeError"
+     },
+     "verification": null
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 33667
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "UnicodeDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 33667
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M03",
+   "base": "B-absent",
+   "mutation": "M03",
+   "input_sha256": "d550e1498073ebf6e7fd1ff786833c5060cb9c745c9258d3f0d25c3989069278",
+   "why": "A byte FF inside the signed intent action_type.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 17290
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "UnicodeDecodeError"
+     },
+     "verification": null
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 17290
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "UnicodeDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.intent_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 17290
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warning_classes": [
+       "UTF8_INVALID"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M04",
+   "base": "B-absent",
+   "mutation": "M04",
+   "input_sha256": "5fa46c4275d756ed7c49abc8c6514e840a346f3d0c389918e73ef473bbbdce25",
+   "why": "A trailing comma before the final brace.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33662
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M05",
+   "base": "B-absent",
+   "mutation": "M05",
+   "input_sha256": "5042de039dbe4443653434798b866b8b508f836212ba53100dda381d4253540f",
+   "why": "The final byte removed: the unit ends early.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "JSONDecodeError"
+     },
+     "verification": null
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Eof"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "SyntaxError"
+     },
+     "verification": null
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 33661
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": null
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M06",
+   "base": "B-absent",
+   "mutation": "M06",
+   "input_sha256": "bd045f473f0c925a1ffcfeb1d13ce205cf5d62063987a6cbb29b97b5c86b3792",
+   "why": "A lone high surrogate escape in a new unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M07",
+   "base": "B-absent",
+   "mutation": "M07",
+   "input_sha256": "51307f96dceece247be9223f402f96ddab16c9e0293052c5f45a46a7ca06e082",
+   "why": "A lone high surrogate escape inside the signed intent action_type.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_intent_surrogate"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_intent_surrogate"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.intent_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "SURROGATE_UNPAIRED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_surrogate"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M08",
+   "base": "B-absent",
+   "mutation": "M08",
+   "input_sha256": "80662e710f069a9730878b2ea75c5478de86229c54b7cb7872317686abb7f63c",
+   "why": "A duplicated unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M09",
+   "base": "B-absent",
+   "mutation": "M09",
+   "input_sha256": "ca64e22c5ab190543f548d74b2a46f22344012339eb4bf04b9d89d9a24640f7c",
+   "why": "action_type twice in the signed intent; the original value is the last one.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M10",
+   "base": "B-absent",
+   "mutation": "M10",
+   "input_sha256": "999a7e53bceda78991cdaecb3e658aada7079838946e98ec723c5c96bfa9cf3e",
+   "why": "action_type twice in the signed intent; another value is the last one.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.intent_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.intent_mismatch"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.intent_mismatch"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.intent_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.intent_mismatch"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DUPLICATE_KEY"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.intent_mismatch"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M11",
+   "base": "B-absent",
+   "mutation": "M11",
+   "input_sha256": "25ac8d1ea1b4b77d7592c01933846bc89e3907f2e5bd3738a9d353df0a4529d6",
+   "why": "A fraction in a new unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M12",
+   "base": "B-absent",
+   "mutation": "M12",
+   "input_sha256": "7c373456dea1877a7046f28e505ae711781bf57995f5ec6019b7848329aa6041",
+   "why": "The signed risk_score becomes 450.5.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.malformed_policy_float"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.malformed_policy_float"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_policy_float"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_policy_float"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.policy_float"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.policy_float"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_float"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_float"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_float"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_float"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M13",
+   "base": "B-absent",
+   "mutation": "M13",
+   "input_sha256": "08081c743beea43f37a8865ded7db8c6bfd10dca33625875a85a30fe941234fe",
+   "why": "A member x with a fraction added to the first audit entry.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.malformed_audit_float"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.malformed_audit_float"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_audit_float"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.malformed_audit_float"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.audit_float"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.audit_float"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.audit_float"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.audit_float"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.audit_float"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_NOT_INTEGER"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.audit_float"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M14",
+   "base": "B-absent",
+   "mutation": "M14",
+   "input_sha256": "13131b0ace1443199bfd131cd26e30ca3807c47ebaa50b300c5a024ec533d67a",
+   "why": "2^53+1 in a new unsigned root member x.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M15",
+   "base": "B-absent",
+   "mutation": "M15",
+   "input_sha256": "3d40934f43cc8effb5c6c7a24be8eb4572add2e3d3500cb3a7fdf68492e34437",
+   "why": "The signed risk_score becomes 2^53+1.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.policy_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.policy_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.policy_mismatch"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.policy_mismatch"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.policy_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.policy_mismatch"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "NUMBER_OUT_OF_RANGE"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M16",
+   "base": "B-absent",
+   "mutation": "M16",
+   "input_sha256": "8fc21258a7414806904682bf5678e99534dfcc773f870e4aec92a346b69eca5a",
+   "why": "64 nested arrays in a new unsigned root member x: the 64th [ opens level 65 (the unit is level 1).",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.ok"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.ok"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M17",
+   "base": "B-absent",
+   "mutation": "M17",
+   "input_sha256": "8ea26be37fabf4bcf0a20a44373bd12dda3fc39ee91094b90f82daeb07967b6c",
+   "why": "199 nested arrays in a new unsigned root member x: level 200, past serde_json's recursion limit of 128.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.ok"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.ok"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.ok"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "none",
+     "today": {
+      "outcome": "host_decode_error",
+      "kind": "Syntax"
+     },
+     "verification": null
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_recursion"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_recursion"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_recursion"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "failed"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "in_band_parse_error",
+      "kind": "JSON parse error"
+     },
+     "verification": "wasm.in_band_recursion"
+    }
+   }
+  },
+  {
+   "id": "G7-AB-M18",
+   "base": "B-absent",
+   "mutation": "M18",
+   "input_sha256": "23f6f894fbb239fea068db406e2e27f7aa81226dfabf3a7cb1a7037f6ef463e4",
+   "why": "64 nested arrays replace the signed risk_score. With the payload's ancestors (unit, bundle, policy_decision, payload), the 61st [ opens level 65.",
+   "expected": {
+    "ts.textDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.policy_mismatch"
+    },
+    "ts.bufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "ts.policy_mismatch"
+    },
+    "py.json_loads_bytes": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.policy_mismatch"
+    },
+    "py.json_loads_strict_decode": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "py.policy_mismatch"
+    },
+    "go.encoding_json": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "go.policy_mismatch"
+    },
+    "rust.serde_json_from_slice": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "rust.policy_mismatch"
+    },
+    "wasm.w1TextDecoderJsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w1BufferUtf8JsonParse": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w2TextDecoder": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    },
+    "wasm.w2BufferUtf8": {
+     "route": {
+      "outcome": "v1_path",
+      "profile_source": "absent",
+      "warning_classes": [
+       "DEPTH_EXCEEDED"
+      ],
+      "historical": "decoded"
+     },
+     "adapter_calls": 1,
+     "entered": "dcp-jcs-v1",
+     "today": {
+      "outcome": "verified_result",
+      "kind": null
+     },
+     "verification": "wasm.policy_mismatch"
+    }
+   }
+  }
+ ],
+ "boundary": {
+  "transport": "envelope",
+  "accepted_profiles": [
+   "dcp-jcs-v1"
+  ],
+  "cases": [
+   {
+    "id": "G7E-1",
+    "base": "B-v1",
+    "edits": [
+     {
+      "prefix": "{\"signed_bundle\":"
+     },
+     {
+      "append": "}"
+     }
+    ],
+    "input_sha256": "9d0a0039dce54341941bfacd69be0e766eb069e517e03e3db758fe36d5eeee68",
+    "why": "B-v1 in a valid envelope: delegated, and it must verify with the same declared fields as the bare control G7-V1-C00.",
+    "expected": {
+     "ts.textDecoderJsonParse": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "ts.ok"
+     },
+     "ts.bufferUtf8JsonParse": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "ts.ok"
+     },
+     "py.json_loads_bytes": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "py.ok"
+     },
+     "py.json_loads_strict_decode": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "py.ok"
+     },
+     "go.encoding_json": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "go.ok"
+     },
+     "rust.serde_json_from_slice": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "rust.ok"
+     },
+     "wasm.w1TextDecoderJsonParse": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "wasm.ok"
+     },
+     "wasm.w1BufferUtf8JsonParse": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "wasm.ok"
+     },
+     "wasm.w2TextDecoder": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "wasm.ok"
+     },
+     "wasm.w2BufferUtf8": {
+      "route": {
+       "outcome": "v1_path",
+       "profile_source": "field",
+       "warning_classes": [],
+       "historical": "decoded"
+      },
+      "adapter_calls": 1,
+      "entered": "dcp-jcs-v1",
+      "verification": "wasm.ok"
+     }
+    }
+   },
+   {
+    "id": "G7E-2",
+    "base": "B-v1",
+    "edits": [
+     {
+      "prefix": "{\"signed_bundle\":"
+     },
+     {
+      "append": ",\"signed_bundle\":null}"
+     }
+    ],
+    "input_sha256": "ed36c3ca9828a041ee8340e63323e952a3bb1372cd439c6def01b6e28e8c364b",
+    "why": "A second signed_bundle member: rejected by the transport (T4) before any unit is routed; no verifier runs. The reference server's JSON.parse would keep the last member: no equivalence is claimed.",
+    "expected": {
+     "ts.textDecoderJsonParse": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "ts.bufferUtf8JsonParse": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "py.json_loads_bytes": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "py.json_loads_strict_decode": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "go.encoding_json": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "rust.serde_json_from_slice": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "wasm.w1TextDecoderJsonParse": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "wasm.w1BufferUtf8JsonParse": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "wasm.w2TextDecoder": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "wasm.w2BufferUtf8": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_AMBIGUOUS",
+       "detail": "SIGNED_BUNDLE_REPEATED"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     }
+    }
+   },
+   {
+    "id": "G7E-3",
+    "base": "B-v1",
+    "edits": [
+     {
+      "prefix": "{\"signed_bundle\":"
+     },
+     {
+      "append": "}"
+     },
+     {
+      "prefix_hex": "efbbbf"
+     }
+    ],
+    "input_sha256": "139fbe60636a389d03c14f5a44e7e2fdd81ad0cdd568a7d2c4152ad391c992c1",
+    "why": "A BOM before the envelope: rejected by the transport (T1); no verifier runs.",
+    "expected": {
+     "ts.textDecoderJsonParse": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "ts.bufferUtf8JsonParse": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "py.json_loads_bytes": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "py.json_loads_strict_decode": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "go.encoding_json": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "rust.serde_json_from_slice": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "wasm.w1TextDecoderJsonParse": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "wasm.w1BufferUtf8JsonParse": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "wasm.w2TextDecoder": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     },
+     "wasm.w2BufferUtf8": {
+      "route": {
+       "outcome": "reject",
+       "class": "TRANSPORT_INVALID",
+       "detail": "BOM"
+      },
+      "adapter_calls": 0,
+      "entered": "none",
+      "verification": null
+     }
+    }
+   }
+  ]
+ }
+}

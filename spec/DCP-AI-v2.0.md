@@ -42,6 +42,10 @@ The Digital Citizenship Protocol for AI (DCP-AI) v2.0 defines a post-quantum-res
 | `slh-dsa-192f` | FIPS 205 | 48 B | 35664 B | NIST Level 3 PQ | ACTIVE (backup PQ) |
 | `slh-dsa-256f` | FIPS 205 | 64 B | 49856 B | NIST Level 5 PQ | RESERVED |
 
+> *Informative note (25/10/2026), not part of the normative text:* no DCP-AI SDK implements `ml-dsa-87` yet; the SDKs sign and verify with `ed25519`, `ml-dsa-65` and `slh-dsa-192f` ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md)).
+
+> *Note (07/11/2026):* an `ed25519` signature is accepted under the acceptance criterion P-ED-1 of the [Crypto Profile](profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion).
+
 ### 2.2 KEM Algorithms
 
 | Identifier | Standard | PubKey Size | Ciphertext Size | Security Level |
@@ -114,6 +118,19 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.HumanConfirmation` | Human confirmation |
 | `DCP-AI.v2.AlgorithmAdvisory` | Algorithm deprecation advisory |
 | `DCP-AI.v2.Governance` | Governance operations |
+| `DCP-AI.v2.MultiPartyAuth` | Party authorization in a multi-party authorization (`multi_party_authorization.schema.json`) |
+| `DCP-AI.v2.Lifecycle` | Commissioning certificate, vitality report and decommissioning record (DCP-05) |
+| `DCP-AI.v2.Succession` | Digital testament, memory transfer manifest and succession record (DCP-06) |
+| `DCP-AI.v2.Dispute` | Dispute record, objection, arbitration resolution and jurisprudence bundle (DCP-07) |
+| `DCP-AI.v2.Rights` | Rights declaration, obligation record and rights violation report (DCP-08) |
+| `DCP-AI.v2.Delegation` | Root delegation mandate (human signature), principal mirrors and interaction records (DCP-09) |
+| `DCP-AI.v2.Awareness` | Awareness thresholds and advisory declarations (DCP-09) |
+| `DCP-AI.v2.SubMandate` | Sub-mandate signed by the delegating agent (DCP-09 §3.5) |
+| `DCP-AI.v2.MandateAcknowledgment` | Mandate acknowledgment signed by the delegate agent, opt-in (DCP-09 §3.3.1) |
+
+> **Erratum E1 (25/10/2026, normative):** the rows `MultiPartyAuth`, `Lifecycle`, `Succession`, `Dispute`, `Rights` and `Awareness`, and principal mirrors in the `Delegation` row, document contexts already used by the SDKs and by `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts`; they add no tag. See [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
+
+> *Note (07/11/2026):* the `MandateAcknowledgment` row adds a tag, for the opt-in record of [DCP-09 §3.3.1](DCP-09.md#331-mandate-acknowledgment-opt-in). No existing record is signed under it. The 19 earlier tags and the `domain_separation_all_contexts` vector do not change. All four signing SDKs accept the new tag for domain separation and expose it as a constant; in TypeScript and Python that constant stands beside the 19-entry `DCP_CONTEXTS` map, which does not include it.
 
 ---
 
@@ -203,11 +220,18 @@ The security tier (§14.3) can only make the mode this policy selects stricter.
 ### 7.3 PQ-Only Mode (Phase 3)
 
 When `default_mode` is `pq_only`:
-- Classical signatures are accepted but not required
+
+- A classical signature is still present, as `pq_over_classical` requires (the PQ signature covers its bytes), but its successful verification is not required: the classical algorithm lists and advisories do not apply to it, and a classical component that fails verification is tolerated when the PQ component verifies over it ([VERIFICATION.md](VERIFICATION.md) Step V2-10, Q1 and Q2)
 - `min_classical` is 0, `min_pq` is 1
-- Composite binding is not required
+- A PQ signature is required, in the `pq_over_classical` binding, under which the PQ signature covers the classical signature bytes (§ 5)
 - V1 bundles are rejected
-- Classical-only bundles emit deprecation warnings
+- A `classical_only` binding is rejected; the deprecation warning of `warn_classical_only_deprecated` concerns the other modes and is a diagnostic
+
+> **Clarification (05/11/2026, normative).** The third and fifth items replace "Composite binding is not required" and
+> "Classical-only bundles emit deprecation warnings". Those read as if `pq_only` accepted a signature without the
+> `pq_over_classical` binding, or a classical-only bundle with a warning; § 7.1 and VERIFICATION.md Step V2-10 require
+> the PQ signature under `pq_only`, so neither was accepted. The first item states what the clarification of Step V2-10
+> settles (Q1 and Q2).
 
 ---
 
@@ -286,6 +310,8 @@ After N events (default 1000), a compaction checkpoint is produced. Compacted ev
 
 Master secret is split via Shamir's Secret Sharing. Shares encrypted with hybrid KEM to recovery contacts.
 
+> *Informative note (25/10/2026), not part of the normative text:* the TypeScript SDK's key recovery and `dcp recovery-setup` produce the shares but do not encrypt them; encrypting them to the recovery contacts is left to the implementer.
+
 ### 11.3 Emergency Revocation
 
 Pre-registered `revocation_token = SHA-256(revocation_secret)`. Revealing the pre-image revokes all agent keys without cryptographic signature.
@@ -293,6 +319,8 @@ Pre-registered `revocation_token = SHA-256(revocation_secret)`. Revealing the pr
 ### 11.4 HSM/TPM Support
 
 Private keys SHOULD be stored in hardware security modules. The `CryptoProvider` interface supports `HsmCryptoProvider` that delegates all operations to the HSM via PKCS#11.
+
+> *Informative note (25/10/2026, updated 06/11/2026), not part of the normative text:* no `HsmCryptoProvider` exists in this repository. The simulated pattern of that name in the TypeScript SDK source, which was not exported and had no PKCS#11 binding, was removed on 06/11/2026. No hardware backend is implemented in this repository, and no FIPS 140 validation is claimed ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md) §2.2).
 
 ---
 
@@ -331,6 +359,7 @@ Signed advisories with actions: `warn`, `deprecate`, `revoke`. Automated verifie
 ### 13.3 Advisory Auto-Response
 
 Verifiers automatically:
+
 - Remove deprecated/revoked algorithms from accepted lists
 - Add replacement algorithms
 - Switch to pq_only if all classical algorithms are removed
@@ -388,8 +417,18 @@ function computeSecurityTier(intent, policy_decision):
   explicit = intent.security_tier
   if explicit is present and not null:
     tier = max(tier, explicit if it is a tier name else "elevated")
+  if a verified mandate chain (DCP-09 §3.5) applies and has an effective tier:
+    tier = max(tier, that tier if it is a tier name else "elevated")
   return tier
 ```
+
+The effective tier of a verified delegation chain, the greatest
+`minimum_security_tier` along it, is an optional input to this computation
+that can only raise the result, never lower it. No bundle field carries the
+chain yet, so the floor applies where the verifier is handed a verified chain
+alongside the bundle; the bundle verifiers of §18 do not read one. The opt-in
+delegated admission of the [admission profile §10](profiles/admission/README.md#10-delegated-admission-opt-in)
+is such a verifier.
 
 `ACTION_TYPES` and `DATA_CLASSES` are the `action_type` and `data_classes`
 enums of `schemas/v2/intent.schema.json`. A missing, mistyped or unknown
@@ -461,6 +500,7 @@ them by UTF-16 code units. The two orders differ only for keys that mix
 supplementary-plane characters with characters in U+E000..U+FFFF.
 
 Summary:
+
 1. Keys sorted lexicographically by Unicode code point
 2. Compact form (no whitespace)
 3. Integer-only numbers, decided post-parse (`1.0`, `1e2`, `1.00` accepted; `0.1`, `NaN`, `Infinity` rejected)
@@ -507,15 +547,16 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 1. Wire format decode (JSON or CBOR)
 2. Schema validation (route V1/V2)
 3. Session nonce consistency
-4. Manifest integrity (recompute artifact hashes)
-5. Security tier computation from the signed intent and policy decision (§14.2)
-6. Advisory-driven algorithm rejection
-7. Composite signature verification (parallel)
-8. Verifier policy enforcement with the effective mode, the stricter of the policy mode and the tier's mode (§14.3), on the bundle signature and every artifact signature
-9. Audit hash chain validation
-10. PQ checkpoint chain validation
-11. Key validity checks (expiry, revocation, kid derivation)
-12. Verification cache lookup/store (§14.5)
+4. Manifest integrity (recompute artifact hashes), and the session window from the signed `session_issued_at` and `session_expires_at`
+5. Cross-artifact consistency: passport status, RPR expiry, one principal, agent and intent across the artifacts and the audit trail (VERIFICATION.md V2-14)
+6. Security tier computation from the signed intent and policy decision (§14.2)
+7. Advisory-driven algorithm rejection
+8. Composite signature verification (parallel): the bundle signature with the RPR `binding_keys`, the agent's artifacts with the passport `keys`, every kid derived from its key
+9. Verifier policy enforcement with the effective mode, the stricter of the policy mode and the tier's mode (§14.3), on the bundle signature and every artifact signature
+10. Audit hash chain validation
+11. PQ checkpoint validation: exactly the listed checkpoints, each over its audit entries and signed by the agent
+12. Key validity checks (expiry, revocation, kid derivation)
+13. Verification cache lookup/store (§14.5)
 
 ---
 
@@ -537,6 +578,9 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 | PII exposure | Blinded RPR mode |
 | Key loss | M-of-N social recovery (Shamir SSS) |
 | Tier evasion | Verifier-authoritative tier upgrade, agent cannot downgrade |
+| Agent claiming a principal (reusing a published, signed RPR) | Bundle signature only by the RPR `binding_keys`; it commits to the passport hash. An RPR minted under someone else's `human_id` is stopped only by a verifier that pins or attests the principal's keys |
+| Inconsistent but validly signed artifacts | Cross-artifact consistency checks (VERIFICATION.md V2-14) |
+| Unsigned metadata steering a check | Session start signed in the manifest; the signer block may not contradict the signature |
 
 ---
 
@@ -582,3 +626,47 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 ---
 
 *End of DCP-AI v2.0 Normative Specification*
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **§5.1 and §7.1, stripping.** In the SDK verifiers a present PQ signature that does not verify is refused in every
+  mode. A bundle whose PQ signature was removed and whose binding was relabelled `classical_only` is accepted when the
+  effective mode is `classical_only` or `hybrid_preferred` (with a warning in `hybrid_preferred`), and refused under
+  `hybrid_required` and `pq_only` ([VERIFICATION.md](VERIFICATION.md) V2-7 to V2-9).
+- **§7.3, `pq_only`.** The SDK verifiers still expect the `pq_over_classical` binding with the classical signature
+  bytes: the PQ signature covers them, so `pq_only` does not let the classical component be left out.
+- **§6, SignedPayload.** The envelope wraps the four primary artifacts of a bundle (passport, RPR, intent, policy
+  decision). The DCP-05 to DCP-09 records carry their signatures inside the object, usually as `composite_sig`; a
+  root delegation mandate carries `human_composite_sig` and a sub-mandate `delegator_composite_sig` (DCP-09 §3.5).
+- **§9 and §15, canonicalization.** `dcp-jcs-v1` is the only normative profile and the default. The candidate profile
+  of [docs/proposals/canonicalization-candidate](../docs/proposals/canonicalization-candidate/README.md) is reachable
+  only through experimental, opt-in APIs and does not change what a default verifier accepts.
+- **§10, audit trail.** Audit entries are not signed one by one: they are covered by the bundle signature through the
+  manifest. The `DCP-AI.v2.AuditEvent` context is used for PQ checkpoints and audit compaction, which the caller
+  produces with SDK helpers; nothing signs them automatically. The verifiers check the listed checkpoints and the SHA-256 chain; from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 they also check the secondary SHA3-256 fields that are present (V2-11 erratum), which earlier versions do not.
+- **§11.3, emergency revocation.** The RPR schemas have no `revocation_token`; the V2 passport has an optional
+  `emergency_revocation_token`.
+- **§12.1, erasure.** The text describes the cryptographic effect of deleting the salt. It is not an assessment of
+  compliance with the GDPR or any other law; see [docs/EU_AI_ACT_MAPPING.md](../docs/EU_AI_ACT_MAPPING.md).
+- **§13, advisories.** The reference server applies published advisories to its policy only when an operator calls
+  `POST /v2/advisory/auto-apply`; it checks the advisory's `composite_sig` only for structure, and there is no
+  automatic polling.
+- **§14.1, sizes and latencies.** The bundle size and latency columns are illustrative, not measurements of the code on
+  `main`; [docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md) explains how to measure them.
+- **§1.1 and §19, anchoring.** The reference anchor service keeps its records locally and does not submit anything on
+  chain ([docker/README.md](../docker/README.md)).
+- **§16, wire formats.** CBOR is an optional encoder and decoder in the TypeScript SDK only, and the reference server
+  reads JSON bodies only. The 30–40% size figure is not backed by a measurement in this repository.
+  `api/proto/dcp.proto` is a definition: no gRPC server or client here implements it.
+- **§17, backward compatibility.** The table describes outcomes, not one entry point. `verifySignedBundleV2` in the
+  SDKs verifies V2 bundles only. `allow_v1_bundles` is read by the reference server and by the admission profile; the
+  root `verifySignedBundle` (`lib/verify.js`) sends V1 bundles to the V1 checks without reading it.
+- **§18, pipeline.** From the releases of 05/11/2026 (`@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2, Go
+  v2.13.0 and Rust `dcp-ai` 2.13.0), `verifySignedBundleV2` and its counterparts in every SDK run JSON Schema validation
+  (step 2) themselves; earlier versions do not, and `lib/verify.js` and the server also run it before calling
+  the SDK. It does not use the verification cache the TypeScript SDK exports (step 13), and
+  step 12 reads the key status in the bundle; querying a revocation service belongs to admission
+  ([docs/ADMISSION.md](../docs/ADMISSION.md)). Verification is not admission, trust or authorization.

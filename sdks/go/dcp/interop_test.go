@@ -5,12 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
 	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
@@ -294,6 +297,7 @@ func TestInteropDomainSeparation(t *testing.T) {
 		"Rights":                  v2.CtxRights,
 		"Delegation":              v2.CtxDelegation,
 		"Awareness":               v2.CtxAwareness,
+		"SubMandate":              v2.CtxSubMandate,
 	}
 	seen := map[string]bool{}
 	for name, ctx := range ctxMap {
@@ -645,8 +649,9 @@ func TestCanonicalizationEdgeCases(t *testing.T) {
 // bundle_vectors.json under every verification mode: the signed bundle must
 // verify, each must_reject case's mutations (VERIFICATION.md V2-7 / V2-8) and
 // each must_reject_bundles entry must be rejected with an error naming
-// error_contains, and the classical-only routine control must get its
-// expected verdict.
+// error_contains, each must_accept_bundles entry must verify (both under each
+// mode's policy with the case's verifier_policy_overrides fields replaced), and
+// the classical-only routine control must get its expected verdict.
 func TestSignedBundleVectors(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	vecPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "tests", "interop", "v2", "bundle_vectors.json")
@@ -665,13 +670,15 @@ func TestSignedBundleVectors(t *testing.T) {
 			} `json:"mutations"`
 		} `json:"must_reject"`
 		MustAcceptBundles []struct {
-			Name         string          `json:"name"`
-			SignedBundle json.RawMessage `json:"signed_bundle"`
+			Name                    string                     `json:"name"`
+			SignedBundle            json.RawMessage            `json:"signed_bundle"`
+			VerifierPolicyOverrides map[string]json.RawMessage `json:"verifier_policy_overrides"`
 		} `json:"must_accept_bundles"`
 		MustRejectBundles []struct {
-			Name          string          `json:"name"`
-			ErrorContains string          `json:"error_contains"`
-			SignedBundle  json.RawMessage `json:"signed_bundle"`
+			Name                    string                     `json:"name"`
+			ErrorContains           string                     `json:"error_contains"`
+			SignedBundle            json.RawMessage            `json:"signed_bundle"`
+			VerifierPolicyOverrides map[string]json.RawMessage `json:"verifier_policy_overrides"`
 		} `json:"must_reject_bundles"`
 		Control struct {
 			SignedBundle   json.RawMessage `json:"signed_bundle"`
@@ -682,6 +689,35 @@ func TestSignedBundleVectors(t *testing.T) {
 		t.Fatalf("parse bundle vectors: %v", err)
 	}
 	reg := newRegistry()
+	// withOverrides is policy with the overrides' fields replaced; a field that
+	// is not a VerifierPolicy field fails the test.
+	withOverrides := func(t *testing.T, policy v2.VerifierPolicy, overrides map[string]json.RawMessage) v2.VerifierPolicy {
+		t.Helper()
+		if len(overrides) == 0 {
+			return policy
+		}
+		raw, err := json.Marshal(policy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			t.Fatal(err)
+		}
+		for k, v := range overrides {
+			fields[k] = v
+		}
+		if raw, err = json.Marshal(fields); err != nil {
+			t.Fatal(err)
+		}
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.DisallowUnknownFields()
+		var merged v2.VerifierPolicy
+		if err := dec.Decode(&merged); err != nil {
+			t.Fatalf("verifier_policy_overrides: %v", err)
+		}
+		return merged
+	}
 	rejects := func(t *testing.T, r *v2.V2VerificationResult, errorContains string) {
 		t.Helper()
 		if r.Verified {
@@ -717,19 +753,33 @@ func TestSignedBundleVectors(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					rejects(t, v2.VerifySignedBundleV2WithPolicy(reg, mutated, policy), m.ErrorContains)
+					r := v2.VerifySignedBundleV2WithPolicy(reg, mutated, policy)
+					// V2-2 now rejects the schema-invalid rows first, with exactly the oracles' schema errors; the
+					// deeper check their error_contains named stays covered where regression_map.json says.
+					if row := schemaFirstRow(t, "bundle_vectors.json", m.Name); row != nil {
+						expectSchemaRejection(t, r, row)
+						return
+					}
+					rejects(t, r, m.ErrorContains)
 				})
 			}
 			for _, b := range vecs.MustAcceptBundles {
 				t.Run(b.Name, func(t *testing.T) {
-					if r := v2.VerifySignedBundleV2WithPolicy(reg, b.SignedBundle, policy); !r.Verified {
+					casePolicy := withOverrides(t, policy, b.VerifierPolicyOverrides)
+					if r := v2.VerifySignedBundleV2WithPolicy(reg, b.SignedBundle, casePolicy); !r.Verified {
 						t.Fatalf("must verify: %v", r.Errors)
 					}
 				})
 			}
 			for _, b := range vecs.MustRejectBundles {
 				t.Run(b.Name, func(t *testing.T) {
-					rejects(t, v2.VerifySignedBundleV2WithPolicy(reg, b.SignedBundle, policy), b.ErrorContains)
+					casePolicy := withOverrides(t, policy, b.VerifierPolicyOverrides)
+					r := v2.VerifySignedBundleV2WithPolicy(reg, b.SignedBundle, casePolicy)
+					if row := schemaFirstRow(t, "bundle_vectors.json", b.Name); row != nil {
+						expectSchemaRejection(t, r, row)
+						return
+					}
+					rejects(t, r, b.ErrorContains)
 				})
 			}
 			r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.Control.SignedBundle, policy)
@@ -758,6 +808,46 @@ func TestSignedBundleVectors(t *testing.T) {
 	tuned.AcceptedClassicalAlgs = []string{"ed448"}
 	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, tuned); r.Verified {
 		t.Error("a policy field the verifier does not enforce must fail closed")
+	}
+	// The accepted algorithms are enforced, as in the TS verifier: a subset
+	// that keeps the bundle's algorithms verifies, one that drops its PQ
+	// algorithm does not. AllowV1Bundles false changes nothing for a V2 bundle.
+	subset := v2.DefaultVerifierPolicy()
+	subset.AcceptedPQAlgs, subset.AllowV1Bundles = []string{"ml-dsa-65"}, false
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, subset); !r.Verified {
+		t.Errorf("accepted_pq_algs [ml-dsa-65] and allow_v1_bundles false must verify an ML-DSA-65 bundle: %v", r.Errors)
+	}
+	subset.AcceptedPQAlgs = []string{"slh-dsa-192f"}
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, subset); r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "PQ algorithm ml-dsa-65 not accepted by verifier policy") {
+		t.Errorf("accepted_pq_algs without ml-dsa-65 must reject an ML-DSA-65 signature: %v", r.Errors)
+	}
+	// MaxSessionDurationSeconds bounds the signed window from session_issued_at
+	// to session_expires_at (V2-4), whatever the verification time: a maximum of
+	// exactly that duration verifies and one second less does not.
+	var signed struct {
+		Bundle struct {
+			Manifest struct {
+				SessionIssuedAt  string `json:"session_issued_at"`
+				SessionExpiresAt string `json:"session_expires_at"`
+			} `json:"manifest"`
+		} `json:"bundle"`
+	}
+	if err := json.Unmarshal(vecs.SignedBundle, &signed); err != nil {
+		t.Fatal(err)
+	}
+	issued, err1 := time.Parse(time.RFC3339, signed.Bundle.Manifest.SessionIssuedAt)
+	expires, err2 := time.Parse(time.RFC3339, signed.Bundle.Manifest.SessionExpiresAt)
+	if err1 != nil || err2 != nil {
+		t.Fatalf("signed_bundle session window: %v %v", err1, err2)
+	}
+	bounded := v2.DefaultVerifierPolicy()
+	bounded.MaxSessionDurationSeconds = int(expires.Unix() - issued.Unix())
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, bounded); !r.Verified {
+		t.Errorf("a session of exactly MaxSessionDurationSeconds must verify: %v", r.Errors)
+	}
+	bounded.MaxSessionDurationSeconds--
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, bounded); r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "Session duration") {
+		t.Errorf("a session longer than MaxSessionDurationSeconds must fail: %v", r.Errors)
 	}
 }
 
@@ -807,6 +897,280 @@ func TestDefaultVerifierPolicyVector(t *testing.T) {
 	if r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "rejected by active advisory") {
 		t.Fatalf("an advisory-rejected algorithm must fail verification: %v", r.Errors)
 	}
+
+	// The schema's session and audience fields decode into VerifierPolicy, and
+	// the verifier enforces them instead of failing closed on them.
+	delete(fields, "advisory_rejected_algs")
+	fields["require_session_expiry"] = true
+	fields["max_session_duration_seconds"] = 3_000_000_000
+	fields["require_audience_binding"] = true
+	fields["verifier_id"] = "verifier:acme"
+	raw, _ = json.Marshal(fields)
+	want := v2.DefaultVerifierPolicy()
+	want.AdvisoryRejectedAlgs = nil
+	want.RequireSessionExpiry, want.MaxSessionDurationSeconds = true, 3_000_000_000
+	want.RequireAudienceBinding, want.VerifierID = true, "verifier:acme"
+	if got := decode(raw); !reflect.DeepEqual(got, want) {
+		t.Fatalf("decoded %+v, want %+v", got, want)
+	} else if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, got); r.Verified ||
+		strings.Contains(strings.Join(r.Errors, "\n"), "does not enforce") ||
+		!strings.Contains(strings.Join(r.Errors, "\n"), "Policy requires audience binding") {
+		t.Fatalf("signed_bundle has no intended_verifier: %v", r.Errors)
+	}
+}
+
+// parseInstant parses an RFC 3339 timestamp string.
+func parseInstant(v interface{}) (time.Time, bool) {
+	s, _ := v.(string)
+	t, err := time.Parse(time.RFC3339, s)
+	return t, err == nil
+}
+
+// TestSignedBundleHostileShapes: the checks of VERIFICATION.md V2-4, V2-12 and V2-14
+// read decoded JSON, so a value of the wrong shape anywhere they look is an
+// error, never a panic. Each case changes the must_accept bundle
+// pq_checkpoint_over_the_trail at one path.
+func TestSignedBundleHostileShapes(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "tests", "interop", "v2", "bundle_vectors.json"))
+	if err != nil {
+		t.Fatalf("read bundle vectors: %v", err)
+	}
+	var vecs struct {
+		MustAcceptBundles []struct {
+			Name         string          `json:"name"`
+			SignedBundle json.RawMessage `json:"signed_bundle"`
+		} `json:"must_accept_bundles"`
+	}
+	if err := json.Unmarshal(data, &vecs); err != nil {
+		t.Fatalf("parse bundle vectors: %v", err)
+	}
+	var base json.RawMessage
+	for _, b := range vecs.MustAcceptBundles {
+		if b.Name == "pq_checkpoint_over_the_trail" {
+			base = b.SignedBundle
+		}
+	}
+	if base == nil {
+		t.Fatal("no pq_checkpoint_over_the_trail bundle")
+	}
+	reg := newRegistry()
+	if r := v2.VerifySignedBundleV2(reg, base); !r.Verified {
+		t.Fatalf("base bundle must verify: %v", r.Errors)
+	}
+
+	jsonValue := func(s string) interface{} {
+		var v interface{}
+		if err := json.Unmarshal([]byte(s), &v); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	cases := []struct {
+		path          string // dot-separated; a number indexes an array
+		value         string // JSON
+		errorContains string // "" when any error will do
+		maxSession    int    // the policy's MaxSessionDurationSeconds
+	}{
+		{"bundle.manifest.session_issued_at", `5`, "session_issued_at", 0},
+		{"bundle.manifest.session_issued_at", `{"t": [1]}`, "session_issued_at", 0},
+		{"bundle.manifest.session_issued_at", `"2026-10-21"`, "session_issued_at", 0},
+		{"bundle.manifest.session_issued_at", `"2100-01-01T00:00:00Z"`, "session_issued_at", 0},
+		{"bundle.manifest.session_issued_at", `null`, "session_issued_at", 3600},
+		{"bundle.manifest.session_issued_at", `["2026-10-21T00:00:00Z"]`, "session_issued_at", 3600},
+		{"bundle.manifest.session_expires_at", `{"t": 1}`, "session_expires_at", 3600},
+		{"signature.signer", `"human:interop-principal"`, "signer id", 0},
+		{"signature.signer", `null`, "signer kids", 0},
+		{"signature.signer.id", `{"id": [1]}`, "signer id", 0},
+		{"signature.signer.kids", `"kids"`, "signer kids", 0},
+		{"signature.signer.kids", `[1, {"a": 2}]`, "signer kids", 0},
+		{"signature.signer.kids", `[]`, "signer kids", 0},
+		{"signature.composite_sig.pq", `null`, "signer kids", 0},
+		{"signature.composite_sig.classical", `[]`, "signer kids", 0},
+		{"bundle.audit_entries.0.policy_decision", `["approved"]`, "audit_entries[0] policy_decision", 0},
+		{"bundle.audit_entries.0.policy_decision", `null`, "audit_entries[0] policy_decision", 0},
+		{"bundle.policy_decision.payload.decision", `["approve"]`, "audit_entries[0] policy_decision", 0},
+		{"bundle.policy_decision.payload.decision", `"constructor"`, "audit_entries[0] policy_decision", 0},
+		{"bundle.manifest.session_expires_at", `null`, "requires session_expires_at", 3600},
+		{"signature.manifest_hash", `null`, "manifest_hash", 0},
+		{"signature.manifest_hash", `{"sha256": 1}`, "manifest_hash", 0},
+		{"signature.hash_alg", `["sha256"]`, "hash_alg", 0},
+		{"signature.hash_alg", `"SHA256"`, "hash_alg", 0},
+		{"bundle.agent_passport.payload.keys.0.public_key_b64", `7`, "canonical base64", 0},
+		{"bundle.agent_passport.payload.keys.0.public_key_b64", `null`, "canonical base64", 0},
+		{"bundle.responsible_principal_record.payload.binding_keys.1.public_key_b64", `"QUFB\nQUFB"`, "canonical base64", 0},
+		{"bundle.responsible_principal_record.payload.session_nonce", `null`, "nonce", 0},
+		{"bundle.intent.payload.session_nonce", `["nonce"]`, "nonce", 0},
+		{"bundle.audit_entries.1.session_nonce", `{"n": 1}`, "nonce", 0},
+		{"bundle.pq_checkpoints.0.session_nonce", `null`, "nonce", 0},
+		{"signature.composite_sig.classical.sig_b64", `"AAAA\nAAAA"`, "classical sig_b64 is not canonical base64", 0},
+		{"signature.composite_sig.classical.sig_b64", `"AB=="`, "classical sig_b64 is not canonical base64", 0},
+		{"signature.composite_sig.classical.sig_b64", `"-_8="`, "classical sig_b64 is not canonical base64", 0},
+		{"signature.composite_sig.classical.sig_b64", `5`, "composite_sig", 0},
+		{"signature.composite_sig.pq.sig_b64", `"AAA"`, "pq sig_b64 is not canonical base64", 0},
+		{"signature.composite_sig.pq.sig_b64", `"AAAA===="`, "pq sig_b64 is not canonical base64", 0},
+		{"bundle.responsible_principal_record.composite_sig.classical.sig_b64", `"AAAA "`, "responsible_principal_record signature: classical sig_b64", 0},
+		{"bundle.policy_decision.composite_sig.pq.sig_b64", `"AAAA\r\n"`, "policy_decision signature: pq sig_b64", 0},
+		{"bundle.pq_checkpoints.0.composite_sig.classical.sig_b64", `"AB=="`, "pq_checkpoints[ckpt-interop-001]: classical sig_b64", 0},
+		{"bundle.pq_checkpoints.0.composite_sig.pq.sig_b64", `"AAAA\nAAAA"`, "pq_checkpoints[ckpt-interop-001]: pq sig_b64", 0},
+		{"bundle.pq_checkpoints", `{}`, "must be arrays", 0},
+		{"bundle.pq_checkpoints", `"ckpt-interop-001"`, "must be arrays", 0},
+		{"bundle.manifest.pq_checkpoints", `{"ckpt-interop-001": true}`, "must be arrays", 0},
+		{"bundle.manifest.pq_checkpoints", `[["ckpt-interop-001"], {"a": [1]}, null, 1]`, "does not carry", 0},
+		{"bundle.manifest.pq_checkpoints", `["ckpt-interop-001", "ckpt-interop-001"]`, "twice", 0},
+		{"bundle.pq_checkpoints", `[null, 1, "s", [], {}]`, "missing an id", 0},
+		{"bundle.pq_checkpoints.0.checkpoint_id", `{"x": [1]}`, "missing an id", 0},
+		{"bundle.pq_checkpoints.0.session_nonce", `["nonce"]`, "nonce", 0},
+		{"bundle.pq_checkpoints.0.event_range", `"audit-1..audit-2"`, "event_range does not match", 0},
+		{"bundle.pq_checkpoints.0.event_range", `null`, "event_range does not match", 0},
+		{"bundle.pq_checkpoints.0.event_range.from_audit_id", `{"a": 1}`, "event_range does not match", 0},
+		{"bundle.pq_checkpoints.0.event_range.count", `"2"`, "event_range does not match", 0},
+		{"bundle.pq_checkpoints.0.event_range.count", `2.5`, "event_range does not match", 0},
+		{"bundle.pq_checkpoints.0.merkle_root", `5`, "merkle_root does not match", 0},
+		{"bundle.pq_checkpoints.0.composite_sig", `null`, "pq_checkpoints[ckpt-interop-001]", 0},
+		{"bundle.pq_checkpoints.0.composite_sig", `{"classical": 1, "pq": [], "binding": {}}`, "pq_checkpoints[ckpt-interop-001]", 0},
+		{"bundle.audit_entries", `{}`, "", 0},
+		{"bundle.audit_entries.1", `null`, "", 0},
+		{"bundle.audit_entries.0.audit_id", `{"a": [1]}`, "event_range does not match", 0},
+		{"bundle.audit_entries.0.intent_hash", `["sha256:00"]`, "audit_entries[0] intent_hash", 0},
+		{"bundle.agent_passport.payload.status", `["active"]`, "agent_passport status", 0},
+		{"bundle.agent_passport.payload.status", `null`, "agent_passport status", 0},
+		{"bundle.agent_passport.payload", `[]`, "", 0},
+		{"bundle.agent_passport.payload.keys", `[{"kid": 1, "alg": [], "public_key_b64": {}}]`, "", 0},
+		{"bundle.responsible_principal_record.payload.expires_at", `{"t": 1}`, "invalid expires_at", 0},
+		{"bundle.responsible_principal_record.payload.human_id", `7`, "principal_binding_reference", 0},
+		{"bundle.responsible_principal_record.payload.binding_keys", `"keys"`, "rpr binding_keys", 0},
+		{"bundle.intent.payload", `"intent"`, "", 0},
+		{"bundle.intent.payload", `null`, "", 0},
+		{"bundle.intent", `[]`, "", 0},
+		{"bundle.policy_decision.payload.intent_id", `{"id": 1}`, "policy_decision intent_id", 0},
+	}
+	// V2-2 now refuses these shapes first, with exactly these schema errors (the set both phase-1 oracles report for
+	// them, a failed oneOf once at its instance); the checks the error_contains above named are reached by the three
+	// schema-valid rows, the shared deep negatives and their helpers' direct tests.
+	schemaFirst := map[string][]string{
+		"bundle.manifest.session_issued_at=5":                                                       {"schema: /bundle/manifest/session_issued_at type"},
+		"bundle.manifest.session_issued_at={\"t\": [1]}":                                            {"schema: /bundle/manifest/session_issued_at type"},
+		"bundle.manifest.session_issued_at=\"2026-10-21\"":                                          {"schema: /bundle/manifest/session_issued_at format"},
+		"bundle.manifest.session_issued_at=null":                                                    {"schema: /bundle/manifest/session_issued_at type"},
+		"bundle.manifest.session_issued_at=[\"2026-10-21T00:00:00Z\"]":                              {"schema: /bundle/manifest/session_issued_at type"},
+		"bundle.manifest.session_expires_at={\"t\": 1}":                                             {"schema: /bundle/manifest/session_expires_at type"},
+		"signature.signer=\"human:interop-principal\"":                                              {"schema: /signature/signer type"},
+		"signature.signer=null":                                                                     {"schema: /signature/signer type"},
+		"signature.signer.id={\"id\": [1]}":                                                         {"schema: /signature/signer/id type"},
+		"signature.signer.kids=\"kids\"":                                                            {"schema: /signature/signer/kids type"},
+		"signature.signer.kids=[1, {\"a\": 2}]":                                                     {"schema: /signature/signer/kids/0 type", "schema: /signature/signer/kids/1 type"},
+		"signature.signer.kids=[]":                                                                  {"schema: /signature/signer/kids minItems"},
+		"signature.composite_sig.classical=[]":                                                      {"schema: /signature/composite_sig/classical type"},
+		"bundle.audit_entries.0.policy_decision=[\"approved\"]":                                     {"schema: /bundle/audit_entries/0/policy_decision enum", "schema: /bundle/audit_entries/0/policy_decision type"},
+		"bundle.audit_entries.0.policy_decision=null":                                               {"schema: /bundle/audit_entries/0/policy_decision enum", "schema: /bundle/audit_entries/0/policy_decision type"},
+		"bundle.policy_decision.payload.decision=[\"approve\"]":                                     {"schema: /bundle/policy_decision/payload/decision enum", "schema: /bundle/policy_decision/payload/decision type"},
+		"bundle.policy_decision.payload.decision=\"constructor\"":                                   {"schema: /bundle/policy_decision/payload/decision enum"},
+		"bundle.manifest.session_expires_at=null":                                                   {"schema: /bundle/manifest/session_expires_at type"},
+		"signature.manifest_hash=null":                                                              {"schema: /signature/manifest_hash type"},
+		"signature.manifest_hash={\"sha256\": 1}":                                                   {"schema: /signature/manifest_hash type"},
+		"signature.hash_alg=[\"sha256\"]":                                                           {"schema: /signature/hash_alg enum", "schema: /signature/hash_alg type"},
+		"signature.hash_alg=\"SHA256\"":                                                             {"schema: /signature/hash_alg enum"},
+		"bundle.agent_passport.payload.keys.0.public_key_b64=7":                                     {"schema: /bundle/agent_passport/payload/keys/0/public_key_b64 type"},
+		"bundle.agent_passport.payload.keys.0.public_key_b64=null":                                  {"schema: /bundle/agent_passport/payload/keys/0/public_key_b64 type"},
+		"bundle.responsible_principal_record.payload.binding_keys.1.public_key_b64=\"QUFB\\nQUFB\"": {"schema: /bundle/responsible_principal_record/payload/binding_keys/1/public_key_b64 pattern"},
+		"bundle.responsible_principal_record.payload.session_nonce=null":                            {"schema: /bundle/responsible_principal_record/payload/session_nonce type"},
+		"bundle.intent.payload.session_nonce=[\"nonce\"]":                                           {"schema: /bundle/intent/payload/session_nonce type"},
+		"bundle.audit_entries.1.session_nonce={\"n\": 1}":                                           {"schema: /bundle/audit_entries/1/session_nonce type"},
+		"bundle.pq_checkpoints.0.session_nonce=null":                                                {"schema: /bundle/pq_checkpoints/0/session_nonce type"},
+		"signature.composite_sig.classical.sig_b64=\"AAAA\\nAAAA\"":                                 {"schema: /signature/composite_sig/classical/sig_b64 pattern"},
+		"signature.composite_sig.classical.sig_b64=\"AB==\"":                                        {"schema: /signature/composite_sig/classical/sig_b64 minLength"},
+		"signature.composite_sig.classical.sig_b64=\"-_8=\"":                                        {"schema: /signature/composite_sig/classical/sig_b64 minLength", "schema: /signature/composite_sig/classical/sig_b64 pattern"},
+		"signature.composite_sig.classical.sig_b64=5":                                               {"schema: /signature/composite_sig/classical/sig_b64 type"},
+		"signature.composite_sig.pq.sig_b64=\"AAA\"":                                                {"schema: /signature/composite_sig/pq oneOf"},
+		"signature.composite_sig.pq.sig_b64=\"AAAA====\"":                                           {"schema: /signature/composite_sig/pq oneOf"},
+		"bundle.responsible_principal_record.composite_sig.classical.sig_b64=\"AAAA \"":             {"schema: /bundle/responsible_principal_record/composite_sig/classical/sig_b64 minLength", "schema: /bundle/responsible_principal_record/composite_sig/classical/sig_b64 pattern"},
+		"bundle.policy_decision.composite_sig.pq.sig_b64=\"AAAA\\r\\n\"":                            {"schema: /bundle/policy_decision/composite_sig/pq oneOf"},
+		"bundle.pq_checkpoints.0.composite_sig.classical.sig_b64=\"AB==\"":                          {"schema: /bundle/pq_checkpoints/0/composite_sig/classical/sig_b64 minLength"},
+		"bundle.pq_checkpoints.0.composite_sig.pq.sig_b64=\"AAAA\\nAAAA\"":                          {"schema: /bundle/pq_checkpoints/0/composite_sig/pq oneOf"},
+		"bundle.pq_checkpoints={}":                                                                  {"schema: /bundle/pq_checkpoints type"},
+		"bundle.pq_checkpoints=\"ckpt-interop-001\"":                                                {"schema: /bundle/pq_checkpoints type"},
+		"bundle.manifest.pq_checkpoints={\"ckpt-interop-001\": true}":                               {"schema: /bundle/manifest/pq_checkpoints type"},
+		"bundle.manifest.pq_checkpoints=[[\"ckpt-interop-001\"], {\"a\": [1]}, null, 1]":            {"schema: /bundle/manifest/pq_checkpoints/0 type", "schema: /bundle/manifest/pq_checkpoints/1 type", "schema: /bundle/manifest/pq_checkpoints/2 type", "schema: /bundle/manifest/pq_checkpoints/3 type"},
+		"bundle.pq_checkpoints=[null, 1, \"s\", [], {}]":                                            {"schema: /bundle/pq_checkpoints/0 type", "schema: /bundle/pq_checkpoints/1 type", "schema: /bundle/pq_checkpoints/2 type", "schema: /bundle/pq_checkpoints/3 type", "schema: /bundle/pq_checkpoints/4 required checkpoint_id", "schema: /bundle/pq_checkpoints/4 required composite_sig", "schema: /bundle/pq_checkpoints/4 required event_range", "schema: /bundle/pq_checkpoints/4 required merkle_root", "schema: /bundle/pq_checkpoints/4 required session_nonce"},
+		"bundle.pq_checkpoints.0.checkpoint_id={\"x\": [1]}":                                        {"schema: /bundle/pq_checkpoints/0/checkpoint_id type"},
+		"bundle.pq_checkpoints.0.session_nonce=[\"nonce\"]":                                         {"schema: /bundle/pq_checkpoints/0/session_nonce type"},
+		"bundle.pq_checkpoints.0.event_range=\"audit-1..audit-2\"":                                  {"schema: /bundle/pq_checkpoints/0/event_range type"},
+		"bundle.pq_checkpoints.0.event_range=null":                                                  {"schema: /bundle/pq_checkpoints/0/event_range type"},
+		"bundle.pq_checkpoints.0.event_range.from_audit_id={\"a\": 1}":                              {"schema: /bundle/pq_checkpoints/0/event_range/from_audit_id type"},
+		"bundle.pq_checkpoints.0.event_range.count=\"2\"":                                           {"schema: /bundle/pq_checkpoints/0/event_range/count type"},
+		"bundle.pq_checkpoints.0.event_range.count=2.5":                                             {"schema: /bundle/pq_checkpoints/0/event_range/count type"},
+		"bundle.pq_checkpoints.0.merkle_root=5":                                                     {"schema: /bundle/pq_checkpoints/0/merkle_root type"},
+		"bundle.pq_checkpoints.0.composite_sig=null":                                                {"schema: /bundle/pq_checkpoints/0/composite_sig type"},
+		"bundle.pq_checkpoints.0.composite_sig={\"classical\": 1, \"pq\": [], \"binding\": {}}":     {"schema: /bundle/pq_checkpoints/0/composite_sig/binding enum", "schema: /bundle/pq_checkpoints/0/composite_sig/binding type", "schema: /bundle/pq_checkpoints/0/composite_sig/classical type", "schema: /bundle/pq_checkpoints/0/composite_sig/pq oneOf"},
+		"bundle.audit_entries={}":                                                                   {"schema: /bundle/audit_entries type"},
+		"bundle.audit_entries.1=null":                                                               {"schema: /bundle/audit_entries/1 type"},
+		"bundle.audit_entries.0.audit_id={\"a\": [1]}":                                              {"schema: /bundle/audit_entries/0/audit_id type"},
+		"bundle.audit_entries.0.intent_hash=[\"sha256:00\"]":                                        {"schema: /bundle/audit_entries/0/intent_hash type"},
+		"bundle.agent_passport.payload.status=[\"active\"]":                                         {"schema: /bundle/agent_passport/payload/status enum", "schema: /bundle/agent_passport/payload/status type"},
+		"bundle.agent_passport.payload.status=null":                                                 {"schema: /bundle/agent_passport/payload/status enum", "schema: /bundle/agent_passport/payload/status type"},
+		"bundle.agent_passport.payload=[]":                                                          {"schema: /bundle/agent_passport/payload type"},
+		"bundle.agent_passport.payload.keys=[{\"kid\": 1, \"alg\": [], \"public_key_b64\": {}}]":    {"schema: /bundle/agent_passport/payload/keys/0 required created_at", "schema: /bundle/agent_passport/payload/keys/0 required expires_at", "schema: /bundle/agent_passport/payload/keys/0 required status", "schema: /bundle/agent_passport/payload/keys/0/alg enum", "schema: /bundle/agent_passport/payload/keys/0/alg type", "schema: /bundle/agent_passport/payload/keys/0/kid type", "schema: /bundle/agent_passport/payload/keys/0/public_key_b64 type"},
+		"bundle.responsible_principal_record.payload.expires_at={\"t\": 1}":                         {"schema: /bundle/responsible_principal_record/payload/expires_at type"},
+		"bundle.responsible_principal_record.payload.human_id=7":                                    {"schema: /bundle/responsible_principal_record/payload/human_id type"},
+		"bundle.responsible_principal_record.payload.binding_keys=\"keys\"":                         {"schema: /bundle/responsible_principal_record/payload/binding_keys type"},
+		"bundle.intent.payload=\"intent\"":                                                          {"schema: /bundle/intent/payload type"},
+		"bundle.intent.payload=null":                                                                {"schema: /bundle/intent/payload type"},
+		"bundle.intent=[]":                                                                          {"schema: /bundle/intent type"},
+		"bundle.policy_decision.payload.intent_id={\"id\": 1}":                                      {"schema: /bundle/policy_decision/payload/intent_id type"},
+	}
+	for _, c := range cases {
+		t.Run(c.path+"="+c.value, func(t *testing.T) {
+			var sb interface{}
+			if err := json.Unmarshal(base, &sb); err != nil {
+				t.Fatal(err)
+			}
+			keys := strings.Split(c.path, ".")
+			node := sb
+			for i, key := range keys {
+				last := i == len(keys)-1
+				switch n := node.(type) {
+				case map[string]interface{}:
+					if last {
+						n[key] = jsonValue(c.value)
+					}
+					node = n[key]
+				case []interface{}:
+					idx := 0
+					if _, err := fmt.Sscan(key, &idx); err != nil || idx >= len(n) {
+						t.Fatalf("bad index %s", key)
+					}
+					if last {
+						n[idx] = jsonValue(c.value)
+					}
+					node = n[idx]
+				default:
+					t.Fatalf("path %s does not exist", c.path)
+				}
+			}
+			mutated, err := json.Marshal(sb)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, mode := range []string{"classical_only", "hybrid_preferred", "hybrid_required", "pq_only"} {
+				policy := v2.DefaultVerifierPolicy()
+				policy.DefaultMode = mode
+				policy.RiskOverrides = map[string]string{"low": mode, "medium": mode, "high": mode}
+				policy.MaxSessionDurationSeconds = c.maxSession
+				r := v2.VerifySignedBundleV2WithPolicy(reg, mutated, policy)
+				if want, ok := schemaFirst[c.path+"="+c.value]; ok {
+					expectSchemaDiagnostics(t, r, want)
+					continue
+				}
+				if r.Verified {
+					t.Fatalf("%s: must be rejected", mode)
+				}
+				if !strings.Contains(strings.ToLower(strings.Join(r.Errors, "\n")), strings.ToLower(c.errorContains)) {
+					t.Fatalf("%s: no error mentions %q: %v", mode, c.errorContains, r.Errors)
+				}
+			}
+		})
+	}
 }
 
 type testSigner struct {
@@ -831,13 +1195,52 @@ func newTestSigner(t *testing.T) testSigner {
 	for _, k := range []v2.CompositeKeyInfo{s.classical, s.pq} {
 		s.entries = append(s.entries, map[string]interface{}{
 			"kid": k.Kid, "alg": k.Alg, "public_key_b64": k.PublicKeyB64, "status": "active",
+			"created_at": "2026-10-21T00:00:00Z", "expires_at": nil,
 		})
 	}
 	return s
 }
 
+// testPayloads are the artifacts the build-and-sign tests sign: every member V2-2 requires (VERIFICATION.md V2-2),
+// identifiers of at least the schemas' six code points.
+func testPayloads(nonce string, principal, agent testSigner) (rpr, passport, intent, policy map[string]interface{}) {
+	rpr = map[string]interface{}{
+		"dcp_version": "2.0", "human_id": "human-1", "session_nonce": nonce, "legal_name": "Test Principal",
+		"entity_type": "natural_person", "jurisdiction": "US-CA", "liability_mode": "owner_responsible",
+		"override_rights": true, "issued_at": "2026-10-21T00:00:00Z", "expires_at": nil, "binding_keys": principal.entries,
+	}
+	passport = map[string]interface{}{
+		"dcp_version": "2.0", "agent_id": "agent-1", "session_nonce": nonce, "keys": agent.entries, "status": "active",
+		"principal_binding_reference": "human-1", "capabilities": []interface{}{"api_call"}, "risk_tier": "medium",
+		"created_at": "2026-10-21T00:00:00Z",
+	}
+	intent = map[string]interface{}{
+		"dcp_version": "2.0", "intent_id": "intent-1", "agent_id": "agent-1", "human_id": "human-1", "session_nonce": nonce,
+		"timestamp": "2026-10-21T12:00:00Z", "action_type": "api_call", "target": map[string]interface{}{"channel": "api"},
+		"data_classes": []interface{}{}, "estimated_impact": "low", "requires_consent": false,
+	}
+	policy = map[string]interface{}{
+		"dcp_version": "2.0", "intent_id": "intent-1", "session_nonce": nonce, "risk_score": 200, "decision": "approve",
+		"reasons": []interface{}{"test"}, "required_confirmation": nil, "applied_policy_hash": "sha256:" + strings.Repeat("0", 64),
+		"timestamp": "2026-10-21T12:00:01Z",
+	}
+	return rpr, passport, intent, policy
+}
+
+// testAuditEvent is the first audit entry of those bundles, over the intent's payload hash.
+func testAuditEvent(nonce, intentHash string) v2.AuditEventV2 {
+	return v2.AuditEventV2{
+		DCPVersion: "2.0", AuditID: "audit-1", SessionNonce: nonce, PrevHash: "GENESIS", HashAlg: "sha256",
+		Timestamp: "2026-10-21T12:01:00Z", AgentID: "agent-1", HumanID: "human-1", IntentID: "intent-1",
+		IntentHash: intentHash, PolicyDecision: "approved", Outcome: "done",
+	}
+}
+
 // TestBuildSignVerifyBundleV2: a bundle built from signed artifacts with
-// BuildBundleV2 and signed with SignBundleV2 passes VerifySignedBundleV2.
+// BuildBundleV2 and signed with SignBundleV2 passes VerifySignedBundleV2, with
+// and without a PQ checkpoint from CreatePQCheckpoint. The artifacts name one
+// principal, agent and intent, and the audit entries carry the intent's
+// payload hash (VERIFICATION.md V2-14).
 func TestBuildSignVerifyBundleV2(t *testing.T) {
 	reg := newRegistry()
 	principal, agent := newTestSigner(t), newTestSigner(t)
@@ -851,7 +1254,13 @@ func TestBuildSignVerifyBundleV2(t *testing.T) {
 		return sp
 	}
 
-	audit1 := v2.AuditEventV2{DCPVersion: "2.0", AuditID: "audit-1", SessionNonce: nonce, PrevHash: "GENESIS", HashAlg: "sha256"}
+	rprPayload, passport, intentPayload, policyPayload := testPayloads(nonce, principal, agent)
+	intent := sign(v2.CtxIntent, intentPayload, agent)
+	intentCanonical, err := v2.CanonicalizeV2(intent.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	audit1 := testAuditEvent(nonce, "sha256:"+v2.SHA256Hex([]byte(intentCanonical)))
 	canonical, err := v2.CanonicalizeV2(audit1)
 	if err != nil {
 		t.Fatal(err)
@@ -860,26 +1269,128 @@ func TestBuildSignVerifyBundleV2(t *testing.T) {
 	audit2.AuditID, audit2.PrevHash = "audit-2", "sha256:"+v2.SHA256Hex([]byte(canonical))
 
 	bundle, err := v2.BuildBundleV2(v2.BundleBuildInput{
-		RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "h-1", "session_nonce": nonce, "binding_keys": principal.entries}, principal),
-		Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": nonce, "keys": agent.entries}, agent),
-		Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": nonce}, agent),
-		Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200}, agent),
+		RPR:          sign(v2.CtxResponsiblePrincipal, rprPayload, principal),
+		Passport:     sign(v2.CtxAgentPassport, passport, agent),
+		Intent:       intent,
+		Policy:       sign(v2.CtxPolicyDecision, policyPayload, agent),
 		AuditEntries: []v2.AuditEventV2{audit1, audit2},
 		SessionNonce: nonce,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	signed, err := v2.SignBundleV2(reg, bundle, principal.classical, &principal.pq)
-	if err != nil {
-		t.Fatal(err)
+	var lastSigned []byte
+	verifyWith := func(bundle *v2.CitizenshipBundleV2, policy v2.VerifierPolicy) *v2.V2VerificationResult {
+		t.Helper()
+		signed, err := v2.SignBundleV2(reg, bundle, principal.classical, &principal.pq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lastSigned, err = json.Marshal(signed); err != nil {
+			t.Fatal(err)
+		}
+		return v2.VerifySignedBundleV2WithPolicy(reg, lastSigned, policy)
 	}
-	data, err := json.Marshal(signed)
-	if err != nil {
-		t.Fatal(err)
+	verify := func(bundle *v2.CitizenshipBundleV2) *v2.V2VerificationResult {
+		t.Helper()
+		return verifyWith(bundle, v2.DefaultVerifierPolicy())
 	}
-	if r := v2.VerifySignedBundleV2(reg, data); !r.Verified {
+	if r := verify(bundle); !r.Verified {
 		t.Fatalf("built bundle must verify: %v", r.Errors)
+	}
+
+	// The signed session window (V2-4): SignBundleV2 signs a manifest's
+	// SessionExpiresAt with SessionIssuedAt, the signing time unless set, and
+	// leaves the caller's bundle alone.
+	bounded := v2.DefaultVerifierPolicy()
+	bounded.MaxSessionDurationSeconds = 3600
+	windowed := *bundle
+	windowed.Manifest.SessionExpiresAt = time.Now().Add(30 * time.Minute).UTC().Format(time.RFC3339)
+	if r := verifyWith(&windowed, bounded); !r.Verified {
+		t.Fatalf("a 30 minute session must verify under a one hour maximum: %v", r.Errors)
+	}
+	var out struct {
+		Bundle struct {
+			Manifest map[string]interface{} `json:"manifest"`
+		} `json:"bundle"`
+	}
+	if err := json.Unmarshal(lastSigned, &out); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := parseInstant(out.Bundle.Manifest["session_issued_at"]); !ok || windowed.Manifest.SessionIssuedAt != "" {
+		t.Fatalf("signed session_issued_at %v, caller's %q", out.Bundle.Manifest["session_issued_at"], windowed.Manifest.SessionIssuedAt)
+	}
+	windowed.Manifest.SessionIssuedAt = time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
+	if r := verifyWith(&windowed, bounded); r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "Session duration") {
+		t.Fatalf("a session issued two hours ago must exceed a one hour maximum: %v", r.Errors)
+	}
+
+	// A checkpoint over the audit trail, listed in the manifest (V2-12).
+	withCheckpoint := func(s testSigner) *v2.CitizenshipBundleV2 {
+		t.Helper()
+		var events []map[string]interface{}
+		raw, err := json.Marshal(bundle.AuditEntries)
+		if err == nil {
+			err = json.Unmarshal(raw, &events)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		cp, err := v2.CreatePQCheckpoint(reg, s.classical, s.pq, events, nonce)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var typed v2.PQCheckpoint
+		if raw, err = json.Marshal(cp); err == nil {
+			err = json.Unmarshal(raw, &typed)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		b := *bundle
+		b.PQCheckpoints = []v2.PQCheckpoint{typed}
+		b.Manifest.PQCheckpoints = []string{typed.CheckpointID}
+		return &b
+	}
+	if r := verify(withCheckpoint(agent)); !r.Verified {
+		t.Fatalf("bundle with the agent's checkpoint must verify: %v", r.Errors)
+	}
+	// The agent signs checkpoints: the principal's keys are not passport keys.
+	if r := verify(withCheckpoint(principal)); r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "not found in passport keys") {
+		t.Fatalf("a checkpoint signed by the principal must be rejected: %v", r.Errors)
+	}
+
+	// RequireSessionExpiry, RequireAudienceBinding and VerifierID, as the
+	// TypeScript verifier applies them.
+	bound := *bundle
+	bound.Manifest.SessionExpiresAt = time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	bound.Manifest.IntendedVerifier = "verifier:acme"
+	for _, c := range []struct {
+		name          string
+		bundle        *v2.CitizenshipBundleV2
+		edit          func(p *v2.VerifierPolicy)
+		errorContains string // "" when the bundle must verify
+	}{
+		{"expiry required and present", &bound, func(p *v2.VerifierPolicy) { p.RequireSessionExpiry = true }, ""},
+		{"expiry required and absent", bundle, func(p *v2.VerifierPolicy) { p.RequireSessionExpiry = true },
+			"Policy requires session_expires_at but manifest does not include it"},
+		{"audience required and present", &bound, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding = true }, ""},
+		{"audience required and absent", bundle, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding = true },
+			"Policy requires audience binding but manifest does not include intended_verifier"},
+		{"audience is this verifier", &bound, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding, p.VerifierID = true, "verifier:acme" }, ""},
+		{"audience is another verifier", &bound, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding, p.VerifierID = true, "verifier:other" },
+			`Bundle intended for verifier "verifier:acme", not "verifier:other"`},
+		{"verifier id alone binds nothing", bundle, func(p *v2.VerifierPolicy) { p.VerifierID = "verifier:other" }, ""},
+	} {
+		policy := v2.DefaultVerifierPolicy()
+		c.edit(&policy)
+		r := verifyWith(c.bundle, policy)
+		switch {
+		case c.errorContains == "" && !r.Verified:
+			t.Errorf("%s: must verify: %v", c.name, r.Errors)
+		case c.errorContains != "" && (r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), c.errorContains)):
+			t.Errorf("%s: want an error %q, got verified=%v %v", c.name, c.errorContains, r.Verified, r.Errors)
+		}
 	}
 }
 
@@ -891,6 +1402,79 @@ func TestInteropEffectiveVerificationMode(t *testing.T) {
 	for _, c := range cases {
 		if got := v2.EffectiveVerificationMode(c.PolicyMode, c.Tier); got != c.Expected {
 			t.Errorf("%s + %s: got %s, want %s", c.PolicyMode, c.Tier, got, c.Expected)
+		}
+	}
+}
+
+// TestMalformedSessionNonceRejected: a bundle whose artifacts all share a
+// session nonce that is not 64 lowercase hex characters is rejected, as the
+// TypeScript, Python and Rust verifiers reject it (VERIFICATION.md V2-4).
+func TestMalformedSessionNonceRejected(t *testing.T) {
+	reg := newRegistry()
+	principal, agent := newTestSigner(t), newTestSigner(t)
+	for _, tc := range []struct {
+		nonce string
+		valid bool
+	}{{strings.Repeat("ab", 32), true}, {strings.Repeat("AB", 32), false}, {"abcdef", false}} {
+		sign := func(context string, payload map[string]interface{}, s testSigner) v2.SignedPayload {
+			t.Helper()
+			sp, err := v2.SignPayload(reg, context, payload, s.classical, &s.pq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return sp
+		}
+		rprPayload, passport, intentPayload, policyPayload := testPayloads(tc.nonce, principal, agent)
+		intent := sign(v2.CtxIntent, intentPayload, agent)
+		intentCanonical, err := v2.CanonicalizeV2(intent.Payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		audit := testAuditEvent(tc.nonce, "sha256:"+v2.SHA256Hex([]byte(intentCanonical)))
+		bundle, err := v2.BuildBundleV2(v2.BundleBuildInput{
+			RPR:          sign(v2.CtxResponsiblePrincipal, rprPayload, principal),
+			Passport:     sign(v2.CtxAgentPassport, passport, agent),
+			Intent:       intent,
+			Policy:       sign(v2.CtxPolicyDecision, policyPayload, agent),
+			AuditEntries: []v2.AuditEventV2{audit},
+			SessionNonce: tc.nonce,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		signed, err := v2.SignBundleV2(reg, bundle, principal.classical, &principal.pq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := json.Marshal(signed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := v2.VerifySignedBundleV2WithPolicy(reg, raw, v2.DefaultVerifierPolicy())
+		if r.Verified != tc.valid {
+			t.Errorf("nonce %q: verified %v, want %v: %v", tc.nonce, r.Verified, tc.valid, r.Errors)
+		}
+		// V2-2 (the session_nonce pattern of every artifact, entry and the manifest) now refuses a malformed nonce
+		// first; the V2-4 check applies the same rule and is no longer reachable from a bundle, so its helpers keep it.
+		if !tc.valid {
+			want := []string{
+				"schema: /bundle/agent_passport/payload/session_nonce pattern",
+				"schema: /bundle/audit_entries/0/session_nonce pattern",
+				"schema: /bundle/intent/payload/session_nonce pattern",
+				"schema: /bundle/manifest/session_nonce pattern",
+				"schema: /bundle/policy_decision/payload/session_nonce pattern",
+				"schema: /bundle/responsible_principal_record/payload/session_nonce pattern",
+			}
+			got := append([]string(nil), r.Errors...)
+			sort.Strings(got)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("nonce %q: errors %v, want %v", tc.nonce, got, want)
+			}
+		}
+		binding := v2.VerifySessionBinding([]map[string]interface{}{{"session_nonce": tc.nonce}, {"session_nonce": tc.nonce}})
+		if v2.IsValidSessionNonce(tc.nonce) != tc.valid || binding.Valid != tc.valid ||
+			(!tc.valid && !strings.Contains(binding.Error, "Invalid session_nonce")) {
+			t.Errorf("nonce %q: the V2-4 helpers give %v %+v, want %v", tc.nonce, v2.IsValidSessionNonce(tc.nonce), binding, tc.valid)
 		}
 	}
 }

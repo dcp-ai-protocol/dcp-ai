@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use super::composite_sig::CompositeSignature;
+use super::delegation::SubDelegationPolicy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyEntry {
@@ -114,6 +115,12 @@ pub struct PolicyDecisionV2 {
 
 // ── DCP-03: Audit Chain & Transparency ──
 
+/// Evidence attached to a V2 audit event, for producing entries.
+///
+/// Not a lossless representation of received evidence: an explicit `null` member and any member other than these
+/// three are lost when it is decoded and encoded again, which changes the entry's dcp-jcs-v1 bytes and can break the
+/// `prev_hash` chain or the audit Merkle root. To keep a received entry, use [`RawAuditEventV2`]; to keep a received
+/// bundle, keep and verify its bytes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEvidenceV2 {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -124,6 +131,11 @@ pub struct AuditEvidenceV2 {
     pub evidence_hash: Option<String>,
 }
 
+/// A V2 audit event, for producing entries.
+///
+/// Not a lossless representation of a received entry: decoding and encoding it again drops a `null`
+/// `prev_hash_secondary` or `intent_hash_secondary`, turns an absent `pq_checkpoint_ref` into `null`, drops unknown
+/// members, and loses evidence as [`AuditEvidenceV2`] does. Use [`RawAuditEventV2`] to keep a received entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEventV2 {
     pub dcp_version: String,
@@ -144,6 +156,88 @@ pub struct AuditEventV2 {
     pub outcome: String,
     pub evidence: AuditEvidenceV2,
     pub pq_checkpoint_ref: Option<String>,
+}
+
+/// The input of a [`RawAuditEventV2`] was not a JSON object.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawAuditEventError {
+    found: &'static str,
+}
+
+impl RawAuditEventError {
+    /// The JSON type found instead of an object: `array`, `string`, `number`, `boolean` or `null`.
+    pub fn found(&self) -> &'static str {
+        self.found
+    }
+}
+
+impl std::fmt::Display for RawAuditEventError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "an audit entry must be a JSON object, found {}", self.found)
+    }
+}
+
+impl std::error::Error for RawAuditEventError {}
+
+/// One V2 audit entry exactly as it was decoded: every member at every depth, with its presence and `null`-ness and
+/// unknown members included, in the entry and in its evidence. Whatever the dcp-jcs-v1 canonicalizer accepts in it
+/// gives the same bytes before and after a decode and encode, and so the same `prev_hash` and Merkle leaf.
+///
+/// It keeps what the existing parser produced (`serde_json`, as in the verifier), not the original text: number
+/// spelling, repeated member names and escapes are the parser's. It never normalizes, repairs or re-signs, and it
+/// keeps invalid evidence as it is, so a verifier rejects it for the same reason. The only check is that the entry is
+/// a JSON object. [`RawAuditEventV2::typed`] is a lossy view for reading fields, not for forwarding.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct RawAuditEventV2(serde_json::Value);
+
+impl RawAuditEventV2 {
+    /// Keeps `value` as given; refuses anything that is not a JSON object.
+    pub fn from_value(value: serde_json::Value) -> Result<Self, RawAuditEventError> {
+        let found = match &value {
+            serde_json::Value::Object(_) => return Ok(Self(value)),
+            serde_json::Value::Array(_) => "array",
+            serde_json::Value::String(_) => "string",
+            serde_json::Value::Number(_) => "number",
+            serde_json::Value::Bool(_) => "boolean",
+            serde_json::Value::Null => "null",
+        };
+        Err(RawAuditEventError { found })
+    }
+
+    pub fn as_value(&self) -> &serde_json::Value {
+        &self.0
+    }
+
+    pub fn into_value(self) -> serde_json::Value {
+        self.0
+    }
+
+    /// A lossy, typed view of the entry (see [`AuditEventV2`]); never serialize it to forward the entry.
+    pub fn typed(&self) -> Result<AuditEventV2, serde_json::Error> {
+        AuditEventV2::deserialize(&self.0)
+    }
+}
+
+impl TryFrom<serde_json::Value> for RawAuditEventV2 {
+    type Error = RawAuditEventError;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        Self::from_value(value)
+    }
+}
+
+impl From<RawAuditEventV2> for serde_json::Value {
+    fn from(entry: RawAuditEventV2) -> Self {
+        entry.0
+    }
+}
+
+impl<'de> Deserialize<'de> for RawAuditEventV2 {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        Self::from_value(value).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +271,15 @@ pub struct BundleManifest {
     pub audit_count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pq_checkpoints: Option<Vec<String>>,
+    /// When the session began (RFC 3339), signed with the manifest; a verifier
+    /// with a maximum session duration measures it from here
+    /// (spec/VERIFICATION.md V2-4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_issued_at: Option<String>,
+    /// The verifier this bundle is meant for, signed with the manifest; a
+    /// verifier policy with `require_audience_binding` checks it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intended_verifier: Option<String>,
     /// JSON canonicalization profile under which this bundle was produced.
     /// Optional today (only `"dcp-jcs-v1"` is defined; absence is assumed
     /// equivalent to `"dcp-jcs-v1"` per
@@ -242,6 +345,24 @@ pub struct VerifierPolicy {
     pub warn_classical_only_deprecated: bool,
     #[serde(default)]
     pub advisory_rejected_algs: Vec<String>,
+    /// The most `session_expires_at` may be after the signed
+    /// `session_issued_at`, in seconds (VERIFICATION.md V2-4), as in
+    /// schemas/v2/verifier_policy.schema.json. Absent or 0 sets no bound; under
+    /// a bound, a manifest with `session_expires_at` and without
+    /// `session_issued_at` fails verification.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_session_duration_seconds: Option<u64>,
+    /// A manifest without `session_expires_at` fails verification. Absent
+    /// means false.
+    #[serde(default)]
+    pub require_session_expiry: bool,
+    /// A manifest without `intended_verifier`, or with one other than
+    /// `verifier_id` when that is set, fails verification. Absent means false.
+    #[serde(default)]
+    pub require_audience_binding: bool,
+    /// This verifier's identity, for `require_audience_binding`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verifier_id: Option<String>,
 }
 
 /// The default verifier policy, the same as `DEFAULT_VERIFIER_POLICY` in the
@@ -264,6 +385,10 @@ impl Default for VerifierPolicy {
             allow_classical_fallback_disable: false,
             warn_classical_only_deprecated: false,
             advisory_rejected_algs: Vec::new(),
+            max_session_duration_seconds: None,
+            require_session_expiry: false,
+            require_audience_binding: false,
+            verifier_id: None,
         }
     }
 }
@@ -538,6 +663,29 @@ pub struct DelegationMandate {
     pub revocable: bool,
     pub timestamp: String,
     pub human_composite_sig: CompositeSignature,
+}
+
+/// A sub-mandate (DCP-09 §3.5): a delegate agent's narrower delegation to
+/// another agent, signed by the delegating agent under the SubMandate context.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubMandate {
+    pub dcp_version: String,
+    pub mandate_id: String,
+    pub session_nonce: String,
+    pub human_id: String,
+    pub agent_id: String,
+    pub authority_scope: Vec<AuthorityScopeEntry>,
+    pub valid_from: String,
+    pub valid_until: String,
+    pub revocable: bool,
+    pub timestamp: String,
+    pub parent_mandate_id: String,
+    pub delegation_depth: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_delegation: Option<SubDelegationPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_security_tier: Option<String>,
+    pub delegator_composite_sig: CompositeSignature,
 }
 
 /// SignificanceScore is 0-1000.

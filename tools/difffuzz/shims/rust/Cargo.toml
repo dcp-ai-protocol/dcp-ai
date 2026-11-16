@@ -1,0 +1,10 @@
+[package]
+name = "difffuzz-rust-shim"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Rust SDK shim for tools/difffuzz (not part of the dcp-ai crate)"
+
+[dependencies]
+dcp-ai = { path = "../../../../sdks/rust" }
+serde_json = "1"

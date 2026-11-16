@@ -8,7 +8,11 @@ repo_name: dcp-ai-protocol/dcp-ai
 repo_url: https://github.com/dcp-ai-protocol/dcp-ai
 edit_uri: edit/main/
 
-docs_dir: docs-site
+# Base configuration inherited by scripts/docs_site.py for each locale.
+# Complete build: bash scripts/build-docs-site.sh
+# Local preview: python3 scripts/docs_site.py preview --locale en
+# Live preview after preparation: mkdocs serve -f docs-site/en/mkdocs.yml
+docs_dir: docs-site/en/docs
 
 theme:
   name: material
@@ -126,6 +130,7 @@ nav:
       - Canonicalization Profile (dcp-jcs-v1): specs/CANONICALIZATION_PROFILE.md
       - Citizenship Bundle Format: specs/BUNDLE.md
       - Verification Procedures: specs/VERIFICATION.md
+      - V2.0 Wire Compatibility (DCP-05/08/09 errata): specs/V2-WIRE-COMPATIBILITY.md
       - Security Audit (v2.0 Final): specs/AUDIT-v2.0-FINAL.md
   - Architecture:
       - Technical Architecture: architecture/TECHNICAL_ARCHITECTURE.md

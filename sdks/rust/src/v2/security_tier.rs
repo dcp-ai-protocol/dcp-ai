@@ -28,6 +28,11 @@ impl SecurityTier {
             SecurityTier::Maximum => 3,
         }
     }
+
+    /// The tier `name` names, or None for anything that is not a tier name.
+    pub fn parse(name: &str) -> Option<SecurityTier> {
+        TIERS.into_iter().find(|t| t.as_str() == name)
+    }
 }
 
 // Values allowed by schemas/v2/intent.schema.json.
@@ -73,6 +78,18 @@ fn is_one_of(value: Option<&Value>, allowed: &[&str]) -> bool {
 /// `Elevated`. An explicit `security_tier` on the intent can only raise the
 /// result.
 pub fn compute_security_tier(intent: &Value, policy_decision: Option<&Value>) -> SecurityTier {
+    compute_security_tier_with_floor(intent, policy_decision, None)
+}
+
+/// `compute_security_tier` with the effective tier of a verified delegation
+/// chain (`verify_mandate_chain`, DCP-09 §3.5) as `mandate_chain_tier`: a
+/// floor that can only raise the result. A tier name is that tier; any other
+/// string fails closed to `Elevated`; None changes nothing.
+pub fn compute_security_tier_with_floor(
+    intent: &Value,
+    policy_decision: Option<&Value>,
+    mandate_chain_tier: Option<&str>,
+) -> SecurityTier {
     let score = match policy_decision.filter(|p| !p.is_null()) {
         None => Some(0.0),
         Some(p) => p
@@ -112,12 +129,19 @@ pub fn compute_security_tier(intent: &Value, policy_decision: Option<&Value>) ->
         SecurityTier::Routine
     };
 
-    match intent.get("security_tier") {
+    let tier = match intent.get("security_tier") {
         None | Some(Value::Null) => tier,
         Some(explicit) => {
             let explicit = TIERS.into_iter().find(|t| explicit.as_str() == Some(t.as_str()));
             max_tier(tier, explicit.unwrap_or(SecurityTier::Elevated))
         }
+    };
+    match mandate_chain_tier {
+        None => tier,
+        Some(floor) => max_tier(
+            tier,
+            SecurityTier::parse(floor).unwrap_or(SecurityTier::Elevated),
+        ),
     }
 }
 

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/revocation_snapshot.schema.json",
+  "title": "RevocationSnapshot",
+  "description": "Revocation status of a bundle's subjects (its agent_id and verified signer kids) as an operator-chosen source established it at checked_at (spec/profiles/admission). A source that cannot answer produces no snapshot; a failure never becomes not_revoked.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["checked_at", "agents", "keys"],
+  "properties": {
+    "checked_at": { "type": "string", "format": "date-time" },
+    "agents": {
+      "type": "object",
+      "additionalProperties": { "enum": ["revoked", "not_revoked", "unknown"] }
+    },
+    "keys": {
+      "type": "object",
+      "additionalProperties": { "enum": ["revoked", "not_revoked", "unknown"] }
+    }
+  }
+}

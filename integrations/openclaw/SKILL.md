@@ -67,9 +67,21 @@ If you receive a DCP Signed Bundle from another agent, verify it:
 ```
 dcp_verify_bundle({
   signed_bundle: { ... },  // the full signed bundle JSON
-  public_key: "base64..."  // optional, uses bundle's signer key if omitted
+  public_key: "base64..."  // V1 only; a V2 bundle is checked against the keys it lists
 })
 ```
+
+The tool verifies the signatures with the DCP SDK verifier, under the operator's verifier policy.
+Trust the bundle only when the result has `verified: true`; otherwise `errors` says why it was
+rejected, and the result names no agent. `verifier_policy` can only make the policy stricter (for
+example `{ default_mode: "hybrid_required" }`), never weaker. A verified bundle is signed by the keys
+it lists itself: it does not prove who the human principal is.
+
+When the operator configured trusted principals, the result also has `admitted`: rely on the bundle
+only when `admitted` is true, never on `verified` alone. Under the operator's strict-v1 profile, do
+not pass `verifier_policy`. `action_authorized` is always false: an admitted bundle is evidence of
+what the agent declared and of the recorded decision (which may be `block` or `escalate`), not
+permission to act.
 
 ## End of session
 

@@ -1,0 +1,185 @@
+{
+  "format": "mp05-application-ingress-cases-v1",
+  "cases": [
+    {
+      "id": "ordinary",
+      "bytes_b64": "eyJhbW91bnQiOjEwMCwic2t1IjoiYVwiYiIsImN1cnJlbmN5IjoiRVVSIn0=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": true,
+        "reason": null
+      }
+    },
+    {
+      "id": "integer_extremes",
+      "bytes_b64": "eyJhIjo5MDA3MTk5MjU0NzQwOTkxLCJiIjotOTAwNzE5OTI1NDc0MDk5MX0=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": true,
+        "reason": null
+      }
+    },
+    {
+      "id": "numeric_strings",
+      "bytes_b64": "eyJhIjoiLTAiLCJiIjoiMS4wMDAwMDAwMDAwMDAwMDAxIiwiYyI6IjFlMiJ9",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": true,
+        "reason": null
+      }
+    },
+    {
+      "id": "unicode_pair",
+      "bytes_b64": "eyJhIjoiXHVEODNEXHVERTAwIn0=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": true,
+        "reason": null
+      }
+    },
+    {
+      "id": "proto_is_data",
+      "bytes_b64": "eyJfX3Byb3RvX18iOnsic2FmZSI6dHJ1ZX19",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": true,
+        "reason": null
+      }
+    },
+    {
+      "id": "duplicate",
+      "bytes_b64": "eyJhbW91bnQiOjEsImFtb3VudCI6Mn0=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "DUPLICATE_KEY"
+      }
+    },
+    {
+      "id": "escaped_duplicate",
+      "bytes_b64": "eyJhIjoxLCJcdTAwNjEiOjJ9",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "DUPLICATE_KEY"
+      }
+    },
+    {
+      "id": "nested_duplicate",
+      "bytes_b64": "eyJhcmdzIjp7ImEiOjEsImEiOjF9fQ==",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "DUPLICATE_KEY"
+      }
+    },
+    {
+      "id": "fraction",
+      "bytes_b64": "eyJhIjoxMDAuMH0=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "NUMBER_FORM"
+      }
+    },
+    {
+      "id": "rounded_fraction",
+      "bytes_b64": "eyJhIjoxLjAwMDAwMDAwMDAwMDAwMDF9",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "NUMBER_FORM"
+      }
+    },
+    {
+      "id": "exponent",
+      "bytes_b64": "eyJhIjoxZTJ9",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "NUMBER_FORM"
+      }
+    },
+    {
+      "id": "negative_zero",
+      "bytes_b64": "eyJhIjotMH0=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "NUMBER_FORM"
+      }
+    },
+    {
+      "id": "out_of_range",
+      "bytes_b64": "eyJhIjo5MDA3MTk5MjU0NzQwOTkyfQ==",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "NUMBER_FORM"
+      }
+    },
+    {
+      "id": "surrogate",
+      "bytes_b64": "eyJhIjoiXHVEODAwIn0=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "UNICODE"
+      }
+    },
+    {
+      "id": "bad_utf8",
+      "bytes_b64": "eyJhIjoi/yJ9",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "UTF8"
+      }
+    },
+    {
+      "id": "bom",
+      "bytes_b64": "77u/e30=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "UTF8"
+      }
+    },
+    {
+      "id": "syntax",
+      "bytes_b64": "eyJhIjp9",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "SYNTAX"
+      }
+    },
+    {
+      "id": "depth",
+      "bytes_b64": "W1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1swXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV0=",
+      "max_bytes": 65536,
+      "expected": {
+        "accepted": false,
+        "reason": "DEPTH_EXCEEDED"
+      }
+    },
+    {
+      "id": "at_budget",
+      "bytes_b64": "eyJhIjoxfQ==",
+      "max_bytes": 7,
+      "expected": {
+        "accepted": true,
+        "reason": null
+      }
+    },
+    {
+      "id": "over_budget",
+      "bytes_b64": "eyJhIjoxfQ==",
+      "max_bytes": 6,
+      "expected": {
+        "accepted": false,
+        "reason": "BODY_BUDGET"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Consumer of the published dcp-ai crate (otlp features). Copied to a temporary directory with the kit's
+# wrapper source (tools/conformance/wrappers/rust/src/main.rs); never built in place.
+[package]
+name = "dcp-ai-conformance-wrapper"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+dcp-ai = { version = "=2.14.0", features = ["otlp"] }
+serde_json = "1.0"
+base64 = "0.22"
+
+[workspace]

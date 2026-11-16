@@ -9,8 +9,7 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "files": ["dist", "SKILL.md", "README.md"],
@@ -20,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dcp-ai/sdk": "^2.0.0",
+    "@dcp-ai/sdk": "^2.2.0",
     "@sinclair/typebox": "^0.34.0"
   },
   "devDependencies": {

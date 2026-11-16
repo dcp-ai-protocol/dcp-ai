@@ -29,6 +29,7 @@ import type { CompositeSignature } from '../core/composite-sig.js';
 import { preparePayload } from '../core/signed-payload.js';
 import { sha256Hex } from '../core/dual-hash.js';
 import { generateSessionNonce } from '../core/session-nonce.js';
+import { auditEventsMerkleRoot } from '../core/pq-checkpoint.js';
 import { BundleBuilderV2 } from '../bundle/builder-v2.js';
 import { signBundleV2, signBundleV2ClassicalOnly } from '../bundle/signer-v2.js';
 import { DEFAULT_VERIFIER_POLICY } from '../core/verify-v2.js';
@@ -96,6 +97,39 @@ interface Variant {
   firstPrevHash?: string;
   /** No audit entries, with the manifest Go and Rust build for that (the TS builder refuses it). */
   noAuditEntries?: boolean;
+  /** prev_hash of the second audit entry instead of the first entry's hash. */
+  secondPrevHash?: string;
+  /** The intent is signed under this session_nonce; the manifest commits to that intent. */
+  intentNonce?: string;
+  /** The second audit entry carries this session_nonce; the manifest commits to that trail. */
+  auditNonce?: string;
+  /** Changes to the RPR, and to both audit entries (the chain is recomputed over them). */
+  rpr?: Partial<ResponsiblePrincipalRecordV2>;
+  audit?: Partial<AuditEventV2>;
+  /** Keys in place of the agent's (passport keys and the artifacts it signs) or the principal's (RPR). */
+  agentKeys?: CompositeKeyPair;
+  principalKeys?: CompositeKeyPair;
+  /** Keys that sign the bundle instead of the principal's. */
+  bundleKeys?: CompositeKeyPair;
+  /** signature.created_at, outside the signed manifest, set after signing. */
+  createdAt?: string;
+  /** Edits the passport key entries before the passport is signed. */
+  passportKeysEdit?: (keys: KeyEntry[]) => void;
+  /** The policy decision, or the second audit entry, carries no session_nonce; the manifest commits to it. */
+  policyNoNonce?: boolean;
+  auditNoNonce?: boolean;
+  /** A PQ checkpoint over the two audit entries, signed by the agent unless keys says otherwise. */
+  checkpoint?: {
+    count?: number;
+    nonce?: string;
+    merkleRoot?: string;
+    keys?: CompositeKeyPair;
+    /** The manifest lists it / the bundle carries it (both by default). */
+    listed?: boolean;
+    carried?: boolean;
+    /** Applied to the signed checkpoint. */
+    mutate?: (cp: Record<string, any>) => void;
+  };
 }
 
 // A routine intent (spec §14.2), the starting point of the security tier variants.
@@ -120,6 +154,8 @@ async function main() {
   const nonce = generateSessionNonce();
 
   async function build(variant: Variant = {}) {
+    const principalKeys = variant.principalKeys ?? principal;
+    const agentKeys = variant.agentKeys ?? agent;
     const rpr: ResponsiblePrincipalRecordV2 = {
       dcp_version: '2.0',
       human_id: 'human:interop-principal',
@@ -132,14 +168,15 @@ async function main() {
       issued_at: '2026-10-21T00:00:00Z',
       expires_at: null,
       contact: null,
-      binding_keys: keyEntries(principal).map((k) => ({ ...k, ...variant.principalKey })),
+      binding_keys: keyEntries(principalKeys).map((k) => ({ ...k, ...variant.principalKey })),
+      ...variant.rpr,
     };
     const passport: AgentPassportV2 = {
       dcp_version: '2.0',
       agent_id: 'agent:interop-bot',
       session_nonce: nonce,
       // A far-future expiry with an offset, so every verifier parses one on the happy path.
-      keys: keyEntries(agent).map((k) => ({ ...k, expires_at: '2099-12-31T18:59:59-05:00', ...variant.agentKey })),
+      keys: keyEntries(agentKeys).map((k) => ({ ...k, expires_at: '2099-12-31T18:59:59-05:00', ...variant.agentKey })),
       principal_binding_reference: rpr.human_id,
       capabilities: ['browse', 'api_call'],
       risk_tier: 'medium',
@@ -147,6 +184,7 @@ async function main() {
       status: 'active',
       ...variant.passport,
     };
+    variant.passportKeysEdit?.(passport.keys);
     const intent: IntentV2 = {
       dcp_version: '2.0',
       intent_id: 'intent:interop-001',
@@ -188,27 +226,86 @@ async function main() {
       outcome: 'email_sent',
       evidence: { tool: 'smtp', result_ref: null, evidence_hash: null },
       pq_checkpoint_ref: null,
+      ...variant.audit,
     };
-    const audit2: AuditEventV2 = { ...audit, audit_id: 'audit:interop-002', prev_hash: sha256Of(audit), timestamp: '2026-10-21T12:02:00Z' };
+    const audit2: AuditEventV2 = {
+      ...audit,
+      audit_id: 'audit:interop-002',
+      prev_hash: variant.secondPrevHash ?? sha256Of(audit),
+      timestamp: '2026-10-21T12:02:00Z',
+    };
 
-    const signedIntent = await sign(intent, DCP_CONTEXTS.Intent, agent, variant.classicalOnly);
+    const signedIntent = await sign(intent, DCP_CONTEXTS.Intent, agentKeys, variant.classicalOnly);
     const bundle = new BundleBuilderV2(nonce)
-      .responsiblePrincipalRecord(await sign(rpr, DCP_CONTEXTS.ResponsiblePrincipal, principal, variant.classicalOnly))
-      .agentPassport(await sign(passport, DCP_CONTEXTS.AgentPassport, agent, variant.classicalOnly))
+      .responsiblePrincipalRecord(await sign(rpr, DCP_CONTEXTS.ResponsiblePrincipal, principalKeys, variant.classicalOnly))
+      .agentPassport(await sign(passport, DCP_CONTEXTS.AgentPassport, agentKeys, variant.classicalOnly))
       .intent(signedIntent)
-      .policyDecision(await sign(policyDecision, DCP_CONTEXTS.PolicyDecision, agent, variant.classicalOnly))
+      .policyDecision(await sign(policyDecision, DCP_CONTEXTS.PolicyDecision, agentKeys, variant.classicalOnly))
       .addAuditEntries([audit, audit2])
       .build();
     if (variant.noAuditEntries) {
       bundle.audit_entries = [];
       Object.assign(bundle.manifest, { audit_count: 0, audit_merkle_root: `sha256:${'0'.repeat(64)}` });
     }
-    Object.assign(bundle.manifest, { session_expires_at: '2099-12-31T23:59:59+05:00' }, variant.manifest);
+    // The builder refuses nonces that differ, so these are patched in after it,
+    // with the manifest committing to the patched artifact.
+    if (variant.intentNonce) {
+      bundle.intent = await sign({ ...intent, session_nonce: variant.intentNonce }, DCP_CONTEXTS.Intent, agent);
+      bundle.manifest.intent_hash = bundle.intent.payload_hash;
+    }
+    if (variant.policyNoNonce) {
+      const { session_nonce: _omitted, ...withoutNonce } = policyDecision;
+      bundle.policy_decision = await sign(withoutNonce, DCP_CONTEXTS.PolicyDecision, agentKeys) as never;
+      bundle.manifest.policy_hash = bundle.policy_decision.payload_hash;
+    }
+    if (variant.auditNoNonce) {
+      const { session_nonce: _omitted, ...withoutNonce } = audit2;
+      bundle.audit_entries[1] = withoutNonce as AuditEventV2;
+      bundle.manifest.audit_merkle_root = `sha256:${auditEventsMerkleRoot(bundle.audit_entries)}`;
+    }
+    if (variant.auditNonce) {
+      bundle.audit_entries[1] = { ...audit2, session_nonce: variant.auditNonce };
+      bundle.manifest.audit_merkle_root = `sha256:${auditEventsMerkleRoot(bundle.audit_entries)}`;
+    }
+    if (variant.checkpoint) {
+      const c = variant.checkpoint;
+      const checkpoint = {
+        checkpoint_id: 'ckpt-interop-001',
+        session_nonce: c.nonce ?? nonce,
+        event_range: { from_audit_id: audit.audit_id, to_audit_id: audit2.audit_id, count: c.count ?? 2 },
+        merkle_root: c.merkleRoot ?? `sha256:${auditEventsMerkleRoot(bundle.audit_entries)}`,
+      };
+      const { canonicalBytes } = preparePayload(checkpoint);
+      const signedCheckpoint: Record<string, any> = {
+        ...checkpoint,
+        composite_sig: await compositeSign(registry, DCP_CONTEXTS.AuditEvent, canonicalBytes, c.keys ?? agentKeys),
+      };
+      c.mutate?.(signedCheckpoint);
+      if (c.carried ?? true) bundle.pq_checkpoints = [signedCheckpoint as never];
+      if (c.listed ?? true) bundle.manifest.pq_checkpoints = [checkpoint.checkpoint_id];
+    }
+    Object.assign(
+      bundle.manifest,
+      { session_issued_at: '2026-10-21T00:00:00Z', session_expires_at: '2099-12-31T23:59:59+05:00' },
+      variant.manifest,
+    );
     const signer = { registry, signerType: 'human' as const, signerId: rpr.human_id };
+    const bundleKeys = variant.bundleKeys ?? principalKeys;
     const signedBundle = variant.classicalOnly
-      ? await signBundleV2ClassicalOnly(bundle, { ...signer, key: principal.classical })
-      : await signBundleV2(bundle, { ...signer, keys: principal });
+      ? await signBundleV2ClassicalOnly(bundle, { ...signer, key: bundleKeys.classical })
+      : await signBundleV2(bundle, { ...signer, keys: bundleKeys });
     if (variant.bundleSigWithoutPq) delete (signedBundle.signature.composite_sig as Partial<CompositeSignature>).pq;
+    if (variant.createdAt) signedBundle.signature.created_at = variant.createdAt;
+    // A bundle from a signer that predates session_issued_at: the signers now
+    // stamp it whenever there is an expiry, so the manifest is signed again without it.
+    if (variant.manifest && 'session_issued_at' in variant.manifest && variant.manifest.session_issued_at === undefined) {
+      delete signedBundle.bundle.manifest.session_issued_at;
+      const { canonicalBytes, payloadHash } = preparePayload(signedBundle.bundle.manifest);
+      signedBundle.signature.composite_sig = variant.classicalOnly
+        ? await classicalOnlySign(registry, DCP_CONTEXTS.Bundle, canonicalBytes, bundleKeys.classical)
+        : await compositeSign(registry, DCP_CONTEXTS.Bundle, canonicalBytes, bundleKeys);
+      signedBundle.signature.manifest_hash = payloadHash;
+    }
     return { rpr, passport, intent, policyDecision, bundle, signedIntent, signedBundle };
   }
 
@@ -229,11 +326,70 @@ async function main() {
   const agentSigned = await signBundleV2(structuredClone(bundle), {
     registry,
     signerType: 'organization',
-    signerId: passport.agent_id,
+    signerId: rpr.human_id,
     keys: agent,
   });
 
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  // The same 32 bytes with a trailing bit set: a lenient decoder reads the key, a strict one refuses it.
+  const withTrailingBit = (b64: string) => {
+    if (!b64.includes('=')) return b64; // no padding, no trailing bits to set
+    const i = b64.indexOf('=') - 1;
+    return b64.slice(0, i) + B64[B64.indexOf(b64[i]) ^ 1] + b64.slice(i + 1);
+  };
+  // Non-canonical encodings of the same signature bytes (V2-5): a lenient decoder reads them.
+  const sigEncodings: [string, (s: string) => string][] = [
+    ['with_junk_after', (s) => s + 'x'],
+    ['with_extra_padding', (s) => s + '='],
+    ['with_a_newline', (s) => s.slice(0, 10) + '\n' + s.slice(10)],
+    ['with_trailing_bits', withTrailingBit],
+    ['unpadded', (s) => s.replace(/=+$/, '')],
+  ];
+  const sigSlots: [string, string[]][] = [
+    ['bundle_classical', ['signature', 'composite_sig', 'classical', 'sig_b64']],
+    ['bundle_pq', ['signature', 'composite_sig', 'pq', 'sig_b64']],
+    ['intent_classical', ['bundle', 'intent', 'composite_sig', 'classical', 'sig_b64']],
+  ];
+  const atPath = (obj: any, path: string[]) => path.reduce((node, key) => node[key], obj);
+  const sigEncodingCases = sigSlots.flatMap(([slot, path]) =>
+    sigEncodings
+      .map(([name, edit]) => [name, edit(atPath(signedBundle, path))] as const)
+      .filter(([, value]) => value !== atPath(signedBundle, path))
+      .map(([name, value]) => ({
+        name: `${slot}_sig_b64_${name}`,
+        spec_step: 'V2-5',
+        error_contains: 'sig_b64 is not canonical base64',
+        mutations: [set(path, value)],
+      })),
+  );
   const mustReject = [
+    ...sigEncodingCases,
+    // The rest of the unsigned signature block (V2-4).
+    {
+      name: 'signature_manifest_hash_other',
+      spec_step: 'V2-4',
+      error_contains: 'manifest_hash',
+      mutations: [set(['signature', 'manifest_hash'], sha256Of({ not: 'the manifest' }))],
+    },
+    {
+      name: 'signature_hash_alg_unknown',
+      spec_step: 'V2-4',
+      error_contains: 'hash_alg',
+      mutations: [set(['signature', 'hash_alg'], 'md5')],
+    },
+    // The unsigned signer block must not contradict the signature (V2-4).
+    {
+      name: 'signature_signer_id_other',
+      spec_step: 'V2-4',
+      error_contains: 'signer id',
+      mutations: [set(['signature', 'signer', 'id'], 'human:someone-else')],
+    },
+    {
+      name: 'signature_signer_kids_other',
+      spec_step: 'V2-4',
+      error_contains: 'signer kids',
+      mutations: [set(['signature', 'signer', 'kids'], [agent.classical.kid, agent.pq.kid])],
+    },
     {
       name: 'bundle_pq_signature_invalid',
       spec_step: 'V2-7',
@@ -388,13 +544,34 @@ async function main() {
         set(['bundle', 'responsible_principal_record'], null),
       ],
     },
+    // An artifact without any composite_sig, not a zeroed one (V2-8).
+    ...(['intent', 'agent_passport', 'policy_decision'] as const).map((name) => ({
+      name: `${name}_unsigned`,
+      spec_step: 'V2-8',
+      error_contains: name,
+      mutations: [set(['bundle', name], { payload: b[name].payload, payload_hash: b[name].payload_hash })],
+    })),
+    ...['1.0', '3.0'].map((version) => ({
+      name: `dcp_bundle_version_${version.replace('.', '_')}`,
+      spec_step: 'V2-1',
+      error_contains: 'version',
+      mutations: [set(['bundle', 'dcp_bundle_version'], version)],
+    })),
   ];
 
   // Classical-only bundles from a passport that declares itself low risk, which
   // DEFAULT_VERIFIER_POLICY maps to classical_only: only the security tier
   // (spec §14.3) rejects them, with an error about the missing PQ signature.
   const lowRisk = { classicalOnly: true, passport: { risk_tier: 'low' as const }, policyDecision: { risk_score: 0 } };
-  const mustRejectBundles: { name: string; spec_step: string; error_contains: string; variant: Variant }[] = [
+  type BundleCase = {
+    name: string;
+    spec_step: string;
+    error_contains: string;
+    /** Merged over each mode's policy when verifying this case. */
+    verifier_policy_overrides?: Record<string, unknown>;
+    variant: Variant;
+  };
+  const mustRejectBundles: BundleCase[] = [
     {
       name: 'classical_only_payment_from_low_risk_passport',
       spec_step: 'V2-10',
@@ -487,6 +664,298 @@ async function main() {
       error_contains: 'expired',
       variant: { principalKey: { expires_at: '2020-01-01T00:00:00Z' } },
     },
+    {
+      // Expired as an instant; a verifier that cannot parse the +14:00 offset reports a parse error
+      // instead of "expired", which the error_contains check catches.
+      name: 'passport_key_expired_with_offset',
+      spec_step: 'V2-13',
+      error_contains: 'expired',
+      variant: { agentKey: { expires_at: '2020-01-01T00:00:00+14:00' } },
+    },
+    ...['2026-13-45T00:00:00Z', '2026-10-22', '2026-10-22T00:00:00'].map((value, i) => ({
+      name: `passport_key_expires_at_${['impossible_date', 'date_only', 'no_offset'][i]}`,
+      spec_step: 'V2-13',
+      error_contains: 'expires_at',
+      variant: { agentKey: { expires_at: value } },
+    })),
+    {
+      name: 'rpr_binding_key_expires_at_impossible_date',
+      spec_step: 'V2-13',
+      error_contains: 'expires_at',
+      variant: { principalKey: { expires_at: '2026-13-45T00:00:00Z' } },
+    },
+    // Security tier downgrade (V2-9, V2-10): the agent cannot lower the tier its
+    // intent and policy decision imply, so a classical-only signature never
+    // satisfies an elevated one, whatever the passport or the intent declares.
+    {
+      name: 'classical_only_estimated_impact_high',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, estimated_impact: 'high' } },
+    },
+    {
+      name: 'classical_only_payment_declaring_security_tier_routine',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: {
+        ...lowRisk,
+        intent: { ...ROUTINE_INTENT, action_type: 'initiate_payment', target: { channel: 'payments' }, security_tier: 'routine' },
+      },
+    },
+    {
+      name: 'classical_only_policy_risk_score_900_declaring_security_tier_routine',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, security_tier: 'routine' }, policyDecision: { risk_score: 900 } },
+    },
+    // Prototype keys in enumerated fields (V2-2, V2-9): the mode lookup for the
+    // passport's risk_tier must not read an inherited property (a TypeScript
+    // verifier once resolved no mode at all for "constructor" and accepted the
+    // bundle), and an unknown intent value fails closed to elevated.
+    ...['constructor', '__proto__', 'toString', 'hasOwnProperty'].map((name): BundleCase => ({
+      name: `classical_only_payment_from_passport_risk_tier_${name.replace(/_/g, '')}`,
+      spec_step: 'V2-9',
+      error_contains: 'pq',
+      variant: {
+        ...lowRisk,
+        passport: { risk_tier: name as 'low' },
+        intent: { ...ROUTINE_INTENT, action_type: 'initiate_payment', target: { channel: 'payments' } },
+      },
+    })),
+    {
+      name: 'classical_only_intent_action_type_constructor',
+      spec_step: 'V2-9',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, action_type: 'constructor' as 'browse' } },
+    },
+    {
+      name: 'classical_only_intent_estimated_impact_constructor',
+      spec_step: 'V2-9',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, estimated_impact: 'constructor' as 'low' } },
+    },
+    {
+      name: 'classical_only_intent_security_tier_constructor',
+      spec_step: 'V2-9',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, security_tier: 'constructor' as 'routine' } },
+    },
+    // Canonicalization profile (spec/CANONICALIZATION_PROFILE.md § 4): only dcp-jcs-v1 exists.
+    {
+      name: 'canonicalization_profile_unknown',
+      spec_step: 'V2-3',
+      error_contains: 'canonicalization_profile',
+      variant: { manifest: { canonicalization_profile: 'dcp-jcs-v2' } },
+    },
+    {
+      name: 'canonicalization_profile_not_a_string',
+      spec_step: 'V2-3',
+      error_contains: 'canonicalization_profile',
+      variant: { manifest: { canonicalization_profile: 1 } },
+    },
+    // Session nonce consistency (V2-4): every artifact and audit entry shares
+    // the manifest's nonce. Each bundle here is signed over what it carries.
+    {
+      name: 'intent_session_nonce_differs',
+      spec_step: 'V2-4',
+      error_contains: 'nonce',
+      variant: { intentNonce: generateSessionNonce() },
+    },
+    {
+      name: 'audit_entry_session_nonce_differs',
+      spec_step: 'V2-4',
+      error_contains: 'nonce',
+      variant: { auditNonce: generateSessionNonce() },
+    },
+    {
+      name: 'manifest_session_nonce_differs_from_artifacts',
+      spec_step: 'V2-4',
+      error_contains: 'nonce',
+      variant: { manifest: { session_nonce: generateSessionNonce() } },
+    },
+    // Manifest integrity (V2-3).
+    {
+      name: 'manifest_intent_hash_mismatch',
+      spec_step: 'V2-3',
+      error_contains: 'intent_hash',
+      variant: { manifest: { intent_hash: sha256Of({ not: 'the intent' }) } },
+    },
+    {
+      name: 'manifest_audit_merkle_root_mismatch',
+      spec_step: 'V2-3',
+      error_contains: 'audit',
+      variant: { manifest: { audit_merkle_root: sha256Of({ not: 'the trail' }) } },
+    },
+    {
+      // The manifest commits to this trail, whose second entry does not chain to the first.
+      name: 'audit_chain_hash_wrong',
+      spec_step: 'V2-3',
+      error_contains: 'chain',
+      variant: { secondPrevHash: sha256Of({ not: 'the first entry' }) },
+    },
+    // The bundle signer is the principal (V2-6): the agent's own keys, which also
+    // sign its passport, cannot pair a published RPR with that passport.
+    {
+      name: 'bundle_signed_by_agent_keys',
+      spec_step: 'V2-6',
+      error_contains: 'rpr binding_keys',
+      variant: { bundleKeys: agent },
+    },
+    // A kid names the key it was derived from (V2-13), whichever list holds it.
+    {
+      name: 'passport_key_kid_not_derived',
+      spec_step: 'V2-13',
+      error_contains: 'not derived',
+      variant: { agentKeys: { ...agent, classical: { ...agent.classical, kid: 'a'.repeat(32) } } },
+    },
+    {
+      name: 'rpr_binding_key_kid_not_derived',
+      spec_step: 'V2-13',
+      error_contains: 'not derived',
+      variant: { principalKeys: { ...principal, pq: { ...principal.pq, kid: 'b'.repeat(32) } } },
+    },
+    // Cross-artifact consistency (V2-14): each bundle is validly signed over what it carries.
+    ...(['revoked', 'suspended', 'commissioned', 'decommissioned'] as const).map((status): BundleCase => ({
+      name: `passport_status_${status}`,
+      spec_step: 'V2-14',
+      error_contains: 'agent_passport status',
+      variant: { passport: { status } },
+    })),
+    {
+      name: 'rpr_expired',
+      spec_step: 'V2-14',
+      error_contains: 'responsible_principal_record expired',
+      variant: { rpr: { expires_at: '2020-01-01T00:00:00Z' } },
+    },
+    {
+      name: 'rpr_expires_at_impossible_date',
+      spec_step: 'V2-14',
+      error_contains: 'responsible_principal_record has an invalid expires_at',
+      variant: { rpr: { expires_at: '2026-13-45T00:00:00Z' } },
+    },
+    {
+      name: 'passport_principal_binding_reference_other',
+      spec_step: 'V2-14',
+      error_contains: 'principal_binding_reference',
+      variant: { passport: { principal_binding_reference: 'human:someone-else' } },
+    },
+    { name: 'intent_agent_id_other', spec_step: 'V2-14', error_contains: 'intent agent_id', variant: { intent: { agent_id: 'agent:someone-else' } } },
+    { name: 'intent_human_id_other', spec_step: 'V2-14', error_contains: 'intent human_id', variant: { intent: { human_id: 'human:someone-else' } } },
+    {
+      name: 'policy_decision_intent_id_other',
+      spec_step: 'V2-14',
+      error_contains: 'policy_decision intent_id',
+      variant: { policyDecision: { intent_id: 'intent:someone-else' } },
+    },
+    {
+      name: 'audit_entry_intent_hash_other',
+      spec_step: 'V2-14',
+      error_contains: 'audit_entries[0] intent_hash',
+      variant: { audit: { intent_hash: sha256Of({ not: 'the intent' }) } },
+    },
+    ...(['intent_id', 'agent_id', 'human_id'] as const).map((field): BundleCase => ({
+      name: `audit_entry_${field}_other`,
+      spec_step: 'V2-14',
+      error_contains: `audit_entries[0] ${field}`,
+      variant: { audit: { [field]: `${field.split('_')[0]}:someone-else` } },
+    })),
+    // The session duration bound reads only signed data (V2-4): signature.created_at
+    // is set an hour before the session ends, outside the manifest.
+    // Every artifact and audit entry carries the session nonce (V2-4).
+    { name: 'policy_decision_without_session_nonce', spec_step: 'V2-4', error_contains: 'nonce', variant: { policyNoNonce: true } },
+    { name: 'audit_entry_without_session_nonce', spec_step: 'V2-4', error_contains: 'nonce', variant: { auditNoNonce: true } },
+    // A key is canonical base64, so every verifier decodes the same bytes (V2-13).
+    {
+      name: 'passport_key_public_key_with_trailing_bits',
+      spec_step: 'V2-13',
+      error_contains: 'canonical base64',
+      variant: { passportKeysEdit: (keys) => { keys[0].public_key_b64 = withTrailingBit(keys[0].public_key_b64); } },
+    },
+    {
+      name: 'passport_pq_key_public_key_unpadded',
+      spec_step: 'V2-13',
+      error_contains: 'canonical base64',
+      variant: { passportKeysEdit: (keys) => { keys[1].public_key_b64 = keys[1].public_key_b64.replace(/=+$/, ''); } },
+    },
+    // A maximum session duration needs both ends of the session (V2-4).
+    {
+      name: 'session_expires_at_missing_under_policy_max',
+      spec_step: 'V2-4',
+      error_contains: 'session_expires_at',
+      verifier_policy_overrides: { max_session_duration_seconds: 3_000_000_000 },
+      variant: { manifest: { session_expires_at: undefined } },
+    },
+    // The session start is the signed session_issued_at (V2-4).
+    {
+      name: 'session_issued_at_missing_under_policy_max',
+      spec_step: 'V2-4',
+      error_contains: 'session_issued_at',
+      verifier_policy_overrides: { max_session_duration_seconds: 3600 },
+      variant: { manifest: { session_issued_at: undefined } },
+    },
+    ...['2099-01-01T00:00:00Z', 'n/a', '2026-10-21'].map((value, i): BundleCase => ({
+      name: `session_issued_at_${['in_the_future', 'not_a_timestamp', 'date_only'][i]}`,
+      spec_step: 'V2-4',
+      error_contains: 'session_issued_at',
+      variant: { manifest: { session_issued_at: value } },
+    })),
+    {
+      name: 'audit_entry_policy_decision_other',
+      spec_step: 'V2-14',
+      error_contains: 'audit_entries[0] policy_decision',
+      variant: { audit: { policy_decision: 'blocked' } },
+    },
+    {
+      name: 'session_longer_than_policy_max_with_late_created_at',
+      spec_step: 'V2-4',
+      error_contains: 'session duration',
+      verifier_policy_overrides: { max_session_duration_seconds: 3600 },
+      variant: { createdAt: '2099-12-31T18:00:00Z' },
+    },
+    // PQ checkpoints (V2-12): exactly the ones the manifest lists, each over its
+    // audit entries and signed by the agent with both algorithms.
+    {
+      name: 'pq_checkpoint_pq_signature_invalid',
+      spec_step: 'V2-12',
+      error_contains: 'pq_checkpoints[ckpt-interop-001]',
+      variant: { checkpoint: { mutate: (cp) => { cp.composite_sig.pq.sig_b64 = corrupt(cp.composite_sig.pq.sig_b64); } } },
+    },
+    {
+      name: 'pq_checkpoint_merkle_root_other',
+      spec_step: 'V2-12',
+      error_contains: 'merkle_root does not match',
+      variant: { checkpoint: { merkleRoot: sha256Of({ not: 'the trail' }) } },
+    },
+    {
+      name: 'pq_checkpoint_event_range_count_wrong',
+      spec_step: 'V2-12',
+      error_contains: 'event_range does not match',
+      variant: { checkpoint: { count: 3 } },
+    },
+    {
+      name: 'pq_checkpoint_listed_but_missing',
+      spec_step: 'V2-12',
+      error_contains: 'does not carry',
+      variant: { checkpoint: { carried: false } },
+    },
+    {
+      name: 'pq_checkpoint_carried_but_not_listed',
+      spec_step: 'V2-12',
+      error_contains: 'not listed in the manifest',
+      variant: { checkpoint: { listed: false } },
+    },
+    {
+      name: 'pq_checkpoint_signed_by_principal',
+      spec_step: 'V2-12',
+      error_contains: 'passport keys',
+      variant: { checkpoint: { keys: principal } },
+    },
+    {
+      name: 'pq_checkpoint_session_nonce_differs',
+      spec_step: 'V2-12',
+      error_contains: 'nonce',
+      variant: { checkpoint: { nonce: generateSessionNonce() } },
+    },
   ];
 
   const vectors = {
@@ -496,7 +965,8 @@ async function main() {
       'case (set value at path, in order) it MUST reject it, whatever its verification mode, with ' +
       'an error that contains error_contains (case-insensitive). It MUST also reject every ' +
       'must_reject_bundles entry the same way, and give classical_only_routine_bundle the verdict ' +
-      'in verified_by_mode. Every must_accept_bundles entry MUST verify in every mode. ' +
+      'in verified_by_mode. Every must_accept_bundles entry MUST verify in every mode. A case with ' +
+      'verifier_policy_overrides is verified under each mode\'s policy with those fields replaced. ' +
       'default_verifier_policy is the TypeScript DEFAULT_VERIFIER_POLICY; a ' +
       'verifier that takes a policy MUST accept it and verify signed_bundle under it.',
     _generator: 'sdks/typescript/src/__tests__/generate-bundle-vectors.ts',
@@ -515,6 +985,57 @@ async function main() {
         name: 'empty_audit_trail',
         spec_step: 'V2-3',
         signed_bundle: (await build({ noAuditEntries: true })).signedBundle,
+      },
+      {
+        name: 'pq_checkpoint_over_the_trail',
+        spec_step: 'V2-12',
+        signed_bundle: (await build({ checkpoint: {} })).signedBundle,
+      },
+      {
+        // DCP-05 § 3.1: a declining agent may still act.
+        name: 'passport_status_declining',
+        spec_step: 'V2-14',
+        signed_bundle: (await build({ passport: { status: 'declining' } })).signedBundle,
+      },
+      {
+        name: 'rpr_expires_in_the_future',
+        spec_step: 'V2-14',
+        signed_bundle: (await build({ rpr: { expires_at: '2099-12-31T23:59:59Z' } })).signedBundle,
+      },
+      // A bundle is evidence of what happened, including an action the policy escalated or blocked.
+      ...(await Promise.all(
+        (['escalate', 'block'] as const).map(async (decision) => ({
+          name: `${decision === 'block' ? 'blocked' : 'escalated'}_action_recorded`,
+          spec_step: 'V2-14',
+          signed_bundle: (
+            await build({
+              policyDecision: { decision, required_confirmation: { type: 'human_approve', fields: ['action_type'] } },
+              audit: { policy_decision: decision === 'block' ? 'blocked' : 'escalated' },
+            })
+          ).signedBundle,
+        })),
+      )),
+      {
+        // RFC 3339 years start at 0000.
+        name: 'session_issued_at_year_0000',
+        spec_step: 'V2-4',
+        signed_bundle: (await build({ manifest: { session_issued_at: '0000-01-01T00:00:00Z' } })).signedBundle,
+      },
+      {
+        // Timestamps compare at millisecond precision: the 0.0009 s past the maximum are dropped.
+        name: 'session_duration_at_millisecond_precision',
+        spec_step: 'V2-4',
+        verifier_policy_overrides: {
+          max_session_duration_seconds: (Date.parse('2099-12-31T18:59:59Z') - Date.parse('2026-10-21T00:00:00Z')) / 1000,
+        },
+        signed_bundle: (await build({ manifest: { session_expires_at: '2099-12-31T18:59:59.0009Z' } })).signedBundle,
+      },
+      {
+        // 2026-10-21 to 2099-12-31 is about 2.3e9 seconds.
+        name: 'session_within_policy_max',
+        spec_step: 'V2-4',
+        verifier_policy_overrides: { max_session_duration_seconds: 3_000_000_000 },
+        signed_bundle: (await build()).signedBundle,
       },
     ],
     must_reject_bundles: await Promise.all(

@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { expectSchemaRejection, schemaFirstRow } from './schema-regression-map.js';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -544,24 +545,37 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
         parent[path[path.length - 1]] = value;
       }
       const result = await verifySignedBundleV2(signed, registry, policyFor(mode));
+      // V2-2 now rejects the schema-invalid rows first, with exactly the oracles' schema errors; the deeper check
+      // their error_contains named stays covered where regression_map.json says (schema-v2.test.ts runs that part).
+      const row = schemaFirstRow('bundle_vectors.json', name);
+      if (row) return expectSchemaRejection(result, row);
       expect(result.verified).toBe(false);
       expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
     });
   }
 
-  type AcceptCase = { name: string; signed_bundle: SignedBundleV2 };
-  for (const { name, signed_bundle } of B.must_accept_bundles as AcceptCase[]) {
+  type AcceptCase = { name: string; signed_bundle: SignedBundleV2; verifier_policy_overrides?: Partial<VerifierPolicy> };
+  for (const { name, signed_bundle, verifier_policy_overrides } of B.must_accept_bundles as AcceptCase[]) {
     it.each(MODES)(`${name} verifies under %s`, async (mode) => {
-      const result = await verifySignedBundleV2(signed_bundle, registry, policyFor(mode));
+      const policy = { ...policyFor(mode), ...verifier_policy_overrides };
+      const result = await verifySignedBundleV2(signed_bundle, registry, policy);
       expect(result.errors).toEqual([]);
       expect(result.verified).toBe(true);
     });
   }
 
-  type BundleCase = { name: string; error_contains: string; signed_bundle: SignedBundleV2 };
-  for (const { name, error_contains, signed_bundle } of B.must_reject_bundles as BundleCase[]) {
+  type BundleCase = {
+    name: string;
+    error_contains: string;
+    signed_bundle: SignedBundleV2;
+    verifier_policy_overrides?: Partial<VerifierPolicy>;
+  };
+  for (const { name, error_contains, signed_bundle, verifier_policy_overrides } of B.must_reject_bundles as BundleCase[]) {
     it.each(MODES)(`${name} is rejected under %s`, async (mode) => {
-      const result = await verifySignedBundleV2(signed_bundle, registry, policyFor(mode));
+      const policy = { ...policyFor(mode), ...verifier_policy_overrides };
+      const result = await verifySignedBundleV2(signed_bundle, registry, policy);
+      const row = schemaFirstRow('bundle_vectors.json', name);
+      if (row) return expectSchemaRejection(result, row);
       expect(result.verified).toBe(false);
       expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
     });

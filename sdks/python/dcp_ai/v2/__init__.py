@@ -134,8 +134,10 @@ from dcp_ai.v2.rights import (
 )
 from dcp_ai.v2.delegation import (
     create_delegation_mandate,
+    create_sub_mandate,
     generate_interaction_record,
     revoke_delegation,
+    verify_mandate_chain,
     verify_mandate_validity,
 )
 from dcp_ai.v2.awareness_threshold import (
@@ -207,6 +209,31 @@ from dcp_ai.v2.verify import (
     DEFAULT_VERIFIER_POLICY,
     PQ_ONLY_VERIFIER_POLICY,
     verify_signed_bundle_v2,
+)
+from dcp_ai.v2.admission import (
+    STRICT_V1,
+    STRICT_V1_MAX_SECONDS,
+    AdmissionConfigError,
+    PrincipalTrustStore,
+    RevocationListError,
+    RevocationSourceError,
+    StrictV1Profile,
+    TrustedKey,
+    admit_signed_bundle_v2,
+    create_principal_trust_store,
+    evaluate_admission_v2,
+    resolve_strict_v1_profile,
+    revocation_snapshot_from_deny_list,
+    revocation_subjects,
+)
+from dcp_ai.v2.revocation_source import DenyListWorkers, deny_list_revocation_source
+from dcp_ai.v2.delegated_admission import admit_delegated_bundle_v2
+from dcp_ai.v2.v1_ingress import admit_signed_bundle_v2_from_bytes
+from dcp_ai.v2.mandate_acknowledgment import (
+    MANDATE_ACKNOWLEDGMENT_CONTEXT,
+    MANDATE_ACKNOWLEDGMENT_FORMAT,
+    create_mandate_acknowledgment,
+    evaluate_delegation_activation_v2,
 )
 
 __all__ = [
@@ -327,8 +354,10 @@ __all__ = [
     "report_violation",
     # DCP-09: delegation
     "create_delegation_mandate",
+    "create_sub_mandate",
     "generate_interaction_record",
     "revoke_delegation",
+    "verify_mandate_chain",
     "verify_mandate_validity",
     # DCP-09: awareness threshold
     "create_advisory_declaration",
@@ -387,4 +416,30 @@ __all__ = [
     "DEFAULT_VERIFIER_POLICY",
     "PQ_ONLY_VERIFIER_POLICY",
     "verify_signed_bundle_v2",
+    # Admission: principal trust and the strict-v1 profile (spec/profiles/admission)
+    "STRICT_V1",
+    "STRICT_V1_MAX_SECONDS",
+    "AdmissionConfigError",
+    "PrincipalTrustStore",
+    "StrictV1Profile",
+    "TrustedKey",
+    "admit_signed_bundle_v2",
+    "create_principal_trust_store",
+    "evaluate_admission_v2",
+    "resolve_strict_v1_profile",
+    "revocation_subjects",
+    "revocation_snapshot_from_deny_list",
+    "RevocationListError",
+    "RevocationSourceError",
+    "DenyListWorkers",
+    "deny_list_revocation_source",
+    # Delegated admission (opt-in): a leaf bundle with its mandate chain and delegators, at one instant
+    "admit_delegated_bundle_v2",
+    # Admission from bytes (opt-in): copy, candidate scanner, portable integers, parser comparison, admission
+    "admit_signed_bundle_v2_from_bytes",
+    # Mandate acknowledgment (opt-in, DCP-09 § 3.3): creation, and the activation evaluated over the delegated admission
+    "MANDATE_ACKNOWLEDGMENT_CONTEXT",
+    "MANDATE_ACKNOWLEDGMENT_FORMAT",
+    "create_mandate_acknowledgment",
+    "evaluate_delegation_activation_v2",
 ]

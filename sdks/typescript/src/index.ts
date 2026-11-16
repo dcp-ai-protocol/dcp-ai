@@ -134,6 +134,8 @@ export type {
   ThresholdAction,
   AuthorityScopeEntry,
   DelegationMandate,
+  SubDelegationPolicy,
+  SubMandate,
   AdvisoryDeclaration,
   PrincipalMirror,
   InteractionRecord,
@@ -189,11 +191,65 @@ export { secureZero, SecureKeyGuard } from './core/secure-memory.js';
 export { registerDefaultProviders } from './core/register-providers.js';
 
 // ── V2 Domain Separation ──
-export { DCP_CONTEXTS, domainSeparatedMessage } from './core/domain-separation.js';
+export { DCP_CONTEXTS, MANDATE_ACKNOWLEDGMENT_CONTEXT, domainSeparatedMessage } from './core/domain-separation.js';
 export type { DcpContext } from './core/domain-separation.js';
 
 // ── V2 Canonicalization ──
 export { canonicalizeV2, assertNoFloats } from './core/canonicalize.js';
+
+// ── EXPERIMENTAL, opt-in: ingress of one unit under the inactive candidate dcp-jcs-v2 (phase 1) ──
+export {
+  experimentalCandidateIngress,
+  ExperimentalCandidateInternalError,
+} from './core/experimental-candidate-ingress.js';
+export type {
+  ExperimentalCandidateIngressResult,
+  ExperimentalCandidateRejectClass,
+  ExperimentalCandidateValue,
+} from './core/experimental-candidate-ingress.js';
+export {
+  createExperimentalCandidateRouter,
+  experimentalCandidateExtractUnit,
+  experimentalHistoricalAdapters,
+  ExperimentalCandidateAdapterError,
+  ExperimentalCandidateConfigError,
+} from './core/experimental-candidate-router.js';
+export type {
+  ExperimentalCandidateExtraction,
+  ExperimentalCandidateHistorical,
+  ExperimentalCandidateProfile,
+  ExperimentalCandidateRouter,
+  ExperimentalCandidateRouteRejectClass,
+  ExperimentalCandidateRouteResult,
+  ExperimentalCandidateTransport,
+  ExperimentalCandidateUnitRange,
+  ExperimentalCandidateWarning,
+  ExperimentalHistoricalAdapter,
+  ExperimentalHistoricalDecode,
+} from './core/experimental-candidate-router.js';
+
+// ── EXPERIMENTAL, opt-in: verification of original bytes under the candidate dcp-jcs-v2 (phase 3) ──
+export { createExperimentalCandidateVerifier } from './core/experimental-candidate-verify.js';
+export type {
+  ExperimentalCandidateVerifier,
+  ExperimentalCandidateVerifyResult,
+} from './core/experimental-candidate-verify.js';
+
+// ── EXPERIMENTAL, opt-in: producers of new candidate dcp-jcs-v2 evidence (phase 4) ──
+export {
+  experimentalCandidateSignPayload,
+  experimentalCandidateSignBundle,
+  ExperimentalCandidateProduceError,
+} from './core/experimental-candidate-produce.js';
+export type {
+  ExperimentalCandidateBundleOptions,
+  ExperimentalCandidateBundleParts,
+  ExperimentalCandidateBundleSigner,
+  ExperimentalCandidateInput,
+  ExperimentalCandidateKeys,
+  ExperimentalCandidateProduceClass,
+  ExperimentalCandidateSignedPayload,
+} from './core/experimental-candidate-produce.js';
 
 // ── V2 Signed Payload ──
 export { preparePayload, verifyPayloadHash } from './core/signed-payload.js';
@@ -205,6 +261,7 @@ export {
   verifySessionBinding,
   generateSessionExpiry,
   isSessionExpired,
+  parseRfc3339,
 } from './core/session-nonce.js';
 
 // ── V2 Emergency Revocation (Gap #13) ──
@@ -265,6 +322,8 @@ export { VerificationCache } from './core/verification-cache.js';
 export type {
   CacheEntry,
   VerificationCacheOptions,
+  VerificationCacheSetOptions,
+  VerificationCacheLookupOptions,
 } from './core/verification-cache.js';
 
 // ── V2 PQ Checkpoints ──
@@ -304,7 +363,41 @@ export type { SignBundleV2Options, SignBundleV2ClassicalOnlyOptions } from './bu
 
 // ── V2 Verification ──
 export { verifySignedBundleV2, DEFAULT_VERIFIER_POLICY } from './core/verify-v2.js';
-export type { VerifyV2Result } from './core/verify-v2.js';
+export type { VerifyV2Result, VerifyV2Options, SignerKeyUse } from './core/verify-v2.js';
+
+// ── Admission: principal trust and the strict-v1 profile (spec/profiles/admission) ──
+export {
+  STRICT_V1,
+  STRICT_V1_MAX_SECONDS,
+  AdmissionConfigError,
+  createPrincipalTrustStore,
+  isPrincipalTrustStore,
+  resolveStrictV1Profile,
+  isStrictV1Profile,
+  revocationSubjects,
+  revocationSnapshotFromDenyList,
+  RevocationListError,
+  evaluateAdmissionV2,
+  admitSignedBundleV2,
+} from './core/admission.js';
+export type {
+  AdmissionCode,
+  AdmissionConfigCode,
+  AdmissionError,
+  AdmissionInput,
+  AdmissionResult,
+  AdmitOptions,
+  PrincipalTrust,
+  PrincipalTrustSet,
+  PrincipalTrustStore,
+  ProfileCompliance,
+  RevocationSnapshot,
+  RevocationStatus,
+  RevocationSubjects,
+  StrictV1Profile,
+  StrictV1ProfileConfig,
+  TrustedPrincipalKey,
+} from './core/admission.js';
 
 // ── CBOR Wire Format ──
 export {
@@ -433,10 +526,38 @@ export {
 // ── DCP-09: Delegation & Representation ──
 export {
   createDelegationMandate,
+  createSubMandate,
   verifyMandateValidity,
+  verifyMandateChain,
   revokeDelegation,
   generateInteractionRecord,
 } from './core/delegation.js';
+export type { MandateChainKeys, MandateChainResult } from './core/delegation.js';
+
+// Delegated admission (opt-in): a leaf bundle with its mandate chain and delegators, verified at one instant.
+export { admitDelegatedBundleV2 } from './core/delegated-admission.js';
+export type {
+  DelegatedAdmissionResult,
+  DelegatedEvidence,
+  DelegatedOperator,
+  DelegationCode,
+  DelegationError,
+  MandateRevocationSnapshot,
+} from './core/delegated-admission.js';
+
+// Admission from bytes (opt-in): copy, candidate scanner, portable integers, parser comparison, admission.
+export { admitSignedBundleV2FromBytes, type IngressAdmissionResult, type IngressOutcome } from './core/v1-ingress.js';
+
+// Mandate acknowledgment (opt-in, DCP-09 § 3.3): creation, and the activation evaluated over the delegated admission.
+export { MANDATE_ACKNOWLEDGMENT_FORMAT, createMandateAcknowledgment, evaluateDelegationActivationV2 } from './core/mandate-acknowledgment.js';
+export type {
+  AcknowledgmentCode,
+  AcknowledgmentError,
+  ActivationEvidence,
+  DelegationActivationResult,
+  MandateAcknowledgment,
+  MandateAcknowledgmentParams,
+} from './core/mandate-acknowledgment.js';
 
 export {
   evaluateSignificance,

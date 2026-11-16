@@ -1,0 +1,725 @@
+{
+  "_description": "The date-time boundary of decision D2: each value with the answer of the upstream function itself (ajv-formats 3.0.1, fullFormats[\"date-time\"].validate), for the four SDK ports. Not RFC 3339 and not the V2-4 temporal parsers.",
+  "upstream": "ajv-formats 3.0.1 dist/formats.js fullFormats[\"date-time\"] (getDateTime(true))",
+  "totals": {
+    "cases": 137,
+    "accepted": 66
+  },
+  "separator_scalars": [
+    "U+0009",
+    "U+000A",
+    "U+000B",
+    "U+000C",
+    "U+000D",
+    "U+0020",
+    "U+0054",
+    "U+0074",
+    "U+00A0",
+    "U+1680",
+    "U+2000",
+    "U+2001",
+    "U+2002",
+    "U+2003",
+    "U+2004",
+    "U+2005",
+    "U+2006",
+    "U+2007",
+    "U+2008",
+    "U+2009",
+    "U+200A",
+    "U+2028",
+    "U+2029",
+    "U+202F",
+    "U+205F",
+    "U+3000",
+    "U+FEFF"
+  ],
+  "separator_note": "With \"2000-01-01\" before and \"00:00:00Z\" after it, upstream accepts exactly these BMP scalars as the separator (checked over every BMP scalar at generation): \"t\", \"T\" and ECMAScript white space.",
+  "cases": [
+    {
+      "value": "",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": " ",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "n/a",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00:00Z",
+      "accepted": true,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00:00z",
+      "accepted": true,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01t00:00:00Z",
+      "accepted": true,
+      "source": "grid: whole value"
+    },
+    {
+      "value": " 2000-01-01T00:00:00Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00:00Z ",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "\t2000-01-01T00:00:00Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00:00Z\n",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "﻿2000-01-01T00:00:00Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00:00",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "00:00:00Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01TT00:00:00Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T 00:00:00Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01 00:00:00 Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00:00UTC",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00:00GMT",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T00:00:00.Z",
+      "accepted": false,
+      "source": "grid: whole value"
+    },
+    {
+      "value": "2000-01-01T23:59:59Z",
+      "accepted": true,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T24:00:00Z",
+      "accepted": false,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T23:60:00Z",
+      "accepted": false,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T1:00:00Z",
+      "accepted": false,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T00:0:00Z",
+      "accepted": false,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T00:00:0Z",
+      "accepted": false,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T00:00:00.0Z",
+      "accepted": true,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T00:00:00.123456789012Z",
+      "accepted": true,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T00:00:00,5Z",
+      "accepted": false,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T٠٠:00:00Z",
+      "accepted": false,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01T０0:00:00Z",
+      "accepted": false,
+      "source": "grid: times"
+    },
+    {
+      "value": "2000-01-01\t00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\n00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\u000b00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\f00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\r00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01 00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01　00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01﻿00:00:00Z",
+      "accepted": true,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\u000000:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\u001c00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\u001d00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\u001e00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01\u001f00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-0100:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-0100:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01᠎00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01​00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01⁠00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01x00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01Ｔ00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01ｔ00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2000-01-01τ00:00:00Z",
+      "accepted": false,
+      "source": "grid: separators"
+    },
+    {
+      "value": "2026-10-21T12:03:00Z",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00z",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+00",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+0000",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+00:00",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00-00:00",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+05",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+0530",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+05:30",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+05:",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+5",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+055",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+23:59",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+24:00",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+23:60",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00-12:00",
+      "accepted": true,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+00:0",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+00:000",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00ZZ",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2026-10-21T12:03:00+05:30Z",
+      "accepted": false,
+      "source": "grid: offsets"
+    },
+    {
+      "value": "2016-12-31T23:59:60Z",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T23:59:60.5Z",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T23:59:60.999999Z",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T23:59:61Z",
+      "accepted": false,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T22:59:60Z",
+      "accepted": false,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T00:59:60+01:00",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T00:59:60+0100",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T00:00:60+00:01",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T23:60:00+00:01",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T23:60:60+00:01",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T24:59:60+01:00",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T15:59:60-08:00",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T23:59:60-00:00",
+      "accepted": true,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T00:00:60Z",
+      "accepted": false,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2016-12-31T99:99:60Z",
+      "accepted": false,
+      "source": "grid: leap-second rule"
+    },
+    {
+      "value": "2026-10-21T12:00:59.0Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T23:59:59.0Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T12:00:59.5Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T23:59:59.5Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T12:00:59.123456789Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T23:59:59.123456789Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T12:00:59.99999999999999999Z",
+      "accepted": false,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T23:59:59.99999999999999999Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T12:00:59.Z",
+      "accepted": false,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T23:59:59.Z",
+      "accepted": false,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T12:00:59.5.5Z",
+      "accepted": false,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T23:59:59.5.5Z",
+      "accepted": false,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T12:00:59.0000000000000000000000001Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "2026-10-21T23:59:59.0000000000000000000000001Z",
+      "accepted": true,
+      "source": "grid: fractions"
+    },
+    {
+      "value": "1900-02-29T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2000-02-29T00:00:00Z",
+      "accepted": true,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2024-02-29T00:00:00Z",
+      "accepted": true,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2023-02-29T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "0000-02-29T00:00:00Z",
+      "accepted": true,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2026-04-31T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2026-00-10T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2026-13-01T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2026-12-00T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2026-12-32T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "9999-12-31T00:00:00Z",
+      "accepted": true,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "+2026-10-21T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2026-1-21T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "20261021T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "٢026-10-21T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "２026-10-21T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    },
+    {
+      "value": "2026/10/21T00:00:00Z",
+      "accepted": false,
+      "source": "grid: calendar"
+    }
+  ]
+}

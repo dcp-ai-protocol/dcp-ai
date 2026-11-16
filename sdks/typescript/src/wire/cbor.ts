@@ -10,6 +10,8 @@
  * - Preferred integer encoding (smallest possible)
  * - No duplicate keys
  * - No indefinite-length items
+ * - Text must contain valid Unicode; decoded UTF-8 is checked without stripping a BOM
+ * - Integers are limited to JavaScript's exact safe-integer range
  *
  * This is a minimal deterministic CBOR encoder/decoder sufficient for DCP
  * payloads. For production, consider replacing with a battle-tested library.
@@ -28,6 +30,21 @@ const MT_SIMPLE = 7;
 const SIMPLE_FALSE = 20;
 const SIMPLE_TRUE = 21;
 const SIMPLE_NULL = 22;
+
+/** TextEncoder would silently replace unpaired UTF-16 surrogates with U+FFFD. */
+function assertUnicodeText(text: string): void {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = text.charCodeAt(++i);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) {
+        throw new Error('DCP CBOR: invalid Unicode text (unpaired surrogate)');
+      }
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      throw new Error('DCP CBOR: invalid Unicode text (unpaired surrogate)');
+    }
+  }
+}
 
 export class CborEncoder {
   private chunks: Uint8Array[] = [];
@@ -96,6 +113,9 @@ export class CborEncoder {
       if (!Number.isInteger(value)) {
         throw new Error(`DCP CBOR: float values prohibited. Got: ${value}`);
       }
+      if (!Number.isSafeInteger(value)) {
+        throw new Error('DCP CBOR: integer outside the safe integer range');
+      }
       if (value >= 0) {
         this.encodeHead(MT_UNSIGNED, value);
       } else {
@@ -105,6 +125,7 @@ export class CborEncoder {
     }
 
     if (typeof value === 'string') {
+      assertUnicodeText(value);
       const bytes = new TextEncoder().encode(value);
       this.encodeHead(MT_TEXT, bytes.length);
       this.push(bytes);
@@ -205,7 +226,11 @@ export class CborDecoder {
       const b = this.readBytes(8);
       const hi = ((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0;
       const lo = ((b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]) >>> 0;
-      return hi * 0x100000000 + lo;
+      const value = hi * 0x100000000 + lo;
+      if (!Number.isSafeInteger(value)) {
+        throw new Error('DCP CBOR: integer or length outside the safe integer range');
+      }
+      return value;
     }
     throw new Error(`DCP CBOR: unsupported additional info: ${additional}`);
   }
@@ -219,8 +244,13 @@ export class CborDecoder {
       case MT_UNSIGNED:
         return this.decodeLength(additional);
 
-      case MT_NEGATIVE:
-        return -1 - this.decodeLength(additional);
+      case MT_NEGATIVE: {
+        const value = -1 - this.decodeLength(additional);
+        if (!Number.isSafeInteger(value)) {
+          throw new Error('DCP CBOR: integer outside the safe integer range');
+        }
+        return value;
+      }
 
       case MT_BYTES: {
         const len = this.decodeLength(additional);
@@ -230,7 +260,8 @@ export class CborDecoder {
       case MT_TEXT: {
         const len = this.decodeLength(additional);
         const bytes = this.readBytes(len);
-        return new TextDecoder().decode(bytes);
+        // U+FEFF is text data here, not a transport byte-order marker.
+        return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
       }
 
       case MT_ARRAY: {
@@ -250,7 +281,14 @@ export class CborDecoder {
           if (typeof key !== 'string') {
             throw new Error(`DCP CBOR: only string map keys supported, got ${typeof key}`);
           }
-          obj[key] = this.decodeValue();
+          if (Object.hasOwn(obj, key)) {
+            throw new Error('DCP CBOR: duplicate map key');
+          }
+          // Assignment to __proto__ invokes a setter on an ordinary object.
+          // Define every decoded entry as an own data property instead.
+          Object.defineProperty(obj, key, {
+            value: this.decodeValue(), enumerable: true, writable: true, configurable: true,
+          });
         }
         return obj;
       }

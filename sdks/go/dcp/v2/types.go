@@ -68,6 +68,9 @@ type IntentV2 struct {
 	DataClasses     []string       `json:"data_classes"`
 	EstimatedImpact string         `json:"estimated_impact"`
 	RequiresConsent bool           `json:"requires_consent"`
+	// SecurityTier is the declared tier (routine, standard, elevated, maximum); it can only
+	// raise the computed one (DCP-AI v2.0 §14.2). Empty means none declared.
+	SecurityTier string `json:"security_tier,omitempty"`
 }
 
 // RequiredConfirmation represents the confirmation requirements on a policy decision.
@@ -88,9 +91,22 @@ type PolicyDecisionV2 struct {
 	RequiredConfirmation *RequiredConfirmation `json:"required_confirmation"`
 	AppliedPolicyHash    string                `json:"applied_policy_hash"`
 	Timestamp            string                `json:"timestamp"`
+	// ResolvedTier is the security tier the policy engine resolved; empty means none.
+	ResolvedTier string `json:"resolved_tier,omitempty"`
 }
 
 // AuditEvidenceV2 represents evidence attached to a V2 audit event.
+//
+// It is for producing entries; it is not a lossless representation for
+// forwarding signed evidence. In audit evidence, explicit null members and
+// unrecognized members are lost by this struct; recognized string-valued
+// members and an empty evidence object keep their values. These member losses
+// change the canonical evidence and may invalidate the prev_hash chain or the
+// audit Merkle root. To keep a received audit entry, use RawAuditEventV2; to
+// keep a received bundle, keep its bytes and verify those bytes
+// (VerifySignedBundleV2 takes them). Do not automatically repair, recompute or
+// re-sign received evidence to make it verify; an explicit migration should be
+// a separate step that keeps the original.
 type AuditEvidenceV2 struct {
 	Tool         *string `json:"tool,omitempty"`
 	ResultRef    *string `json:"result_ref,omitempty"`
@@ -98,6 +114,12 @@ type AuditEvidenceV2 struct {
 }
 
 // AuditEventV2 represents a DCP v2 Audit Event.
+//
+// It is for producing entries, not a lossless representation of a received
+// one: decoding and encoding it again drops a null or empty
+// prev_hash_secondary or intent_hash_secondary, turns an absent
+// pq_checkpoint_ref into null, drops unknown members, and loses evidence as
+// AuditEvidenceV2 does. Use RawAuditEventV2 to keep a received entry.
 type AuditEventV2 struct {
 	DCPVersion            string           `json:"dcp_version"`
 	AuditID               string           `json:"audit_id"`
@@ -150,6 +172,15 @@ type BundleManifest struct {
 	// spec/CANONICALIZATION_PROFILE.md § 4). Future profiles will make the
 	// field required.
 	CanonicalizationProfile string `json:"canonicalization_profile,omitempty"`
+	// SessionIssuedAt and SessionExpiresAt are the signed session window, RFC
+	// 3339 timestamps (VERIFICATION.md V2-4). A verifier with a maximum session
+	// duration measures it from SessionIssuedAt; SignBundleV2 sets it to the
+	// signing time when SessionExpiresAt is set and it is not.
+	SessionIssuedAt  string `json:"session_issued_at,omitempty"`
+	SessionExpiresAt string `json:"session_expires_at,omitempty"`
+	// IntendedVerifier binds the bundle to one verifier (audience binding);
+	// a verifier policy with require_audience_binding checks it.
+	IntendedVerifier string `json:"intended_verifier,omitempty"`
 }
 
 // BundleSignerV2 describes who signed a V2 bundle.
@@ -205,6 +236,20 @@ type VerifierPolicy struct {
 	AllowClassicalFallbackDisable bool     `json:"allow_classical_fallback_disable"`
 	WarnClassicalOnlyDeprecated   bool     `json:"warn_classical_only_deprecated"`
 	AdvisoryRejectedAlgs          []string `json:"advisory_rejected_algs"`
+
+	// MaxSessionDurationSeconds bounds the signed session window: a bundle
+	// whose manifest session_expires_at is more than this many seconds after
+	// its session_issued_at is rejected, and so is one without either
+	// (VERIFICATION.md V2-4). 0 is no limit.
+	MaxSessionDurationSeconds int `json:"max_session_duration_seconds,omitempty"`
+
+	// RequireSessionExpiry rejects a bundle whose manifest has no
+	// session_expires_at. RequireAudienceBinding rejects one whose manifest has
+	// no intended_verifier, or, when VerifierID is set, another one than
+	// VerifierID, this verifier's identity. Zero values turn them off.
+	RequireSessionExpiry   bool   `json:"require_session_expiry,omitempty"`
+	RequireAudienceBinding bool   `json:"require_audience_binding,omitempty"`
+	VerifierID             string `json:"verifier_id,omitempty"`
 }
 
 // SupportedAlgs describes the algorithm suites a DCP implementation supports.
@@ -484,18 +529,43 @@ type AuthorityScopeEntry struct {
 }
 
 // DelegationMandate records a human-to-agent authority delegation (DCP-09).
+// The DCP-09 §3.5 chain fields are absent on a mandate that permits no
+// sub-delegation.
 type DelegationMandate struct {
-	DCPVersion        string                `json:"dcp_version"`
-	MandateID         string                `json:"mandate_id"`
-	SessionNonce      string                `json:"session_nonce"`
-	HumanID           string                `json:"human_id"`
-	AgentID           string                `json:"agent_id"`
-	AuthorityScope    []AuthorityScopeEntry `json:"authority_scope"`
-	ValidFrom         string                `json:"valid_from"`
-	ValidUntil        string                `json:"valid_until"`
-	Revocable         bool                  `json:"revocable"`
-	Timestamp         string                `json:"timestamp"`
-	HumanCompositeSig CompositeSignature    `json:"human_composite_sig"`
+	DCPVersion          string                `json:"dcp_version"`
+	MandateID           string                `json:"mandate_id"`
+	SessionNonce        string                `json:"session_nonce"`
+	HumanID             string                `json:"human_id"`
+	AgentID             string                `json:"agent_id"`
+	AuthorityScope      []AuthorityScopeEntry `json:"authority_scope"`
+	ValidFrom           string                `json:"valid_from"`
+	ValidUntil          string                `json:"valid_until"`
+	Revocable           bool                  `json:"revocable"`
+	Timestamp           string                `json:"timestamp"`
+	DelegationDepth     *int                  `json:"delegation_depth,omitempty"`
+	SubDelegation       *SubDelegationPolicy  `json:"sub_delegation,omitempty"`
+	MinimumSecurityTier string                `json:"minimum_security_tier,omitempty"`
+	HumanCompositeSig   CompositeSignature    `json:"human_composite_sig"`
+}
+
+// SubMandate is a delegate agent's narrower delegation to another agent,
+// signed by the delegating agent (DCP-09 §3.5).
+type SubMandate struct {
+	DCPVersion            string                `json:"dcp_version"`
+	MandateID             string                `json:"mandate_id"`
+	SessionNonce          string                `json:"session_nonce"`
+	HumanID               string                `json:"human_id"`
+	AgentID               string                `json:"agent_id"`
+	AuthorityScope        []AuthorityScopeEntry `json:"authority_scope"`
+	ValidFrom             string                `json:"valid_from"`
+	ValidUntil            string                `json:"valid_until"`
+	Revocable             bool                  `json:"revocable"`
+	Timestamp             string                `json:"timestamp"`
+	ParentMandateID       string                `json:"parent_mandate_id"`
+	DelegationDepth       int                   `json:"delegation_depth"`
+	SubDelegation         *SubDelegationPolicy  `json:"sub_delegation,omitempty"`
+	MinimumSecurityTier   string                `json:"minimum_security_tier,omitempty"`
+	DelegatorCompositeSig CompositeSignature    `json:"delegator_composite_sig"`
 }
 
 // AdvisoryDeclaration records an agent advisory to a human (DCP-09).

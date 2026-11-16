@@ -1,0 +1,2234 @@
+{
+ "title": "Candidate dcp-jcs-v2, phase 2: expected routes where a historical adapter is consulted",
+ "status": "Experimental and non-normative. dcp-jcs-v1 remains the only canonicalization profile.",
+ "how_to_read": {
+  "cases": "The units of the corpus whose `historical` parameter only simulates a parser, and synthetic units with NaN, 1e999 and a lone surrogate. All are bare units.",
+  "decoder_reading": "What the real decoder returns at bundle.manifest.canonicalization_profile: absent, dcp-jcs-v1, dcp-jcs-v2, other, or fails. Measured by running the decoder, not simulated.",
+  "expected": "The route outcome under the policy of the case, by \u00a76.4: offsets are relative to the unit (equal to the input offset for bare). adapter_calls is how many times the adapter is consulted.",
+  "corpus_historical_parameter": "The simulated value in corpus.json, kept only for comparison; it is not evidence."
+ },
+ "adapters": {
+  "ts.bufferUtf8JsonParse": "Buffer.from(bytes).toString(\"utf8\") then JSON.parse",
+  "ts.textDecoderJsonParse": "new TextDecoder().decode(bytes) then JSON.parse",
+  "py.json_loads_bytes": "json.loads(bytes)",
+  "py.json_loads_strict_decode": "json.loads(bytes.decode(\"utf-8\"))",
+  "go.encoding_json": "json.Unmarshal into interface{}",
+  "rs.serde_json_from_slice": "serde_json::from_slice::<Value>",
+  "wasm.w1.bufferUtf8JsonParse": "Buffer text, JSON.parse, JSON.stringify, then serde_json::from_str",
+  "wasm.w1.textDecoderJsonParse": "TextDecoder text, JSON.parse, JSON.stringify, then serde_json::from_str",
+  "wasm.w2.bufferUtf8": "Buffer text, then serde_json::from_str",
+  "wasm.w2.textDecoder": "TextDecoder text, then serde_json::from_str"
+ },
+ "cases": [
+  {
+   "id": "b-bom-v2-parser-fails",
+   "source": "corpus",
+   "input_hex": "efbbbf7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7632222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a327d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632d31227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a37623637653037316133353763363664313731323230623435646539363833346265303361353231343139363666646431643237353962316562353763396434227d7d",
+   "input_sha256": "879f97725b745e3eeef9a8572a7073b15b2875617094a51994b35c8309a70661",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "BOM",
+    "offset": 0
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "fails",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    }
+   }
+  },
+  {
+   "id": "b-bom-v2-parser-strips",
+   "source": "corpus",
+   "input_hex": "efbbbf7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7632222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a327d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632d31227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a37623637653037316133353763363664313731323230623435646539363833346265303361353231343139363666646431643237353962316562353763396434227d7d",
+   "input_sha256": "879f97725b745e3eeef9a8572a7073b15b2875617094a51994b35c8309a70661",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "BOM",
+    "offset": 0
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "dcp-jcs-v2",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    }
+   }
+  },
+  {
+   "id": "b-bom-v1-parser-strips",
+   "source": "corpus",
+   "input_hex": "efbbbf7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a327d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632d31227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a33616234616262343262393731373033613165376564353532613635643062646434366330353163623832353239653238376438363737363138613531333163227d7d",
+   "input_sha256": "00f568a8b99506895b7cf0acab32d1d2176758e56feb2309d2040f1b09a8f240",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "BOM",
+    "offset": 0
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "dcp-jcs-v1",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "BOM",
+        "offset": 0
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "BOM",
+        "offset": 0
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "BOM",
+        "offset": 0
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "BOM",
+        "offset": 0
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    }
+   }
+  },
+  {
+   "id": "b-bom-v1-parser-fails",
+   "source": "corpus",
+   "input_hex": "efbbbf7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a327d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632d31227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a33616234616262343262393731373033613165376564353532613635643062646434366330353163623832353239653238376438363737363138613531333163227d7d",
+   "input_sha256": "00f568a8b99506895b7cf0acab32d1d2176758e56feb2309d2040f1b09a8f240",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "BOM",
+    "offset": 0
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "fails",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "BOM",
+        "offset": 0
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "BOM",
+        "offset": 0
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "BOM",
+        "offset": 0
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "BOM",
+        "offset": 0
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    }
+   }
+  },
+  {
+   "id": "b-utf8-v1-parser-repairs",
+   "source": "corpus",
+   "input_hex": "7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a327d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632dff227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a33616234616262343262393731373033613165376564353532613635643062646434366330353163623832353239653238376438363737363138613531333163227d7d",
+   "input_sha256": "85294c78b7fe24eb2aba930c5723b8e8690d78c6d9ee242dad3a75bcb5c0294d",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "UTF8_INVALID",
+    "offset": 260
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "dcp-jcs-v1",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "UTF8_INVALID",
+        "offset": 260
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "UTF8_INVALID",
+        "offset": 260
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "UTF8_INVALID",
+        "offset": 260
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "UTF8_INVALID",
+        "offset": 260
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "UTF8_INVALID",
+        "offset": 260
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "UTF8_INVALID",
+        "offset": 260
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "UTF8_INVALID",
+        "offset": 260
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    }
+   }
+  },
+  {
+   "id": "b-utf8-v2-parser-repairs",
+   "source": "corpus",
+   "input_hex": "7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7632222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a327d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632dff227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a37623637653037316133353763363664313731323230623435646539363833346265303361353231343139363666646431643237353962316562353763396434227d7d",
+   "input_sha256": "4ae254f43a3da8086c96f2f46f5b8e08b1734b6f071d184db1e1d1f34d6e2de3",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "UTF8_INVALID",
+    "offset": 260
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "dcp-jcs-v2",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    }
+   }
+  },
+  {
+   "id": "b-utf8-unknown-parser-repairs",
+   "source": "corpus",
+   "input_hex": "7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7632222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a327d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632dff227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a37623637653037316133353763363664313731323230623435646539363833346265303361353231343139363666646431643237353962316562353763396434227d7d",
+   "input_sha256": "4ae254f43a3da8086c96f2f46f5b8e08b1734b6f071d184db1e1d1f34d6e2de3",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "UTF8_INVALID",
+    "offset": 260
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "other",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "dcp-jcs-v2",
+     "expected": {
+      "outcome": "reject",
+      "class": "UTF8_INVALID",
+      "offset": 260,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (UTF8_INVALID); the decoder reads dcp-jcs-v2, which never selects the candidate, so the class of the diagnosis rejects it."
+    }
+   }
+  },
+  {
+   "id": "b-syntax-v1-parser-fails",
+   "source": "corpus",
+   "input_hex": "7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a322c7d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632d31227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a33616234616262343262393731373033613165376564353532613635643062646434366330353163623832353239653238376438363737363138613531333163227d7d",
+   "input_sha256": "d2917707c94376380a62b04210db8e9498db1a42ddbe901b2118368ae92a2bd8",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "SYNTAX",
+    "offset": 194
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "fails",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 194,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    }
+   }
+  },
+  {
+   "id": "p-v2-only-bom-v1-parser-strips",
+   "source": "corpus",
+   "input_hex": "efbbbf7b2262756e646c65223a7b226463705f62756e646c655f76657273696f6e223a22322e30222c226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631222c22696e74656e745f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032222c2261756469745f636f756e74223a327d2c22696e74656e74223a7b227061796c6f6164223a7b22616374696f6e223a2272656164222c22616d6f756e74223a34322c227265736f75726365223a22646f632d31227d2c227061796c6f61645f68617368223a227368613235363a36613763653238363239313131343731663864353266636366383434313664313837333661663364643166396463613865323364336531316466366237343032227d2c2261756469745f656e7472696573223a5b7b226576656e74223a22737465702d30222c22707265765f68617368223a2247454e45534953222c22736571223a307d2c7b226576656e74223a22737465702d31222c22707265765f68617368223a227368613235363a36386261643138373364363934396262383533633336363136633564613637306264623531326439616330336136643564313166626162633434333266386533222c22736571223a317d5d7d2c227369676e6174757265223a7b226d616e69666573745f68617368223a227368613235363a33616234616262343262393731373033613165376564353532613635643062646434366330353163623832353239653238376438363737363138613531333163227d7d",
+   "input_sha256": "00f568a8b99506895b7cf0acab32d1d2176758e56feb2309d2040f1b09a8f240",
+   "policy": [
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "BOM",
+    "offset": 0
+   },
+   "walkable": false,
+   "corpus_historical_parameter": "dcp-jcs-v1",
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_NOT_ACCEPTED",
+      "offset": null,
+      "profile": "dcp-jcs-v1",
+      "adapter_calls": 1
+     },
+     "why": "The decoder reads dcp-jcs-v1 but the policy does not accept dcp-jcs-v1."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_NOT_ACCEPTED",
+      "offset": null,
+      "profile": "dcp-jcs-v1",
+      "adapter_calls": 1
+     },
+     "why": "The decoder reads dcp-jcs-v1 but the policy does not accept dcp-jcs-v1."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_NOT_ACCEPTED",
+      "offset": null,
+      "profile": "dcp-jcs-v1",
+      "adapter_calls": 1
+     },
+     "why": "The decoder reads dcp-jcs-v1 but the policy does not accept dcp-jcs-v1."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "BOM",
+      "offset": 0,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (BOM); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_NOT_ACCEPTED",
+      "offset": null,
+      "profile": "dcp-jcs-v1",
+      "adapter_calls": 1
+     },
+     "why": "The decoder reads dcp-jcs-v1 but the policy does not accept dcp-jcs-v1."
+    }
+   }
+  },
+  {
+   "id": "syn-nan-unsigned-v1",
+   "source": "synthetic",
+   "input_hex": "7b2262756e646c65223a7b226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631227d7d2c227369676e6174757265223a7b7d2c2278223a4e614e7d",
+   "input_sha256": "3b7d2cf56e1d47b88a93052331951bf7bb271a83fc45abbeb60a4f5015a5bcf0",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "SYNTAX",
+    "offset": 84
+   },
+   "walkable": false,
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 84,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 84,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "SYNTAX",
+        "offset": 84
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "SYNTAX",
+        "offset": 84
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 84,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 84,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 84,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 84,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 84,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 84,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    }
+   }
+  },
+  {
+   "id": "syn-inf-unsigned-v1",
+   "source": "synthetic",
+   "input_hex": "7b2262756e646c65223a7b226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631227d7d2c227369676e6174757265223a7b7d2c2278223a31653939397d",
+   "input_sha256": "062f21944b1a58df3ffbd818863913846327fbefb61940c267111a998db44d32",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "NUMBER_OUT_OF_RANGE",
+    "offset": 84
+   },
+   "walkable": true,
+   "scanner_profile": {
+    "profile": "dcp-jcs-v1",
+    "offset": 50
+   },
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 84
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    }
+   }
+  },
+  {
+   "id": "syn-lone-surrogate-unsigned-v1",
+   "source": "synthetic",
+   "input_hex": "7b2262756e646c65223a7b226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631227d7d2c227369676e6174757265223a7b7d2c2278223a225c7564383030227d",
+   "input_sha256": "69770042e45592e1036cf8600d148137e1f9631a10288f2420584468f7fbc85b",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "SURROGATE_UNPAIRED",
+    "offset": 85
+   },
+   "walkable": true,
+   "scanner_profile": {
+    "profile": "dcp-jcs-v1",
+    "offset": 50
+   },
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "SURROGATE_UNPAIRED",
+        "offset": 85
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    }
+   }
+  },
+  {
+   "id": "syn-nan-profile",
+   "source": "synthetic",
+   "input_hex": "7b2262756e646c65223a7b226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a4e614e7d7d2c227369676e6174757265223a7b7d7d",
+   "input_sha256": "9613c3873e002277e460b5eab02590e647c521c837cf877d94bcf1b0f3391d38",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "SYNTAX",
+    "offset": 50
+   },
+   "walkable": false,
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "other",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder reads other, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "other",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder reads other, which never selects the candidate, so the class of the diagnosis rejects it."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    }
+   }
+  },
+  {
+   "id": "syn-inf-profile",
+   "source": "synthetic",
+   "input_hex": "7b2262756e646c65223a7b226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a31653939397d7d2c227369676e6174757265223a7b7d7d",
+   "input_sha256": "0574d833dec94204bed0cb7749be58e87758aedf127097888e86fb1fa7e7cbcf",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "NUMBER_OUT_OF_RANGE",
+    "offset": 50
+   },
+   "walkable": true,
+   "scanner_profile": {
+    "profile": "unknown",
+    "offset": 50
+   },
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "other",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "other",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "other",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "other",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "other",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "other",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "PROFILE_UNKNOWN",
+      "offset": 50,
+      "adapter_calls": 0
+     },
+     "why": "The scanner reads a value that is not a known profile; the adapter is not consulted."
+    }
+   }
+  },
+  {
+   "id": "syn-nan-before-v1",
+   "source": "synthetic",
+   "input_hex": "7b2262756e646c65223a7b226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a4e614e2c2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631227d7d2c227369676e6174757265223a7b7d7d",
+   "input_sha256": "02345bdf5ae38dd75004e3288a8559ac66f89051f4129c5f6a46a7ec7c6ec332",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "SYNTAX",
+    "offset": 50
+   },
+   "walkable": false,
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "SYNTAX",
+        "offset": 50
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "historical",
+      "warnings": [
+       {
+        "class": "SYNTAX",
+        "offset": 50
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder reads dcp-jcs-v1, so the unit is delegated with the diagnosis as a warning."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "reject",
+      "class": "SYNTAX",
+      "offset": 50,
+      "adapter_calls": 1
+     },
+     "why": "The unit cannot be walked (SYNTAX); the decoder fails on these bytes, so the class of the diagnosis rejects it."
+    }
+   }
+  },
+  {
+   "id": "syn-inf-before-v1",
+   "source": "synthetic",
+   "input_hex": "7b2262756e646c65223a7b226d616e6966657374223a7b2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a31653939392c2263616e6f6e6963616c697a6174696f6e5f70726f66696c65223a226463702d6a63732d7631227d7d2c227369676e6174757265223a7b7d7d",
+   "input_sha256": "fd8e802cf1ee4716cd9ce81fa6d69ab52e89d0a70981ec9fb476719f3188324a",
+   "policy": [
+    "dcp-jcs-v1",
+    "dcp-jcs-v2"
+   ],
+   "transport": "bare",
+   "diagnosis": {
+    "class": "NUMBER_OUT_OF_RANGE",
+    "offset": 50
+   },
+   "walkable": true,
+   "scanner_profile": {
+    "profile": "dcp-jcs-v1",
+    "offset": 83
+   },
+   "adapters": {
+    "ts.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "ts.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "py.json_loads_bytes": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "py.json_loads_strict_decode": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "go.encoding_json": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "rs.serde_json_from_slice": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "wasm.w1.bufferUtf8JsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "wasm.w1.textDecoderJsonParse": {
+     "decoder_reading": "dcp-jcs-v1",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "decoded",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (decoded, as the decoder does)."
+    },
+    "wasm.w2.bufferUtf8": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    },
+    "wasm.w2.textDecoder": {
+     "decoder_reading": "fails",
+     "expected": {
+      "outcome": "v1_path",
+      "profile_source": "field",
+      "warnings": [
+       {
+        "class": "NUMBER_OUT_OF_RANGE",
+        "offset": 50
+       }
+      ],
+      "historical": "failed",
+      "adapter_calls": 1
+     },
+     "why": "The scanner walks the unit and reads dcp-jcs-v1; the defect is a warning, and the adapter is consulted once for the delegated value (failed, as the decoder does)."
+    }
+   }
+  }
+ ]
+}

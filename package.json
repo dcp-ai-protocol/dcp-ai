@@ -19,7 +19,7 @@
     "server": "node server/index.js"
   },
   "dependencies": {
-    "@dcp-ai/sdk": "^2.1.1",
+    "@dcp-ai/sdk": "file:sdks/typescript",
     "@noble/post-quantum": "^0.5.4",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

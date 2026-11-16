@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"sync"
 	"time"
 )
 
@@ -194,8 +196,13 @@ func CreateCloseMessage(sessionID, reason string, finalSequence uint64, auditSum
 
 // ── Session ──
 
-// A2ASession holds symmetric-channel state between two agents.
+// A2ASession holds symmetric-channel state between two agents. EncryptMessage,
+// DecryptMessage and NeedsRekeying may be called concurrently on one session;
+// pass it by pointer (it holds a mutex), and do not read or change its fields
+// while those calls run.
 type A2ASession struct {
+	mu sync.Mutex
+
 	SessionID           string
 	SessionKey          []byte
 	AgentIDLocal        string
@@ -207,7 +214,15 @@ type A2ASession struct {
 	CreatedAt           string
 	LastActivity        string
 	Status              string // "active" | "rekeying" | "closed"
+	// ReceivedSequences holds the sequences accepted within the receive window, so
+	// each one is accepted once. A session built or restored without it (nil)
+	// counts every sequence of the window below MessageCounterRecv as received.
+	ReceivedSequences map[int]struct{}
 }
+
+// a2aReceiveWindow is how far behind the highest received sequence a message
+// may still arrive (out of order).
+const a2aReceiveWindow = 1000
 
 // CreateA2ASession constructs a new A2A session. `sessionKey` must be 32 bytes.
 func CreateA2ASession(
@@ -230,14 +245,17 @@ func CreateA2ASession(
 		AgentIDRemote:    remoteAgentID,
 		SecurityTier:     securityTier,
 		RekeyingInterval: rekeyingInterval,
-		CreatedAt:        now,
-		LastActivity:     now,
-		Status:           "active",
+		CreatedAt:         now,
+		LastActivity:      now,
+		Status:            "active",
+		ReceivedSequences: map[int]struct{}{},
 	}, nil
 }
 
 // EncryptMessage encrypts a JSON payload and bumps the send counter.
 func EncryptMessage(session *A2ASession, payload map[string]interface{}) (map[string]interface{}, error) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
 	if session.Status != "active" {
 		return nil, fmt.Errorf("cannot send on %s session", session.Status)
 	}
@@ -280,17 +298,33 @@ func EncryptMessage(session *A2ASession, payload map[string]interface{}) (map[st
 
 // DecryptMessage verifies AAD + tag, returns the decoded JSON, and advances the recv counter.
 func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string]interface{}, error) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
 	if msg["session_id"] != session.SessionID {
 		return nil, errors.New("session ID mismatch")
 	}
 	if msg["sender_agent_id"] != session.AgentIDRemote {
 		return nil, errors.New("unexpected sender")
 	}
-	seq, _ := intOf(msg["sequence"])
-	if seq <= session.MessageCounterRecv-1 && session.MessageCounterRecv > 0 {
-		if seq < session.MessageCounterRecv-1000 {
-			return nil, errors.New("message sequence too old (outside window)")
+	seq, ok := sequenceOf(msg["sequence"])
+	if !ok {
+		return nil, errors.New("invalid message sequence")
+	}
+	recv := session.MessageCounterRecv
+	if seq < recv-a2aReceiveWindow {
+		return nil, errors.New("message sequence too old (outside window)")
+	}
+	if seq >= recv+a2aReceiveWindow {
+		return nil, errors.New("message sequence too far ahead (outside window)")
+	}
+	if session.ReceivedSequences == nil {
+		session.ReceivedSequences = map[int]struct{}{}
+		for s := max(0, recv-a2aReceiveWindow); s < recv; s++ {
+			session.ReceivedSequences[s] = struct{}{}
 		}
+	}
+	if _, seen := session.ReceivedSequences[seq]; seen {
+		return nil, errors.New("message sequence already received")
 	}
 	iv, err := base64.StdEncoding.DecodeString(mustString(msg["iv"]))
 	if err != nil {
@@ -317,8 +351,16 @@ func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string
 	if err != nil {
 		return nil, fmt.Errorf("gcm open: %w", err)
 	}
+	// Recorded only once the tag verified, so a forged message cannot use up a sequence.
 	if seq+1 > session.MessageCounterRecv {
 		session.MessageCounterRecv = seq + 1
+	}
+	session.ReceivedSequences[seq] = struct{}{}
+	floor := session.MessageCounterRecv - a2aReceiveWindow
+	for s := range session.ReceivedSequences {
+		if s < floor {
+			delete(session.ReceivedSequences, s)
+		}
 	}
 	session.LastActivity = mustString(msg["timestamp"])
 	var out map[string]interface{}
@@ -330,6 +372,8 @@ func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string
 
 // NeedsRekeying returns true if the session hit the rekey interval on send.
 func NeedsRekeying(session *A2ASession) bool {
+	session.mu.Lock()
+	defer session.mu.Unlock()
 	return session.MessageCounterSend >= session.RekeyingInterval
 }
 
@@ -358,16 +402,21 @@ func buildAAD(sessionID string, sequence int, senderID, timestamp string) []byte
 	return []byte(fmt.Sprintf("%s%d%s%s", sessionID, sequence, senderID, timestamp))
 }
 
-func intOf(v interface{}) (int, bool) {
+// sequenceOf reads a message sequence: a non-negative integer, whether built
+// in Go or decoded from JSON (float64 or json.Number). A fraction is not one.
+func sequenceOf(v interface{}) (int, bool) {
 	switch x := v.(type) {
 	case int:
-		return x, true
+		return x, x >= 0
 	case int64:
-		return int(x), true
+		return int(x), x >= 0
 	case uint64:
-		return int(x), true
+		return int(x), x <= math.MaxInt64
 	case float64:
-		return int(x), true
+		return int(x), x >= 0 && x == math.Trunc(x) && x <= 1<<53
+	case json.Number:
+		i, err := x.Int64()
+		return int(i), err == nil && i >= 0
 	}
 	return 0, false
 }

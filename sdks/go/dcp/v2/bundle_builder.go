@@ -3,6 +3,8 @@ package v2
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -101,14 +103,27 @@ func BuildBundleV2(input BundleBuildInput) (*CitizenshipBundleV2, error) {
 }
 
 // SignBundleV2 signs a CitizenshipBundleV2 using composite signatures (Ed25519 + PQ).
-// Returns a SignedBundleV2 with bundle-level signature.
+// Returns a SignedBundleV2 with bundle-level signature. The signer is the bundle's
+// responsible principal: signer.type "human" and signer.id the RPR's human_id.
+// When the manifest has a SessionExpiresAt and no SessionIssuedAt, the signed
+// manifest gets the signing time as its SessionIssuedAt (VERIFICATION.md V2-4);
+// bundle itself is not changed.
 func SignBundleV2(
 	registry *AlgorithmRegistry,
 	bundle *CitizenshipBundleV2,
 	classicalKey CompositeKeyInfo,
 	pqKey *CompositeKeyInfo,
 ) (*SignedBundleV2, error) {
-	canonical, err := CanonicalizeV2(bundle.Manifest)
+	signerID := principalID(bundle.ResponsiblePrincipalRecord)
+	if signerID == "" {
+		return nil, errors.New("responsible_principal_record has no human_id to name as the bundle signer")
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	manifest := bundle.Manifest
+	if manifest.SessionExpiresAt != "" && manifest.SessionIssuedAt == "" {
+		manifest.SessionIssuedAt = now
+	}
+	canonical, err := CanonicalizeV2(manifest)
 	if err != nil {
 		return nil, fmt.Errorf("canonicalize manifest: %w", err)
 	}
@@ -136,16 +151,31 @@ func SignBundleV2(
 		Bundle: *bundle,
 		Signature: BundleSignatureV2{
 			HashAlg:   "sha256",
-			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+			CreatedAt: now,
 			Signer: BundleSignerV2{
 				Type: "human",
+				ID:   signerID,
 				Kids: kids,
 			},
 			ManifestHash: manifestHash,
 			CompositeSig: *compositeSig,
 		},
 	}
+	signed.Bundle.Manifest = manifest
 	return signed, nil
+}
+
+// principalID is the human_id of an RPR, whether its payload is a map or a struct.
+func principalID(rpr SignedPayload) string {
+	raw, err := json.Marshal(rpr.Payload)
+	if err != nil {
+		return ""
+	}
+	var p struct {
+		HumanID string `json:"human_id"`
+	}
+	_ = json.Unmarshal(raw, &p)
+	return p.HumanID
 }
 
 type merkleHashFunc func(left, right []byte) string

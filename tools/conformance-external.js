@@ -1,0 +1,171 @@
+#!/usr/bin/env node
+// Runs the external conformance suites (tools/conformance/external-catalog.json) against an implementation
+// given as argv after `--`, through the contract dcp-ai-conformance-external/1 (tools/conformance/README.md).
+//
+//   node tools/conformance-external.js [--list] [--catalog evidence|admission|delegation|<file>] [--assessment legacy|verdict] [--suite <id>]... [--report <file>] [--timeout-ms <n>] -- <argv...>
+//
+// Without --catalog, the default catalog (contract /1, 38 cases) runs exactly as before. --catalog evidence selects
+// the opt-in evidence catalog (contract /2: Merkle roots, composite signatures, V2 bundle verification), and
+// --catalog admission the opt-in admission catalog (contract /3: strict-v1 admission and its configuration), and
+// --catalog delegation the opt-in delegation catalog 2.0.0 (contract /4: DCP-09 mandate chain verdicts; the archived
+// 1.0.0 runs by its path, tools/conformance/external-delegation-catalog-1.0.0.json).
+// --assessment applies to a /2 catalog only: legacy (the default) judges as before; verdict judges the rejections that
+// carry an error_contains on verified=false alone and reports their wording as a diagnostic.
+//
+// Exit codes: 0 every selected case passed, 1 a discrepancy, 2 usage error, 3 infrastructure or
+// implementation error. With --report, an "incomplete" placeholder is written before anything else and is
+// replaced on every path, so an older report never survives a failed run.
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
+import {
+  LIMITS, UsageError, InfraError, loadPlan, runExternal, exitCodeFor, EXTERNAL_CATALOG_PATH, REPO_ROOT,
+} from "./conformance/external.js";
+import {
+  EVIDENCE_CATALOG_PATH, EVIDENCE_CONTRACT, EVIDENCE_TIMEOUT_MS, ASSESSMENTS, ASSESSMENT_SCHEMA, loadEvidencePlan, runEvidence, assertVerdictPlan,
+} from "./conformance/external-evidence.js";
+import { ADMISSION_CATALOG_PATH, ADMISSION_CONTRACT, ADMISSION_TIMEOUT_MS, loadAdmissionPlan, runAdmission } from "./conformance/external-admission.js";
+import { DELEGATION_CATALOG_PATH, DELEGATION_CONTRACT, DELEGATION_TIMEOUT_MS, loadDelegationPlan, runDelegation } from "./conformance/external-delegation.js";
+import { EFFECTIVE_CONTRACT, EFFECTIVE_TIMEOUT_MS, loadEffectivePlan, runEffective } from "./conformance/external-effective.js";
+
+function parseArgs(args) {
+  const opts = { suites: [], list: false, report: undefined, timeoutMs: undefined, root: REPO_ROOT, catalog: EXTERNAL_CATALOG_PATH, assessment: undefined, argv: null };
+  const sep = args.indexOf("--");
+  const own = sep === -1 ? args : args.slice(0, sep);
+  if (sep !== -1) opts.argv = args.slice(sep + 1);
+  for (let i = 0; i < own.length; i++) {
+    const a = own[i];
+    const value = () => {
+      const v = own[++i];
+      if (v === undefined || v.startsWith("--")) throw new UsageError(`${a} needs a value`);
+      return v;
+    };
+    if (a === "--list") opts.list = true;
+    else if (a === "--suite") opts.suites.push(value());
+    else if (a === "--report") {
+      if (opts.report !== undefined) throw new UsageError("--report given more than once");
+      opts.report = value();
+    }
+    else if (a === "--root") opts.root = path.resolve(value());
+    else if (a === "--catalog") { const v = value(); opts.catalog = v === "evidence" ? EVIDENCE_CATALOG_PATH : v === "admission" ? ADMISSION_CATALOG_PATH : v === "delegation" ? DELEGATION_CATALOG_PATH : path.resolve(v); }
+    // Not in VALUE_OPTIONS: every --assessment error comes after the placeholder, so it replaces an older report.
+    else if (a === "--assessment") {
+      if (opts.assessment !== undefined) throw new UsageError("--assessment given more than once");
+      const v = value();
+      if (!ASSESSMENTS.includes(v)) throw new UsageError(`--assessment must be ${ASSESSMENTS.join(" or ")}`);
+      opts.assessment = v;
+    }
+    else if (a === "--timeout-ms") {
+      const n = Number(value());
+      if (!Number.isSafeInteger(n) || n < 1 || n > LIMITS.maxTimeoutMs) throw new UsageError(`--timeout-ms must be an integer from 1 to ${LIMITS.maxTimeoutMs}`);
+      opts.timeoutMs = n;
+    } else throw new UsageError(`unknown argument ${a}`);
+  }
+  if (opts.list && (opts.argv !== null || opts.report !== undefined)) throw new UsageError("--list takes no implementation and no --report");
+  if (!opts.list && (opts.argv === null || opts.argv.length === 0 || opts.argv[0] === "")) throw new UsageError("give the implementation as argv after --");
+  return opts;
+}
+
+// The report path is taken before full parsing, so even a later usage error replaces an older report.
+// A missing value, a value that is another option, or a repeated --report is refused before anything
+// is written: no file named after an option is ever created.
+const VALUE_OPTIONS = new Set(["--suite", "--report", "--root", "--catalog", "--timeout-ms"]);
+
+function earlyReportPath(args) {
+  const own = args.includes("--") ? args.slice(0, args.indexOf("--")) : args;
+  let report;
+  for (let i = 0; i < own.length; i++) {
+    if (!VALUE_OPTIONS.has(own[i])) continue;
+    const v = own[i + 1];
+    if (v === undefined || v.startsWith("--")) throw new UsageError(`${own[i]} needs a value`);
+    if (own[i] === "--report") {
+      if (report !== undefined) throw new UsageError("--report given more than once");
+      report = v;
+    }
+    i++;
+  }
+  return report;
+}
+
+function writeJson(file, value) {
+  fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n");
+}
+
+async function main(args) {
+  // One run identity, from the placeholder to the final or error report.
+  const run = { id: crypto.randomUUID(), started_at: new Date().toISOString() };
+  let reportFile;
+  try { reportFile = earlyReportPath(args); } catch (e) { console.error(`usage error: ${e.message}`); return 2; }
+  if (reportFile !== undefined) {
+    try { writeJson(reportFile, { kit: { name: "dcp-ai-conformance-external" }, run, status: "incomplete" }); }
+    catch (e) { console.error(`cannot write the report ${reportFile}: ${e.message}`); return 3; }
+  }
+  const fail = (code, kind, message) => {
+    console.error(`${kind} error: ${message}`);
+    if (reportFile !== undefined) {
+      try { writeJson(reportFile, { kit: { name: "dcp-ai-conformance-external" }, run: { ...run, finished_at: new Date().toISOString() }, status: "error", error: { kind, message } }); }
+      catch (e) { console.error(`cannot write the report ${reportFile}: ${e.message}`); return 3; }
+    }
+    return code;
+  };
+  let opts;
+  try { opts = parseArgs(args); } catch (e) { return fail(2, "usage", e.message); }
+  // The catalog's contract decides the plan: /2 is the evidence catalog, /3 the admission catalog, /4 the delegation
+  // catalog, /5 the effective-policy catalog (opt-in, by its path), anything else the /1 loader.
+  let contract;
+  try { contract = JSON.parse(fs.readFileSync(opts.catalog, "utf8")).contract; } catch { /* the loader reports it */ }
+  const kind = contract === EVIDENCE_CONTRACT ? "evidence" : contract === ADMISSION_CONTRACT ? "admission" : contract === DELEGATION_CONTRACT ? "delegation" : contract === EFFECTIVE_CONTRACT ? "effective" : "default";
+  const load = { evidence: loadEvidencePlan, admission: loadAdmissionPlan, delegation: loadDelegationPlan, effective: loadEffectivePlan, default: loadPlan }[kind];
+  const runner = { evidence: runEvidence, admission: runAdmission, delegation: runDelegation, effective: runEffective, default: runExternal }[kind];
+  const timeoutMs = opts.timeoutMs ?? { evidence: EVIDENCE_TIMEOUT_MS, admission: ADMISSION_TIMEOUT_MS, delegation: DELEGATION_TIMEOUT_MS, effective: EFFECTIVE_TIMEOUT_MS, default: LIMITS.timeoutMs }[kind];
+  let plan;
+  try { plan = load({ root: opts.root, catalogFile: opts.catalog, select: opts.suites }); }
+  catch (e) {
+    if (e instanceof UsageError) return fail(2, "usage", e.message);
+    if (e instanceof InfraError) return fail(3, "catalog", e.message);
+    return fail(3, "exception", e.stack ?? String(e));
+  }
+  // /1 and /3 have contract or normative codes, not wording, and /4 judges verdicts alone: --assessment is refused there,
+  // legacy included.
+  if (opts.assessment !== undefined && kind !== "evidence") return fail(2, "usage", "--assessment applies only to an evidence catalog (contract /2)");
+  const assessment = opts.assessment ?? "legacy";
+  if (assessment === "verdict") {
+    try { assertVerdictPlan(plan); }
+    catch (e) { return e instanceof InfraError ? fail(3, "catalog", e.message) : fail(3, "exception", e.stack ?? String(e)); }
+  }
+  const wordingCases = (s) => s.cases.filter((c) => c.expect?.error_contains !== undefined).length;
+  if (opts.list) {
+    console.log(`dcp-ai-conformance-external, catalog ${plan.catalog.version} (sha256 ${plan.catalog.sha256})`);
+    if (opts.assessment !== undefined) console.log(`assessment: ${assessment} (${ASSESSMENT_SCHEMA})`);
+    const informative = (s) => s.cases.filter((c) => c.class === "informative").length;
+    const resolutions = (s) => ["required", "observational", "pre_resolution"].map((r) => `${s.cases.filter((c) => c.resolution === r).length} ${r.replace("_", "-")}`).join(", ");
+    for (const s of plan.suites) console.log(`  ${s.id}  ${s.cases.length} cases${kind === "delegation" && informative(s) ? ` (${informative(s)} informative)` : ""}${kind === "effective" ? ` (${resolutions(s)})` : ""}  ${s.title}${assessment === "verdict" ? `  (${wordingCases(s)} rejections judged on the verdict alone, wording as a diagnostic)` : ""}`);
+    return 0;
+  }
+  let report;
+  try { report = await runner({ plan, argv: opts.argv, timeoutMs, run, ...(kind === "evidence" ? { assessment } : {}) }); }
+  catch (e) { return fail(3, "exception", e.stack ?? String(e)); }
+  const note = (c) => !c.diagnostic ? "" : c.diagnostic.wording === "not_evaluated" ? ` (wording not evaluated: ${c.diagnostic.reason})`
+    : c.diagnostic.wording === "matched" ? "" : ` — wording ${c.diagnostic.wording === "differs" ? "differs" : "absent"} (diagnostic)`;
+  for (const s of report.suites) {
+    console.log(`\n── ${s.id}: ${s.title} ──`);
+    for (const c of s.cases) console.log(`${c.status === "pass" ? "✔" : c.status === "fail" ? "✖" : c.status === "informative" ? `i (${c.informative})` : "!"} ${c.id}${c.message ? ` — ${c.message}` : ""}${note(c)}`);
+  }
+  const o = report.implementation.observed;
+  const who = report.implementation.self_declared;
+  console.log(`\nimplementation (self-declared): ${who ? `${who.name} ${who.version}` : "none"}; exit ${o.exit_code}, signal ${o.signal}, ${o.duration_ms} ms`);
+  const d = report.diagnostic_totals;
+  console.log(`${report.status.toUpperCase()}: ${report.totals.pass} pass, ${report.totals.fail} fail, ${report.totals.error} error of ${report.totals.cases}${d
+    ? ` — verdict assessment (${ASSESSMENT_SCHEMA}): ${report.assessment.wording_cases} rejections judged on the verdict alone; wording matched ${d.matched}, differs ${d.differs}, no message ${d.no_message}, not evaluated ${d.not_evaluated}` : ""}`);
+  const i = report.informative_totals;
+  const t = report.effective_totals;
+  if (t) console.log(`reported mode and tier: ${t.resolved} resolved, ${t.unresolved} unresolved, ${t.partial} partial, ${t.unknown} unknown, ${t.malformed} malformed, ${t.not_received} not received`);
+  if (i) console.log(`informative (not counted above): ${i.requested} requested, ${i.completed} completed, ${i.agrees} agree, ${i.differs} differ, ${i.error} error`);
+  if (reportFile !== undefined) {
+    try { writeJson(reportFile, report); } catch (e) { console.error(`cannot write the report ${reportFile}: ${e.message}`); return 3; }
+  }
+  return exitCodeFor(report.status);
+}
+
+process.exitCode = await main(process.argv.slice(2));

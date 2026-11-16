@@ -78,3 +78,16 @@ See [DCP-AI v2.0](../../DCP-AI-v2.0.md) Section 7.2.
 - [DCP-AI v2.0](../../DCP-AI-v2.0.md) — Sections 7.2 (Verifier Policy), 11 (Key Management), 13 (Governance), 14 (Security Tiers)
 - [Storage and Anchoring](../../../docs/STORAGE_AND_ANCHORING.md) — Revocation lists, transparency logs
 - [Operator Guide](../../../docs/OPERATOR_GUIDE.md) — Running a verification service
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- Neither RPR schema has a `revocation_token` field. The V2 passport schema has an optional
+  `emergency_revocation_token`, the commitment the emergency revocation checks; the V1 passport has none.
+- The passport `status` enum is `active`, `suspended` and `revoked` in V1, and adds `commissioned`, `declining` and
+  `decommissioned` in V2 (six states).
+- The SDK key-recovery helpers split and reconstruct a secret with Shamir's scheme and return the shares as they are:
+  they do not encrypt the shares with the hybrid KEM or distribute them. Encrypting and delivering each share is the
+  caller's job.

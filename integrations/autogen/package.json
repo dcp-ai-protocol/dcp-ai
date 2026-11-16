@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/autogen",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "DCP-AI bridge for Microsoft AutoGen — digital citizenship for multi-agent conversations",
   "type": "module",
   "main": "index.js",

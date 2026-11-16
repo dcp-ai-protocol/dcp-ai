@@ -1,4 +1,4 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>**English** · [中文](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/zh-CN/sdks/wasm/README.md) · [Español](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/es/sdks/wasm/README.md) · [日本語](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/ja/sdks/wasm/README.md) · [Português](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/pt-BR/sdks/wasm/README.md)</sub>
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
@@ -6,8 +6,36 @@ Full-featured WebAssembly module for the Digital Citizenship Protocol (DCP) v2.0
 
 ## Installation
 
+**Published on npm (26/10/2026).** `@dcp-ai/wasm` 2.1.0 was published as `latest` on that date and included the APIs described here, including the experimental `dcp-jcs-v2` APIs. Publishing them did not activate the candidate: it remained opt-in and non-normative, with `dcp-jcs-v1` unchanged. The Rust crate has a separate release lifecycle.
+
+**`@dcp-ai/wasm` 2.1.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.1.0 does not check these fields.
+
 ```bash
-npm install @dcp-ai/wasm
+npm install @dcp-ai/wasm@^2.2.0
+```
+
+See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
+
+**`@dcp-ai/wasm` 2.1.3.** Published on npm on 05/11/2026. The 2.1.2 prepared on 30/10/2026 was never published and is superseded. Compared with 2.1.1:
+
+- **`dualMerkleRoot`** computes the dual Merkle root of V2-11 (raw 32-byte digests, the last node duplicated on an odd layer); 2.1.1 and earlier give other roots for two or more leaves (see Hash Operations below). A leaf that is not a 32-byte hex digest, accepted before, is an error.
+- **V2-2 schema validation.** `verifyBundle` and `wasm_verify_signed_bundle_v2` validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
+
+2.1.3 adds no JavaScript API. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. The WebAssembly comes from the Rust `dcp-ai` 2.13.0 source, also published on 05/11/2026. See [npm packages](../../docs/NPM_RELEASES.md). The README inside the 2.1.3 tarball is the one prepared before its publication and reads "prepared, not published"; published tarballs cannot change.
+
+**`@dcp-ai/wasm` 2.2.0.** The installation command above names this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with 2.1.3:
+
+- **Errors told apart from values.** `canonicalize` reads the new raw export `wasm_canonicalize_v2_result`, so a value such as `{ error: 'x' }` is canonicalized instead of thrown; `hashObject` and `deriveKid` throw an `Error` instead of returning an error envelope as a hash or a key ID; the `{"error": …}` of the raw exports is escaped JSON.
+- **Acceptance change: Ed25519 P-ED-1.** `compositeVerify` and `verifyBundle` use the Rust provider, which also rejects a public key or R that is not a canonical encoding or is of order dividing 8.
+- **Packaging.** `pkg/dcp_ai_bg.wasm` is built without the builder's local paths, and a release gate checks the packed files.
+
+No admission, mandate chain or activation API is added. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. The WebAssembly comes from the Rust `dcp-ai` 2.14.0 source.
+
+For development against a source checkout, build and install the local package instead:
+
+```bash
+# Build in sdks/wasm first (see Build)
+npm install /path/to/dcp-ai/sdks/wasm
 ```
 
 ## Build
@@ -25,53 +53,99 @@ npm run build:wasm:node
 
 **Requirements:** [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) and the Rust toolchain with `wasm32-unknown-unknown` target.
 
-## Quickstart — TypeScript Wrapper
+## Initialization: browser and Node.js
 
-The recommended way to use the SDK is through the ergonomic TypeScript wrapper:
+`initDcp(wasmUrl?)` loads `dcp_ai_bg.wasm` once.
+
+- **Browser** (or a bundler that serves `pkg/`): `await initDcp()` fetches the file next to `pkg/dcp_ai.js`, or
+  pass its URL: `await initDcp('/assets/dcp_ai_bg.wasm')`.
+- **Node.js:** Node's `fetch` cannot read a `file:` URL, so `initDcp()` without an argument fails there. Read the
+  file and pass it as a `data:` URL:
 
 ```typescript
+import { readFileSync } from 'node:fs';
 import { initDcp } from '@dcp-ai/wasm';
 
-const dcp = await initDcp();
+// The .wasm file sits next to the `@dcp-ai/wasm/pkg` entry point.
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
+```
 
-// Generate hybrid Ed25519 + ML-DSA-65 keypair (here it signs for both the principal and the agent)
-const keys = dcp.generateHybridKeypair();
-const keyEntries = [keys.classical, keys.pq].map((k) => ({
-  kid: k.kid, alg: k.alg, public_key_b64: k.public_key_b64,
-  created_at: new Date().toISOString(), expires_at: null, status: 'active',
+wasm-bindgen may log that this form of the parameter is deprecated; it still initializes the module.
+
+<a id="quickstart--typescript-wrapper"></a>
+
+## Quickstart — TypeScript Wrapper
+
+The recommended way to use the SDK is through the ergonomic TypeScript wrapper. In this V2 bundle the principal
+signs the RPR and the manifest, the agent signs the passport, intent and policy decision, each with hybrid
+Ed25519 + ML-DSA-65 keys. The example runs in Node.js; in a browser, replace the initialization with
+`await initDcp()`.
+
+```typescript
+import { readFileSync } from 'node:fs';
+import { initDcp } from '@dcp-ai/wasm';
+
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
+
+const principal = dcp.generateHybridKeypair();
+const agent = dcp.generateHybridKeypair();
+type Hybrid = ReturnType<typeof dcp.generateHybridKeypair>;
+const keyEntries = (keys: Hybrid) => [keys.classical, keys.pq].map((k) => ({
+  kid: k.kid ?? dcp.deriveKid(k.alg, k.public_key_b64), alg: k.alg, public_key_b64: k.public_key_b64,
+  created_at: '2026-01-01T00:00:00Z', expires_at: null, status: 'active',
 }));
-const sessionNonce = dcp.generateSessionNonce();
-
-// Sign each artifact under its own context
-const sign = (context: string, payload: object) =>
+const sign = (context: string, payload: object, keys: Hybrid) =>
   dcp.signPayload(
-    context, { ...payload, session_nonce: sessionNonce },
-    keys.classical.secret_key_b64, keys.classical.kid!,
-    keys.pq.secret_key_b64, keys.pq.kid!,
+    context, payload,
+    keys.classical.secret_key_b64, keys.classical.kid ?? dcp.deriveKid('ed25519', keys.classical.public_key_b64),
+    keys.pq.secret_key_b64, keys.pq.kid ?? dcp.deriveKid('ml-dsa-65', keys.pq.public_key_b64),
   );
 
-// Build a V2 bundle from the signed artifacts
+const nonce = dcp.generateSessionNonce();
+const now = new Date().toISOString();
+const intent = {
+  dcp_version: '2.0', intent_id: 'intent:example-001', session_nonce: nonce, agent_id: 'agent:example-001',
+  human_id: 'human:example-001', timestamp: now, action_type: 'browse', target: { channel: 'web' },
+  data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+};
+
 const bundle = dcp.buildBundle({
-  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'alice', binding_keys: keyEntries /* ... */ }),
-  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
-  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
-  auditEntries: [],
-  sessionNonce,
+  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', {
+    dcp_version: '2.0', human_id: 'human:example-001', session_nonce: nonce, legal_name: 'Example Principal',
+    entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible', override_rights: true,
+    issued_at: now, expires_at: null, contact: null, binding_keys: keyEntries(principal),
+  }, principal),
+  passport: sign('DCP-AI.v2.AgentPassport', {
+    dcp_version: '2.0', agent_id: 'agent:example-001', session_nonce: nonce, keys: keyEntries(agent),
+    principal_binding_reference: 'human:example-001', capabilities: ['browse'], risk_tier: 'low',
+    created_at: now, status: 'active',
+  }, agent),
+  intent: sign('DCP-AI.v2.Intent', intent, agent),
+  policy: sign('DCP-AI.v2.PolicyDecision', {
+    dcp_version: '2.0', intent_id: intent.intent_id, session_nonce: nonce, decision: 'approve', risk_score: 50,
+    reasons: ['low-impact browse'], required_confirmation: null,
+    applied_policy_hash: dcp.preparePayload({ policy: 'default' }).payload_hash, timestamp: now,
+  }, agent),
+  auditEntries: [{
+    dcp_version: '2.0', audit_id: 'audit:example-001', session_nonce: nonce, prev_hash: 'GENESIS', hash_alg: 'sha256',
+    timestamp: now, agent_id: 'agent:example-001', human_id: 'human:example-001', intent_id: intent.intent_id,
+    intent_hash: dcp.preparePayload(intent).payload_hash, policy_decision: 'approved', outcome: 'page_read',
+    evidence: { tool: 'browser', result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+  }],
+  sessionNonce: nonce,
 });
 
-// Sign the bundle with composite signature
+// The principal signs the manifest with a composite signature.
 const signed = dcp.signBundle(
   bundle,
-  keys.classical.secret_key_b64, keys.classical.kid!,
-  keys.pq.secret_key_b64, keys.pq.kid!,
+  principal.classical.secret_key_b64, principal.classical.kid ?? dcp.deriveKid('ed25519', principal.classical.public_key_b64),
+  principal.pq.secret_key_b64, principal.pq.kid ?? dcp.deriveKid('ml-dsa-65', principal.pq.public_key_b64),
 );
 
-// Verify the signed bundle
 const result = dcp.verifyBundle(signed);
-console.log(result.verified);       // true
-console.log(result.classical_valid); // true
-console.log(result.pq_valid);       // true
+console.log(result.verified, result.classical_valid, result.pq_valid); // true true true
 ```
 
 ## API Reference
@@ -80,7 +154,11 @@ console.log(result.pq_valid);       // true
 
 #### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
-Initialize the WASM module. Must be called once before using any API. Optionally pass a custom URL for the `.wasm` file.
+Initialize the WASM module. Must be called once before using any API. Optionally pass a URL for the `.wasm`
+file; in Node.js, pass it as a `data:` URL (see [Initialization](#initialization-browser-and-nodejs)). The argument goes
+to the wasm-bindgen initializer. A string still works, but the initializer of this build logs a warning that the form
+is deprecated. It also accepts `{ module_or_path }` with a URL or the bytes of the `.wasm`, as the repository's tests
+pass it; the TypeScript type declares only a string.
 
 ### Keypair Generation
 
@@ -109,10 +187,14 @@ Initialize the WASM module. Must be called once before using any API. Optionally
 
 ### Verification
 
+Verification does not grant principal trust, admission or action authorization. The V2 verifier checks the primary audit chain and primary Merkle root; from 2.1.1 it also checks the optional secondary links, intent hashes and `audit_merkle_root_secondary` that are present, while 2.1.0 does not ([dual-hash chains](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). The experimental candidate reuses these checks.
+
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | Cryptographic verification of a composite signature |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Full V2 bundle verification (structure + crypto + hash chain) against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `resolved_tier` and `verification_mode`. `policy` may differ from the default only in `default_mode`, `risk_overrides` and the Phase 3 fields (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), and with a policy V1 bundles are rejected |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | V2 bundle verification (structure + crypto + primary hash chain) against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `resolved_tier` and `verification_mode`. `policy` may differ from the default only in `default_mode`, `risk_overrides`, the Phase 3 fields (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), `max_session_duration_seconds` (measured from the signed `session_issued_at`, which `signBundle` writes when the manifest has `session_expires_at`), `require_session_expiry` (a manifest without `session_expires_at` is rejected) and `require_audience_binding` with `verifier_id` (a manifest without `intended_verifier`, or with one other than `verifier_id`, is rejected); with a policy V1 bundles are rejected |
+
+**Schema validation (V2-2; from 2.1.3).** `verifyBundle` and `wasm_verify_signed_bundle_v2` first validate the signed bundle envelope and the four payloads against `schemas/v2`, after the policy and clock checks and before the verifier checks the manifest, payload hashes, keys and signatures; the experimental candidate exports go through the same gate. A bundle that fails returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`) and no cryptographic details. Unknown members of closed objects are rejected; in open objects, such as the intent `target`, the declared members keep their constraints and only additional members are not inspected. The manifest's `session_issued_at` and `session_expires_at` must be strings when present, not `null`. `date-time` follows the ajv-formats 3.0.1 check of the reference verifier, which is not strict RFC 3339. The binding's policy parse error, `JSON parse error` and version dispatch (`Unknown DCP version`) still come before V2-2. **Acceptance change:** schema-invalid bundles that verified before are now rejected. There is no schema-only API. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 
 ### Hash Operations
 
@@ -120,16 +202,16 @@ Initialize the WASM module. Must be called once before using any API. Optionally
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 dual hash |
 | `sha3_256(data)` | `string` | SHA3-256 hash (hex) |
-| `hashObject(obj)` | `string` | SHA-256 hash of a JSON object |
-| `dualMerkleRoot(leaves)` | `DualHash` | Dual Merkle root from an array of `DualHash` leaves |
+| `hashObject(obj)` | `string` | SHA-256 hash of a JSON object, always 64 lowercase hex characters. Since 2.2.0 it throws an `Error` when the binding cannot read the value, for instance a lone surrogate, where 2.1.3 returns the error envelope as if it were the hash |
+| `dualMerkleRoot(leaves)` | `DualHash` | Dual Merkle root of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) from a non-empty array of `DualHash` leaves, each a 32-byte hex digest; throws on an empty array or an invalid leaf. The root is lowercase hex. From 2.1.3: 2.1.1 and earlier hash the hex text, so their roots of two or more leaves differ |
 
 ### Canonicalization & Domain Separation
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | `dcp-jcs-v1` canonicalization (based on RFC 8785 JCS) |
+| `canonicalize(value)` | `string` | `dcp-jcs-v1` canonicalization (based on RFC 8785 JCS) of the value as `JSON.stringify` writes it, so `NaN` and `±Infinity` become `null` and a `BigInt` or a cycle makes `JSON.stringify` throw its own `TypeError`. Throws an `Error` (`canonicalize: …`) for a fraction or a value the binding cannot read, such as a lone surrogate. Since 2.2.0 it reads the tagged export, so a value whose canonical form begins with an `error` member, such as `{ error: 'x' }`, is canonicalized; 2.1.3 throws for it |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | Domain-separated message (hex) |
-| `deriveKid(alg, publicKeyB64)` | `string` | Deterministic key ID from algorithm + public key |
+| `deriveKid(alg, publicKeyB64)` | `string` | Deterministic key ID from algorithm + public key, always 32 lowercase hex characters. Since 2.2.0 it throws an `Error` for invalid base64, where 2.1.3 returns the error envelope as if it were the key id |
 
 ### Session & Security
 
@@ -149,8 +231,8 @@ Initialize the WASM module. Must be called once before using any API. Optionally
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `buildBundle(opts)` | `CitizenshipBundleV2` | Build a V2 bundle with manifest from artifacts signed with `signPayload` |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Sign a bundle with composite signature |
+| `buildBundle(opts)` | `CitizenshipBundleV2` | Build a V2 bundle with manifest from artifacts signed with `signPayload`; `sessionNonce` defaults to the RPR's `session_nonce` |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Sign a bundle with composite signature; `signer.id` is the RPR's `human_id`, and a manifest with `session_expires_at` and no `session_issued_at` gets `session_issued_at` set to the signing time |
 
 ### Proof of Possession
 
@@ -177,7 +259,57 @@ The WASM SDK includes TypeScript interfaces for all DCP-05 through DCP-09 artifa
 | DCP-08 Rights | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 Delegation | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
-Domain separation contexts available via `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+`domainSeparatedMessage()`, `compositeSign()` and `compositeVerify()` take the full name of a context known to the Rust
+registry the package is built from. There are 20: the 19 of the interop vectors, `DCP-AI.v2.Lifecycle`,
+`…Succession`, `…Dispute`, `…Rights`, `…Delegation` and `…Awareness` among them, and
+`DCP-AI.v2.MandateAcknowledgment`. Two contexts of the [v2.0 § 4.1](../../spec/DCP-AI-v2.0.md) table are not among
+them: `DCP-AI.v2.AlgorithmAdvisory` and `DCP-AI.v2.Governance`. Signing or verifying under the acknowledgment context
+evaluates no acknowledgment or activation.
+
+These are types only. The package exports no mandate validity, mandate chain, admission or activation function. That is the scope of the pilot, not a limit of browsers: a browser application's backend uses one of the four SDKs, and an admission computed in a browser from inputs the client controls authorizes nothing on a server. `verify_mandate_validity_at` and `verify_mandate_chain` are in the Rust crate the package is built from, and the other SDKs have their own.
+
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+## Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
+
+Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
+signer or verifier changes. These methods exist for callers who opt in, npm WASM 2.1.0 included. The bindings receive only bytes; host values are checked in JavaScript first. A verified candidate
+bundle grants no trust or admission. Design and contract:
+[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
+(§15 ingress, §16 router, §17 verifier, §18 producers).
+
+| Method | Description |
+|--------|-------------|
+| `experimentalCandidateIngress(bytes)` | `{ status: 'accept', canonical, ... }` or `{ status: 'reject', class, offset }` |
+| `experimentalCandidateExtractUnit(bytes, transport)` | The unit of a `bare` or `envelope` transport |
+| `createExperimentalCandidateRouter(config)` | Routes bytes; `historical` is one of `experimentalWasmHistoricalAdapters` (`w1…` objects through `JSON.stringify`, `w2…` text), none a default |
+| `createExperimentalCandidateVerifier(config).verify(bytes, policy?)` | Verifies from the original bytes with at most one verifier; reads the clock from `Date.now` |
+| `experimentalCandidateSignPayload(context, input, keys)` | Signs one artifact from `{ bytes }` or `{ value }` |
+| `experimentalCandidateSignBundle(parts, signer, options)` | Assembles and signs a bundle whose manifest names `dcp-jcs-v2` |
+| `ExperimentalWasmCandidateProduceError` | A rejection of the inputs' domain or form, before any binding signs |
+
+```typescript
+import { readFileSync } from 'node:fs';
+import { initDcp } from '@dcp-ai/wasm';
+
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
+
+// The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+const accepted = dcp.experimentalCandidateIngress(new TextEncoder().encode('{"b":1.0,"a":[]}'));
+if (accepted.status === 'accept') console.log(new TextDecoder().decode(accepted.canonical)); // {"a":[],"b":1}
+
+// A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+const h = dcp.generateHybridKeypair();
+const key = (k: typeof h.classical) => ({
+  kid: k.kid ?? dcp.deriveKid(k.alg, k.public_key_b64), alg: k.alg, secretKeyB64: k.secret_key_b64, publicKeyB64: k.public_key_b64,
+});
+const artifact = dcp.experimentalCandidateSignPayload(
+  'DCP-AI.v2.Intent', { bytes: new TextEncoder().encode('{"intent_id":"intent:1","risk":1.0}') },
+  { classical: key(h.classical), pq: key(h.pq) },
+);
+console.log(artifact.signedPayload.payload_hash); // sha256:… of {"intent_id":"intent:1","risk":1}
+```
 
 ## Low-Level API
 
@@ -201,8 +333,16 @@ import init, {
 await init();
 
 const keys = JSON.parse(wasm_generate_hybrid_keypair());
-// ... use raw functions, all return JSON strings
+// ... raw functions return JSON text, or a plain string for a hash, a key id, a nonce,
+// a domain-separated message (hex) or a canonical form
 ```
+
+The raw functions report errors in band, as `{"error": "<message>"}`. Since 2.2.0 that envelope
+is escaped JSON. Before, a message with a backslash or a control character, from a key name for instance, could be
+invalid JSON or decode to other text. `wasm_canonicalize_v2` returns the canonical form or that envelope, so it
+cannot tell its error from a value whose canonical form is `{"error": …}`. 2.2.0 adds
+`wasm_canonicalize_v2_result`, which returns `{"ok": true, "canonical": …}` or `{"ok": false, "error": …}`;
+`canonicalize()` uses it.
 
 See [example.html](./example.html) for a complete interactive browser demo.
 
@@ -246,6 +386,13 @@ rustup target add wasm32-unknown-unknown
 cd ../rust
 wasm-pack test --headless --chrome -- --features wasm
 ```
+
+### Conformance in a browser
+
+The kit's [browser wrapper](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome) runs the conformance
+catalogs, and direct calls of `DcpWasm`, in Chrome, against a build of this package. The
+[coverage map](../../docs/conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) says what each run
+covers.
 
 ## License
 

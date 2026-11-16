@@ -1,0 +1,362 @@
+{
+  "contract": "dcp-ai-conformance-external/3",
+  "catalog_version": "1.0.0",
+  "fixtures": {
+    "tests/interop/v2/admission_vectors.json": "dc7ab162db2f7f95685763a12169afea1b4931d16ea02ec173f72df3d5305e9e",
+    "tests/interop/v2/bundle_vectors.json": "e46c0ee7fae524f2414147540a27b05c57b6819b8cda9ce3741aaa9aa69097e8"
+  },
+  "no_profile_policy": {
+    "default_mode": "hybrid_preferred",
+    "risk_overrides": {
+      "low": "classical_only",
+      "medium": "hybrid_preferred",
+      "high": "hybrid_required"
+    },
+    "min_classical": 1,
+    "min_pq": 1,
+    "accepted_classical_algs": [
+      "ed25519"
+    ],
+    "accepted_pq_algs": [
+      "ml-dsa-65",
+      "slh-dsa-192f"
+    ],
+    "accepted_hash_algs": [
+      "sha256",
+      "sha384"
+    ],
+    "require_session_binding": true,
+    "require_composite_binding": true,
+    "max_key_age_days": 365,
+    "allow_v1_bundles": true,
+    "allow_classical_fallback_disable": false,
+    "warn_classical_only_deprecated": false,
+    "advisory_rejected_algs": [],
+    "require_session_expiry": false,
+    "require_audience_binding": false,
+    "max_session_duration_seconds": 0
+  },
+  "multiple_defects": {
+    "7_key_wrong_length": {
+      "allowed_codes": [
+        "CONFIG_TRUST_KID_NOT_DERIVED",
+        "CONFIG_TRUST_MALFORMED_KEY"
+      ],
+      "reasons": {
+        "CONFIG_TRUST_KID_NOT_DERIVED": "Its kid is the real key's, not the kid of the bytes it lists (V2-13).",
+        "CONFIG_TRUST_MALFORMED_KEY": "The Ed25519 public key is not 32 bytes long (§2.2)."
+      }
+    },
+    "7_kid_of_other_alg": {
+      "allowed_codes": [
+        "CONFIG_TRUST_DUPLICATE",
+        "CONFIG_TRUST_KID_NOT_DERIVED"
+      ],
+      "reasons": {
+        "CONFIG_TRUST_DUPLICATE": "That kid is then listed twice in the set (§2.2).",
+        "CONFIG_TRUST_KID_NOT_DERIVED": "The Ed25519 key carries the kid derived for the ML-DSA-65 key, not the kid of its own algorithm and bytes (V2-13)."
+      }
+    },
+    "7_unknown_alg": {
+      "allowed_codes": [
+        "CONFIG_TRUST_KID_NOT_DERIVED",
+        "CONFIG_TRUST_MALFORMED_KEY"
+      ],
+      "reasons": {
+        "CONFIG_TRUST_KID_NOT_DERIVED": "Its kid is that of ed25519 with these bytes, not that of ed448 with them (V2-13).",
+        "CONFIG_TRUST_MALFORMED_KEY": "alg ed448 is not ed25519, ml-dsa-65 or slh-dsa-192f (§2.2)."
+      }
+    }
+  },
+  "composed": [
+    {
+      "name": "profile_without_trust_set",
+      "rule": "§5.1",
+      "inputs": {
+        "bundle": "base",
+        "profile": "strict",
+        "trust": null,
+        "revocation": {
+          "from_case": "A_known_principal_strict"
+        },
+        "now": "2026-11-02T10:01:00.000Z",
+        "verifier_policy": null
+      },
+      "composes": [
+        "A_known_principal_strict"
+      ],
+      "expected": {
+        "rejected": "CONFIG_PROFILE_CONTRADICTION"
+      },
+      "derivation": "A_known_principal_strict without its trust set. §5.1: a profile requires a trust set; the combined function refuses the call with CONFIG_PROFILE_CONTRADICTION, before or after verification."
+    },
+    {
+      "name": "profile_with_caller_policy",
+      "rule": "§5.1",
+      "inputs": {
+        "bundle": "base",
+        "profile": "strict",
+        "trust": "principal",
+        "revocation": {
+          "from_case": "A_known_principal_strict"
+        },
+        "now": "2026-11-02T10:01:00.000Z",
+        "verifier_policy": "no_profile_policy"
+      },
+      "composes": [
+        "A_known_principal_strict"
+      ],
+      "expected": {
+        "rejected": "CONFIG_PROFILE_CONTRADICTION"
+      },
+      "derivation": "A_known_principal_strict with a verifier policy of the caller's. §5.1: the combined function accepts a caller's policy only without a profile, and refuses it with a profile with CONFIG_PROFILE_CONTRADICTION."
+    },
+    {
+      "name": "trust_then_revocation",
+      "rule": "§5.2",
+      "inputs": {
+        "bundle": "base",
+        "profile": "strict",
+        "trust": "classical_revoked",
+        "revocation": {
+          "from_case": "13_agent_revoked"
+        },
+        "now": "2026-11-02T10:01:00.000Z",
+        "verifier_policy": null
+      },
+      "composes": [
+        "6_key_revoked_in_trust_set",
+        "13_agent_revoked"
+      ],
+      "expected": {
+        "result": {
+          "verified": true,
+          "principal_trust": "untrusted",
+          "profile_compliance": "non_compliant",
+          "admitted": false,
+          "recorded_decision": "approve",
+          "action_authorized": false,
+          "codes": [
+            "REVOCATION_REVOKED",
+            "TRUST_KEY_REVOKED"
+          ]
+        }
+      },
+      "derivation": "The trust set of 6_key_revoked_in_trust_set and the snapshot of 13_agent_revoked, same bundle, profile and now. Step 3 evaluates trust (§3: TRUST_KEY_REVOKED, untrusted) and revocation (§4.3 R4: REVOCATION_REVOKED, non_compliant) independently. §5.2: trust codes come before revocation codes, so sorting them alphabetically breaks the order."
+    },
+    {
+      "name": "session_then_structural_p4",
+      "rule": "§5.2",
+      "inputs": {
+        "bundle": "classical_only",
+        "profile": "strict_120_s",
+        "trust": "principal",
+        "revocation": "unavailable",
+        "now": "2026-11-02T10:01:00.000Z",
+        "verifier_policy": null
+      },
+      "composes": [
+        "10_operator_lowers_maximum",
+        "11_classical_only_bundle"
+      ],
+      "expected": {
+        "result": {
+          "verified": false,
+          "principal_trust": "not_evaluated",
+          "profile_compliance": "non_compliant",
+          "admitted": false,
+          "recorded_decision": null,
+          "action_authorized": false,
+          "codes": [
+            "PROFILE_HYBRID_REQUIRED",
+            "PROFILE_SESSION_TOO_LONG",
+            "VERIFICATION_FAILED"
+          ]
+        }
+      },
+      "derivation": "The 300 s session of the classical_only bundle under the 120 s profile of 10_operator_lowers_maximum (P3: PROFILE_SESSION_TOO_LONG) and its classical binding as in 11_classical_only_bundle (structural P4: PROFILE_HYBRID_REQUIRED); it does not verify under hybrid_required (VERIFICATION_FAILED), so step 3 is not run and the revocation state is not read. §5.2: P3 comes before P4, so sorting alphabetically breaks the order."
+    }
+  ],
+  "suites": [
+    {
+      "id": "external.admission.outcomes",
+      "title": "Admission outcomes of the committed vectors",
+      "claim": "Each of the 65 outcome vectors gives its expected verified, principal_trust, profile_compliance, admitted, recorded_decision and action_authorized, profile and trust_set_version as the inputs imply, the expected set of codes, and a raw code sequence in the phase order of §5.1 and §5.2, through the combined admission function at the vector's now.",
+      "limits": [
+        "A negative counts only if its control passed: the positive on its own bundle (same_bundle) or, for the 19 negatives on bundles that have no positive of their own, A_known_principal_strict or B_trust_without_profile at suite level, a weaker guarantee.",
+        "The 5 cases without a profile send the explicit no_profile_policy; under a profile no policy is sent."
+      ],
+      "expected_cases": [
+        "external.admission.outcomes.A_known_principal_strict",
+        "external.admission.outcomes.B_general_verifier_unchanged",
+        "external.admission.outcomes.B_trust_without_profile",
+        "external.admission.outcomes.C_new_key_added_to_trust_set",
+        "external.admission.outcomes.C_new_key_not_yet_in_trust_set",
+        "external.admission.outcomes.D_overlap_old_keys_still_active",
+        "external.admission.outcomes.D_overlap_old_keys_after_retirement",
+        "external.admission.outcomes.D_overlap_ended_old_keys",
+        "external.admission.outcomes.D_overlap_ended_new_keys",
+        "external.admission.outcomes.D_new_keys_valid_from_now",
+        "external.admission.outcomes.D_new_keys_before_not_before",
+        "external.admission.outcomes.E_escalated_decision_is_evidence",
+        "external.admission.outcomes.E_blocked_decision_is_evidence",
+        "external.admission.outcomes.1_unknown_principal_strict",
+        "external.admission.outcomes.1_empty_trust_set",
+        "external.admission.outcomes.1_unknown_principal_trust_only",
+        "external.admission.outcomes.11_v1_bundle_trust_only",
+        "external.admission.outcomes.4_pq_key_substituted_trust_only",
+        "external.admission.outcomes.1_trusted_keys_under_another_human_id",
+        "external.admission.outcomes.2_attacker_uses_known_human_id",
+        "external.admission.outcomes.3_classical_key_substituted",
+        "external.admission.outcomes.4_pq_key_substituted",
+        "external.admission.outcomes.5_only_classical_key_trusted",
+        "external.admission.outcomes.5_only_pq_key_trusted",
+        "external.admission.outcomes.6_key_revoked_in_trust_set",
+        "external.admission.outcomes.6_key_status_expired_in_trust_set",
+        "external.admission.outcomes.6_key_expires_before_now",
+        "external.admission.outcomes.6_key_expires_exactly_now",
+        "external.admission.outcomes.8_no_intended_verifier",
+        "external.admission.outcomes.8_other_intended_verifier",
+        "external.admission.outcomes.8_profile_for_another_verifier",
+        "external.admission.outcomes.9_no_session_issued_at",
+        "external.admission.outcomes.9_no_session_expires_at",
+        "external.admission.outcomes.10_session_300_s_exactly",
+        "external.admission.outcomes.10_session_301_s",
+        "external.admission.outcomes.10_session_300_001_s",
+        "external.admission.outcomes.10_operator_lowers_maximum",
+        "external.admission.outcomes.10_expires_exactly_now",
+        "external.admission.outcomes.10_expired_one_ms_ago",
+        "external.admission.outcomes.10_session_start_after_expiry",
+        "external.admission.outcomes.10_session_expiry_not_rfc3339",
+        "external.admission.outcomes.10_sub_millisecond_digits_dropped",
+        "external.admission.outcomes.10_start_30_s_ahead",
+        "external.admission.outcomes.10_start_30_001_s_ahead",
+        "external.admission.outcomes.11_v1_bundle",
+        "external.admission.outcomes.11_classical_only_bundle",
+        "external.admission.outcomes.14_profile_narrows_pq_algs",
+        "external.admission.outcomes.14_profile_advisory_rejects_ml_dsa",
+        "external.admission.outcomes.14_profile_restates_fixed_values",
+        "external.admission.outcomes.12_pq_signature_present_and_invalid",
+        "external.admission.outcomes.13_agent_revoked",
+        "external.admission.outcomes.13_principal_key_revoked",
+        "external.admission.outcomes.13_agent_key_revoked",
+        "external.admission.outcomes.13_status_unknown",
+        "external.admission.outcomes.13_subject_missing",
+        "external.admission.outcomes.13_key_subject_missing",
+        "external.admission.outcomes.13_stale_by_1_ms",
+        "external.admission.outcomes.13_age_exactly_300_s",
+        "external.admission.outcomes.13_stale_and_revoked",
+        "external.admission.outcomes.13_checked_30_s_ahead",
+        "external.admission.outcomes.13_checked_30_001_s_ahead",
+        "external.admission.outcomes.13_checked_at_not_rfc3339",
+        "external.admission.outcomes.13_status_not_in_schema",
+        "external.admission.outcomes.13_extra_field",
+        "external.admission.outcomes.13_unavailable"
+      ]
+    },
+    {
+      "id": "external.admission.config",
+      "title": "Loading trust sets and strict-v1 profiles",
+      "claim": "The 49 rejected configurations are refused with their §5.3 code (either applicable code for the 3 multiple defects of §2.2), the 2 accepted profiles resolve to their effective maxima, and the 14 trust sets and 6 profiles the vectors use load.",
+      "limits": [
+        "A rejection is judged by its code only: whether the implementation raised its typed configuration error is observed by the wrapper, not by the runner.",
+        "Rejections count only if loading the principal trust set, or the strict profile and profile_defaults, passed (suite level)."
+      ],
+      "expected_cases": [
+        "external.admission.config.reject.7_kid_not_derived",
+        "external.admission.config.reject.7_kid_of_other_alg",
+        "external.admission.config.reject.7_duplicate_human_id",
+        "external.admission.config.reject.7_same_key_for_two_principals",
+        "external.admission.config.reject.7_identical_key_twice",
+        "external.admission.config.reject.7_empty_human_id",
+        "external.admission.config.reject.7_missing_human_id",
+        "external.admission.config.reject.7_key_wrong_length",
+        "external.admission.config.reject.7_key_not_canonical_base64",
+        "external.admission.config.reject.7_unknown_alg",
+        "external.admission.config.reject.7_unknown_key_field",
+        "external.admission.config.reject.7_unknown_top_field",
+        "external.admission.config.reject.7_bad_status",
+        "external.admission.config.reject.7_bad_expires_at",
+        "external.admission.config.reject.7_missing_version",
+        "external.admission.config.reject.7_empty_keys",
+        "external.admission.config.reject.14_allow_v1_bundles",
+        "external.admission.config.reject.14_no_session_binding",
+        "external.admission.config.reject.14_no_session_expiry",
+        "external.admission.config.reject.14_no_audience_binding",
+        "external.admission.config.reject.14_no_composite_binding",
+        "external.admission.config.reject.14_classical_fallback",
+        "external.admission.config.reject.14_classical_only_mode",
+        "external.admission.config.reject.14_pq_only_mode",
+        "external.admission.config.reject.14_hybrid_preferred_tier",
+        "external.admission.config.reject.14_pq_only_tier",
+        "external.admission.config.reject.14_min_pq_zero",
+        "external.admission.config.reject.14_min_classical_two",
+        "external.admission.config.reject.14_hash_algs_changed",
+        "external.admission.config.reject.14_key_age_changed",
+        "external.admission.config.reject.14_no_pq_algs",
+        "external.admission.config.reject.14_extra_classical_alg",
+        "external.admission.config.reject.14_longer_policy_session",
+        "external.admission.config.reject.14_policy_no_session_limit",
+        "external.admission.config.reject.14_policy_other_verifier_id",
+        "external.admission.config.reject.14_session_maximum_301",
+        "external.admission.config.reject.14_session_maximum_0",
+        "external.admission.config.reject.14_revocation_age_301",
+        "external.admission.config.reject.14_no_verifier_id",
+        "external.admission.config.reject.14_empty_verifier_id",
+        "external.admission.config.reject.14_session_maximum_string",
+        "external.admission.config.reject.14_session_maximum_fraction",
+        "external.admission.config.reject.14_verifier_id_number",
+        "external.admission.config.reject.14_unknown_profile",
+        "external.admission.config.reject.14_bad_mode_value",
+        "external.admission.config.reject.14_flag_as_string",
+        "external.admission.config.reject.14_unknown_option",
+        "external.admission.config.reject.14_unknown_policy_field",
+        "external.admission.config.reject.14_unknown_risk_tier",
+        "external.admission.config.accepted_profiles.profile_tightened",
+        "external.admission.config.accepted_profiles.profile_defaults",
+        "external.admission.config.load.trust_set.principal",
+        "external.admission.config.load.trust_set.empty",
+        "external.admission.config.load.trust_set.classical_only_trusted",
+        "external.admission.config.load.trust_set.pq_only_trusted",
+        "external.admission.config.load.trust_set.classical_revoked",
+        "external.admission.config.load.trust_set.pq_status_expired",
+        "external.admission.config.load.trust_set.classical_expires_before_now",
+        "external.admission.config.load.trust_set.classical_expires_at_now",
+        "external.admission.config.load.trust_set.rotation_overlap",
+        "external.admission.config.load.trust_set.rotation_overlap_ended",
+        "external.admission.config.load.trust_set.rotation_valid_from_now",
+        "external.admission.config.load.trust_set.rotation_not_yet_valid",
+        "external.admission.config.load.trust_set.rotation_completed",
+        "external.admission.config.load.trust_set.stranger_trusted_too",
+        "external.admission.config.load.profile.strict",
+        "external.admission.config.load.profile.strict_120_s",
+        "external.admission.config.load.profile.strict_other_verifier",
+        "external.admission.config.load.profile.strict_slh_dsa_only",
+        "external.admission.config.load.profile.strict_ml_dsa_rejected_by_advisory",
+        "external.admission.config.load.profile.strict_restated_defaults"
+      ]
+    },
+    {
+      "id": "external.admission.composed",
+      "title": "Cases composed from the vectors' inputs",
+      "claim": "A profile without a trust set and a profile with a caller's policy are refused with CONFIG_PROFILE_CONTRADICTION; two compositions of committed vectors give the union of their codes in the order of §5.2, which an alphabetical order would break.",
+      "limits": [
+        "The expectations are written in this catalog from the text and checked against it when the catalog loads; they are not in admission_vectors.json.",
+        "Each composed case counts only if A_known_principal_strict and the vectors it composes passed."
+      ],
+      "expected_cases": [
+        "external.admission.composed.profile_without_trust_set",
+        "external.admission.composed.profile_with_caller_policy",
+        "external.admission.composed.trust_then_revocation",
+        "external.admission.composed.session_then_structural_p4"
+      ]
+    }
+  ],
+  "limits": [
+    "Opt-in evidence: a pass shows that the argv that was run passes these 140 cases, nothing more. Admission is never authorization: action_authorized is always false.",
+    "The response is a projection of the admission result: the embedded verification (errors, warnings, details, signer_keys, mode, tier) is not judged; verification_verified is reported by the implementation itself.",
+    "Adapters (spec/profiles/admission §6 A1-A3), trust and revocation sources, TLS, tenants, caching and single use are outside this catalog.",
+    "@dcp-ai/wasm has no admission API and no wrapper answers this contract for it.",
+    "tests/interop/v2/admission_vectors.json and bundle_vectors.json are pinned by sha256: a regenerated fixture needs a reviewed catalog."
+  ]
+}

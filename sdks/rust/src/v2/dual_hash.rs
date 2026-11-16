@@ -31,6 +31,13 @@ pub fn dual_hash_canonical(canonical_json: &str) -> DualHash {
     dual_hash(canonical_json.as_bytes())
 }
 
+/// The SHA3-256 Merkle root of hex-encoded SHA3-256 leaves (pairs over the
+/// concatenated digests, the last node duplicated on an odd layer), or None
+/// for no leaves.
+pub(crate) fn sha3_merkle_root_hex(leaves: &[String]) -> Option<String> {
+    merkle_root_hex::<Sha3_256>(leaves)
+}
+
 /// Reduce a layer of hex-encoded leaf hashes to a single Merkle root using
 /// the given hasher. Odd layers are balanced by duplicating the last leaf,
 /// matching the Python/TS/WASM behaviour.
