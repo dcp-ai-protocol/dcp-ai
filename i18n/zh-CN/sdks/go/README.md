@@ -16,7 +16,7 @@ Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed2
 
 ## 安装
 
-**要求：** Go 1.25+
+**要求：** `main` 上的源代码和下一个版本需要 Go 1.26+。已发布的 v2.14.0 及更早版本需要 Go 1.25+。
 
 **Go SDK。** 自 v2.11.0 起，此 SDK 包含验证器修复、责任主体信任与 `strict-v1`、委托链、A2A 接收窗口和实验性显式启用的 `dcp-jcs-v2` API。v2.11.0 的模块标签为 `sdks/go/v2.11.0`，导入路径仍保留 `/v2`。变更继续记录在[变更日志](../../../../CHANGELOG.md#unreleased)中。
 

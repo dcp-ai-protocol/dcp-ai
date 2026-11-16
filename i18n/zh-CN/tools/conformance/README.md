@@ -162,7 +162,7 @@ printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000
 ### Go、Rust 和 WASM 包装器
 
 另外三个包装器针对本检出副本中的 Go SDK、Rust SDK 以及 Rust SDK 的 WASM 构建，运行同样的 38 个用例和
-同样的契约。`build.mjs` 把它们编译到 `tools/conformance/wrappers/.build/`（被 Git 忽略）；需要 Go 1.25 或更高
+同样的契约。`build.mjs` 把它们编译到 `tools/conformance/wrappers/.build/`（被 Git 忽略）；需要 Go 1.26 或更高
 版本、Cargo，以及带 `wasm32-unknown-unknown` 目标的 `wasm-pack`，它不安装也不发布任何 DCP 软件包，也不改变 SDK 的清单或锁定
 文件。不带 `--offline` 时，Cargo 和 `wasm-pack` 可能会把构建工具和固定的依赖下载到各自的缓存中；`--offline` 使用
 `GOPROXY=off`、Cargo `--offline` 和 `wasm-pack --mode no-install`，并要求这些缓存已经准备好。

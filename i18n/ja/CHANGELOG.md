@@ -112,6 +112,19 @@
 
 ### セキュリティ
 
+- **Go SDK の OpenTelemetry Go v1.47.0。ソースには Go 1.26 が必要になりました**（`main` のソースのみで、公開済みの
+  どのバージョンにも含まれません。バージョン番号は変わりません）。`go.opentelemetry.io/otel`、`otel/metric`、
+  `otel/sdk`、`otel/sdk/metric`、`otel/trace` を v1.46.0 から v1.47.0 に上げました。v1.47.0 は
+  [GHSA-q7gw-24fr-5p69](https://github.com/advisories/GHSA-q7gw-24fr-5p69)（CVE-2026-128085、深刻度は中）を
+  修正します。U+FFFD のルーンだけでできた属性値が、`otel/sdk` と `otel/trace` の `AttributeValueLengthLimit` を
+  すり抜けていました。SDK はこれらのモジュールを、オプションのテレメトリーブリッジ（ビルドタグ `otlp`）にだけ
+  コンパイルし、属性の長さの上限を自分では設定しません。アドバイザリが挙げていない 2 つの OTLP HTTP
+  エクスポーターは v1.46.0 のままで、`golang.org/x/sys`（間接依存）は v0.47.0 から v0.48.0 に上がります。
+  v1.47.0 は `go 1.26.0` を宣言しているため、`sdks/go/go.mod` と、チェックアウトに対してビルドする 3 つの補助
+  モジュール（適合性ラッパー、差分ファザーの shim、相互運用性エージェント）の `go` ディレクティブは 1.25.0 から
+  1.26.0 になります。公開済みの v2.14.0 は変わらず、引き続き Go 1.25 以降が必要です。次の Go SDK リリースには
+  Go 1.26 以降が必要です。ワイヤーフォーマット、署名、検証は変わりません。
+
 - **参照検証器、CLI、playground での P-ED-1**（ローカルのソースのみで、公開済みのどのバージョンにも含まれません。
   バージョン番号は変わりません）。`tools/crypto.js` の `verifyObject` は、SDK と同じく、TweetNaCl の前に P-ED-1 を
   検査するようになりました。これを通じて、`lib/verify.js` と `bin/dcp.js` の参照 V1 経路、transparency log の

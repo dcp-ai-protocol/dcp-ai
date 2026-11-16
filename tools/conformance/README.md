@@ -155,7 +155,7 @@ A valid response to that request (the wrapper also adds `resolved_from` and `run
 
 Three more wrappers run the same 38 cases and the same contract against the Go SDK, the Rust SDK and the
 WASM build of the Rust SDK, all from this checkout. `build.mjs` compiles them into
-`tools/conformance/wrappers/.build/` (ignored by Git); it needs Go 1.25 or later, Cargo, and `wasm-pack` with the
+`tools/conformance/wrappers/.build/` (ignored by Git); it needs Go 1.26 or later, Cargo, and `wasm-pack` with the
 `wasm32-unknown-unknown` target. It installs or publishes no DCP package and changes no SDK manifest or
 lockfile. Without `--offline`, Cargo and `wasm-pack` may download build tools and the pinned dependencies into their
 caches; `--offline` sets `GOPROXY=off`, Cargo `--offline` and `wasm-pack --mode no-install`, and needs those caches

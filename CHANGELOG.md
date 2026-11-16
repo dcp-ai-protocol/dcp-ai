@@ -92,6 +92,18 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **OpenTelemetry Go v1.47.0 in the Go SDK; the source now needs Go 1.26** (source on `main`, not in a published
+  version; no version bump). `go.opentelemetry.io/otel`, `otel/metric`, `otel/sdk`, `otel/sdk/metric` and `otel/trace`
+  move from v1.46.0 to v1.47.0, which fixes [GHSA-q7gw-24fr-5p69](https://github.com/advisories/GHSA-q7gw-24fr-5p69)
+  (CVE-2026-128085, medium): attribute values made of U+FFFD runes bypassed `AttributeValueLengthLimit` in `otel/sdk`
+  and `otel/trace`. The SDK compiles these modules only into the optional telemetry bridge (build tag `otlp`) and sets
+  no attribute length limit itself. The two OTLP HTTP exporters, which the advisory does not list, stay at v1.46.0, and
+  `golang.org/x/sys` (indirect) moves from v0.47.0 to v0.48.0. v1.47.0 declares `go 1.26.0`, so the `go` directive
+  moves from 1.25.0 to 1.26.0 in `sdks/go/go.mod` and in the three helper modules that build against the checkout (the
+  conformance wrapper, the differential fuzzing shim and the interoperability agent). The published v2.14.0 is
+  unchanged and still needs Go 1.25 or later; the next Go SDK release will need Go 1.26 or later. No change to the wire
+  format, the signatures or verification.
+
 - **P-ED-1 in the reference verifier, the CLI and the playground** (local source, not in a published version; no
   version bump). `verifyObject` in `tools/crypto.js` now checks P-ED-1 before TweetNaCl, as the SDKs do. Through it, so
   do the reference V1 path of `lib/verify.js` and `bin/dcp.js`, the transparency-log gossip and the revocation

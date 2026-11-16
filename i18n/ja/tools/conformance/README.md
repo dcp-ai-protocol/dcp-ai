@@ -179,7 +179,7 @@ printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000
 
 さらに 3 つのラッパーが、同じ 38 ケースと同じ契約を、このチェックアウトの Go SDK、Rust SDK、Rust SDK の
 WASM ビルドに対して実行します。`build.mjs` はそれらを `tools/conformance/wrappers/.build/`（Git の対象外）に
-コンパイルします。Go 1.25 以降、Cargo、`wasm32-unknown-unknown` ターゲット付きの `wasm-pack` が必要です。
+コンパイルします。Go 1.26 以降、Cargo、`wasm32-unknown-unknown` ターゲット付きの `wasm-pack` が必要です。
 DCP のパッケージをインストールや公開することはなく、SDK のマニフェストやロックファイルも変更しません。`--offline`
 なしでは、Cargo と `wasm-pack` がビルドツールや固定された依存関係をキャッシュにダウンロードすることがあります。
 `--offline` は `GOPROXY=off`、Cargo の `--offline`、`wasm-pack --mode no-install` を使い、それらのキャッシュが
