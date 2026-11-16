@@ -58,7 +58,8 @@ if (typeof version !== 'string' || !VERSION.test(version)) {
   fail(`./package.json of ${name} has no usable version: ${version}`);
 }
 const spec = `${name}@${version}`;
-const url = `${registry.replace(/\/+$/, '')}/${name.replace('/', '%2F')}/${version}`;
+// A scoped name is one path segment for the registry: @scope%2Fname.
+const url = `${registry.replace(/\/+$/, '')}/${name.replaceAll('/', '%2F')}/${version}`;
 
 let status;
 let body;
