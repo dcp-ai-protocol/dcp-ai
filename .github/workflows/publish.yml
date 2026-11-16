@@ -6,13 +6,22 @@ name: Publish Packages
 # That way releases that only bump one package (e.g. the Python SDK
 # at v2.0.1) don't leave red ghosts in the Actions tab.
 #
-# npm authentication is trusted publishing (OIDC). NPM_TOKEN stays only as a
-# transitional fallback. A job that holds `id-token: write` can mint a publish
-# credential for every package configured for this workflow file, so no such job
-# installs dependencies or runs package scripts: each npm package is built and
-# packed in a read-only build-* job, and a separate publish-* job downloads the
-# tarball and runs `npm publish`. Trusted publishers are configured per package on
-# npmjs.com with the workflow filename `publish.yml`. crates.io still uses a token.
+# npm authentication: the publish jobs let npm use trusted publishing (OIDC). That needs
+# npm >= 11.5.1 (they set up Node 24) and, on npmjs.com, a trusted publisher per package
+# with the workflow filename `publish.yml`. That configuration is outside this repository
+# and no publish has gone through OIDC yet. NPM_TOKEN stays as the fallback: npm uses it
+# when the exchange is refused, and such a publish carries no provenance statement.
+# crates.io still uses a token.
+#
+# A job that holds `id-token: write` can mint a publish credential for every package
+# configured for this workflow file, so no such job installs dependencies or runs package
+# scripts: each npm package is built and packed in a read-only build-* job, and a separate
+# publish-* job downloads the tarball, checks that it is the file its build job packed
+# (SHA-256) and that npm reads the expected name and version from it, and runs
+# `npm publish --ignore-scripts`.
+#
+# Merging a change to this file publishes nothing: it runs only for a published GitHub
+# Release or a manual dispatch.
 
 on:
   release:
@@ -45,6 +54,8 @@ jobs:
       contents: read
     outputs:
       skip: ${{ steps.check.outputs.skip }}
+      version: ${{ steps.check.outputs.version }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
     defaults:
       run:
         working-directory: sdks/typescript
@@ -56,15 +67,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/sdk@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/sdk@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         name: Install
         run: npm ci
@@ -76,7 +81,13 @@ jobs:
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
         name: Pack the tarball
-        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+        id: pack
+        # npm does not create the destination. The hash lets the publish job check it got this file.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pkg"
+          npm pack --pack-destination "$RUNNER_TEMP/pkg"
+          echo "sha256=$(sha256sum "$RUNNER_TEMP"/pkg/*.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -103,6 +114,25 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+      - name: Check the tarball before publishing
+        # The build job ran third-party code, and npm publishes whatever package is named inside the
+        # tarball. Accept only the file that build job packed, and only if npm reads this package at
+        # the version that job checked against the registry. The values arrive through env, so the
+        # shell compares them and never evaluates them.
+        env:
+          EXPECTED_NAME: '@dcp-ai/sdk'
+          EXPECTED_VERSION: ${{ needs.build-typescript-sdk.outputs.version }}
+          EXPECTED_SHA256: ${{ needs.build-typescript-sdk.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          files=(./pkg/*.tgz)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one tarball, found ${#files[@]}"; exit 1; }
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::the build job reported no SHA-256"; exit 1; }
+          [[ "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::the build job reported no version"; exit 1; }
+          actual=$(sha256sum "${files[0]}" | cut -d' ' -f1)
+          [ "$actual" = "$EXPECTED_SHA256" ] || { echo "::error::the tarball is not the one the build job packed"; exit 1; }
+          found=$(npm pack "${files[0]}" --dry-run --json --ignore-scripts | node -p 'const p = JSON.parse(require("fs").readFileSync(0, "utf8"))[0]; p.name + "@" + p.version')
+          [ "$found" = "$EXPECTED_NAME@$EXPECTED_VERSION" ] || { echo "::error::the tarball is $found, not $EXPECTED_NAME@$EXPECTED_VERSION"; exit 1; }
       - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
           # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
@@ -119,6 +149,8 @@ jobs:
       contents: read
     outputs:
       skip: ${{ steps.check.outputs.skip }}
+      version: ${{ steps.check.outputs.version }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
     defaults:
       run:
         working-directory: sdks/wasm
@@ -130,15 +162,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/wasm@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/wasm@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         uses: dtolnay/rust-toolchain@stable
       - if: steps.check.outputs.skip != 'true'
@@ -150,7 +176,13 @@ jobs:
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
         name: Pack the tarball
-        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+        id: pack
+        # npm does not create the destination. The hash lets the publish job check it got this file.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pkg"
+          npm pack --pack-destination "$RUNNER_TEMP/pkg"
+          echo "sha256=$(sha256sum "$RUNNER_TEMP"/pkg/*.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -177,6 +209,25 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+      - name: Check the tarball before publishing
+        # The build job ran third-party code, and npm publishes whatever package is named inside the
+        # tarball. Accept only the file that build job packed, and only if npm reads this package at
+        # the version that job checked against the registry. The values arrive through env, so the
+        # shell compares them and never evaluates them.
+        env:
+          EXPECTED_NAME: '@dcp-ai/wasm'
+          EXPECTED_VERSION: ${{ needs.build-wasm-sdk.outputs.version }}
+          EXPECTED_SHA256: ${{ needs.build-wasm-sdk.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          files=(./pkg/*.tgz)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one tarball, found ${#files[@]}"; exit 1; }
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::the build job reported no SHA-256"; exit 1; }
+          [[ "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::the build job reported no version"; exit 1; }
+          actual=$(sha256sum "${files[0]}" | cut -d' ' -f1)
+          [ "$actual" = "$EXPECTED_SHA256" ] || { echo "::error::the tarball is not the one the build job packed"; exit 1; }
+          found=$(npm pack "${files[0]}" --dry-run --json --ignore-scripts | node -p 'const p = JSON.parse(require("fs").readFileSync(0, "utf8"))[0]; p.name + "@" + p.version')
+          [ "$found" = "$EXPECTED_NAME@$EXPECTED_VERSION" ] || { echo "::error::the tarball is $found, not $EXPECTED_NAME@$EXPECTED_VERSION"; exit 1; }
       - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
           # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
@@ -194,6 +245,8 @@ jobs:
       contents: read
     outputs:
       skip: ${{ steps.check.outputs.skip }}
+      version: ${{ steps.check.outputs.version }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
     defaults:
       run:
         working-directory: cli
@@ -205,21 +258,21 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/cli@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/cli@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         name: Install against the freshly-published SDK
         run: npm install --no-package-lock
       - if: steps.check.outputs.skip != 'true'
         name: Pack the tarball
-        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+        id: pack
+        # npm does not create the destination. The hash lets the publish job check it got this file.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pkg"
+          npm pack --pack-destination "$RUNNER_TEMP/pkg"
+          echo "sha256=$(sha256sum "$RUNNER_TEMP"/pkg/*.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -232,7 +285,10 @@ jobs:
     name: Publish @dcp-ai/cli to NPM
     needs: build-cli
     runs-on: ubuntu-latest
-    if: needs.build-cli.result == 'success' && needs.build-cli.outputs.skip != 'true'
+    # `!cancelled()` is needed: publish-typescript-sdk is an ancestor through build-cli, and it is skipped
+    # when the SDK is already on npm or was not selected. Without a status function this job would be
+    # skipped with it, and the CLI would never be published on its own.
+    if: ${{ !cancelled() && needs.build-cli.result == 'success' && needs.build-cli.outputs.skip != 'true' }}
     # Only downloads the tarball built above and publishes it: no checkout, no install,
     # no package script, so no third-party code can use the OIDC token.
     permissions:
@@ -246,6 +302,25 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+      - name: Check the tarball before publishing
+        # The build job ran third-party code, and npm publishes whatever package is named inside the
+        # tarball. Accept only the file that build job packed, and only if npm reads this package at
+        # the version that job checked against the registry. The values arrive through env, so the
+        # shell compares them and never evaluates them.
+        env:
+          EXPECTED_NAME: '@dcp-ai/cli'
+          EXPECTED_VERSION: ${{ needs.build-cli.outputs.version }}
+          EXPECTED_SHA256: ${{ needs.build-cli.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          files=(./pkg/*.tgz)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one tarball, found ${#files[@]}"; exit 1; }
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::the build job reported no SHA-256"; exit 1; }
+          [[ "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::the build job reported no version"; exit 1; }
+          actual=$(sha256sum "${files[0]}" | cut -d' ' -f1)
+          [ "$actual" = "$EXPECTED_SHA256" ] || { echo "::error::the tarball is not the one the build job packed"; exit 1; }
+          found=$(npm pack "${files[0]}" --dry-run --json --ignore-scripts | node -p 'const p = JSON.parse(require("fs").readFileSync(0, "utf8"))[0]; p.name + "@" + p.version')
+          [ "$found" = "$EXPECTED_NAME@$EXPECTED_VERSION" ] || { echo "::error::the tarball is $found, not $EXPECTED_NAME@$EXPECTED_VERSION"; exit 1; }
       - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
           # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this

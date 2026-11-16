@@ -402,14 +402,19 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   `"dcp-jcs-v1"`, as TypeScript and Python do. Shared vectors `canonicalization_profile_unknown`
   and `canonicalization_profile_not_a_string`.
 
-- **npm trusted publishing (OIDC) in the publish workflows** (CI on `main`; no package or version change).
-  `publish.yml`, `publish-integrations.yml` and `publish-templates.yml` use npm trusted publishing instead of depending
-  only on a long-lived `NPM_TOKEN`; releases carry a provenance statement. The OIDC permission is held only by jobs
-  that install nothing and run no package script: the packages that need an install or a build (`@dcp-ai/sdk`,
-  `@dcp-ai/wasm`, `@dcp-ai/cli` and the `anthropic-mcp`, `google-a2a`, `express` and `openclaw` integrations) are
-  packed in a read-only job and published from the tarball. `NPM_TOKEN` stays as a transitional fallback until the
-  trusted publishers are configured and verified on npmjs.com (one entry per package, with the workflow filename).
-  crates.io still publishes with a token.
+- **npm publish workflows prepared for trusted publishing (OIDC)** (CI on `main`; no package or version change; not
+  exercised yet). `publish.yml`, `publish-integrations.yml` and `publish-templates.yml` let npm authenticate with
+  trusted publishing, which needs a trusted publisher configured on npmjs.com for each package with the workflow
+  filename. Until that is done and verified, and whenever npm's exchange is refused, `NPM_TOKEN` is the fallback and
+  the publish carries no provenance statement; no publish has gone through OIDC so far. The OIDC permission is held
+  only by jobs that install nothing and run no package script: the packages that need an install or a build
+  (`@dcp-ai/sdk`, `@dcp-ai/wasm`, `@dcp-ai/cli` and the `anthropic-mcp`, `google-a2a`, `express` and `openclaw`
+  integrations) are packed in a read-only job, and a second job publishes the tarball after checking its SHA-256
+  against the build job's and the name and version npm reads from it. The check for an already published version
+  fails closed (`tools/publish/npm-version-check.mjs`): only a registry answer that the version exists, or that it
+  does not, lets a job go on. `tools/publish/test_publish_workflows.py` checks the three workflow files in CI without
+  publish permission. Merging publishes nothing: the workflows run only for a published GitHub Release or a manual
+  dispatch. crates.io still publishes with a token.
 
 ### Added
 

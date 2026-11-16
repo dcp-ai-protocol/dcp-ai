@@ -408,15 +408,20 @@
   `"dcp-jcs-v1"` 以外の値をすべて拒否します。共有ベクターは `canonicalization_profile_unknown` と
   `canonicalization_profile_not_a_string` です。
 
-- **公開ワークフローでの npm trusted publishing（OIDC）**（`main` の CI のみ。パッケージとバージョンは
-  変わりません）。`publish.yml`、`publish-integrations.yml`、`publish-templates.yml` は、長期間有効な `NPM_TOKEN`
-  だけに頼らず、npm の trusted publishing を使います。リリースには来歴（provenance）の証明が付きます。OIDC の
-  権限を持つのは、何もインストールせず、パッケージのスクリプトも実行しないジョブだけです。インストールやビルドが
-  必要なパッケージ（`@dcp-ai/sdk`、`@dcp-ai/wasm`、`@dcp-ai/cli`、および `anthropic-mcp`、`google-a2a`、`express`、
-  `openclaw` の各インテグレーション）は、読み取り専用のジョブで tarball にまとめ、その tarball から公開します。
-  `NPM_TOKEN` は、trusted publisher を npmjs.com で設定して確認するまでの一時的なフォールバックとして残します
-  （パッケージごとに 1 件、ワークフローのファイル名を指定します）。crates.io への公開は引き続きトークンを
-  使います。
+- **npm 公開ワークフローを trusted publishing（OIDC）に対応**（`main` の CI のみ。パッケージとバージョンは
+  変わりません。まだ実行していません）。`publish.yml`、`publish-integrations.yml`、`publish-templates.yml` は、
+  npm が trusted publishing で認証できるようにします。これには、パッケージごとにワークフローのファイル名を
+  指定した trusted publisher を npmjs.com で設定する必要があります。その設定と確認が済むまで、また npm が
+  トークン交換に失敗した場合は、`NPM_TOKEN` がフォールバックになり、その公開には来歴（provenance）の証明が
+  付きません。OIDC を通った公開はまだありません。OIDC の権限を持つのは、何もインストールせず、パッケージの
+  スクリプトも実行しないジョブだけです。インストールやビルドが必要なパッケージ（`@dcp-ai/sdk`、`@dcp-ai/wasm`、
+  `@dcp-ai/cli`、および `anthropic-mcp`、`google-a2a`、`express`、`openclaw` の各インテグレーション）は、読み取り
+  専用のジョブで tarball にまとめます。別のジョブが、その SHA-256 をビルドジョブの値と照合し、npm が tarball から
+  読み取る名前とバージョンを確認してから公開します。公開済みバージョンの確認はフェイルクローズです
+  （`tools/publish/npm-version-check.mjs`）。レジストリが「そのバージョンは存在する」または「存在しない」と
+  答えた場合だけ、ジョブは先へ進みます。`tools/publish/test_publish_workflows.py` は、公開権限のない CI で
+  3 つのワークフローファイルを検査します。マージしても何も公開されません。ワークフローが動くのは、GitHub
+  Release の公開時と手動実行時だけです。crates.io への公開は引き続きトークンを使います。
 
 <a id="added"></a>
 

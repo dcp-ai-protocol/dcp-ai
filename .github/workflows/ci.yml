@@ -30,6 +30,7 @@ jobs:
       integrations: ${{ steps.filter.outputs.integrations }}
       cli: ${{ steps.filter.outputs.cli }}
       schema_ir: ${{ steps.filter.outputs.schema_ir }}
+      publish: ${{ steps.filter.outputs.publish }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -93,6 +94,17 @@ jobs:
               - 'schemas/**'
               - 'tests/**'
               - '.github/workflows/ci.yml'
+            publish:
+              - '.github/workflows/publish.yml'
+              - '.github/workflows/publish-integrations.yml'
+              - '.github/workflows/publish-templates.yml'
+              - '.github/workflows/ci.yml'
+              - 'tools/publish/**'
+              - 'integrations/**'
+              - 'packages/**'
+              - 'sdks/typescript/package.json'
+              - 'sdks/wasm/package.json'
+              - 'cli/package.json'
             schema_ir:
               - 'schemas/**'
               - 'tools/schema-ir/**'
@@ -905,3 +917,37 @@ jobs:
           DCP_BROWSER_ROOT: sdks/wasm
           DCP_EXTERNAL_REQUIRE_BROWSER: "1"
         run: node --test tools/conformance/external-browser.test.mjs
+
+  # The npm publish workflows run only for a release or a manual dispatch, so nothing else exercises them.
+  # This job checks them with the permissions of every job in this file (contents: read): no id-token, no
+  # secret, no publish workflow triggered and no `npm publish`.
+  publish-workflows:
+    name: Publish workflows (Node ${{ matrix.node-version }}, publishes nothing)
+    needs: changes
+    if: ${{ needs.changes.outputs.publish == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The build jobs of the publish workflows set up Node 20 and the publish jobs Node 24.
+        node-version: ['20', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML
+        run: pip install 'pyyaml==6.*'
+
+      - name: Wiring, version check and tarball check (offline, with negative controls)
+        run: python tools/publish/test_publish_workflows.py -v
+
+      - name: Rehearse the integration build jobs up to the tarball a publish job accepts
+        if: ${{ matrix.node-version == '20' }}
+        run: python tools/publish/test_publish_workflows.py --rehearse build-anthropic-mcp build-google-a2a build-express build-openclaw

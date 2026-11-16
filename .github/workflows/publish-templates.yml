@@ -8,11 +8,13 @@ name: Publish Templates
 # As with publish-integrations.yml, every job pre-checks the registry
 # and skips publish if the manifest version is already on npm.
 #
-# npm authentication is trusted publishing (OIDC); NPM_TOKEN stays only as a
-# transitional fallback. The packages have nothing to install or build, so each job
+# npm authentication: as in publish.yml, the jobs let npm use trusted publishing (OIDC)
+# and NPM_TOKEN stays as the fallback; no publish has gone through OIDC yet. The trusted
+# publishers are configured per package on npmjs.com with the workflow filename
+# `publish-templates.yml`. The packages have nothing to install or build, so each job
 # publishes the checked-out files with `--ignore-scripts` and no third-party code runs
-# next to the OIDC token. Trusted publishers are configured per package on npmjs.com
-# with the workflow filename `publish-templates.yml`.
+# next to the OIDC token. Merging a change to this file publishes nothing: it runs only
+# for a published GitHub Release or a manual dispatch.
 
 on:
   release:
@@ -54,15 +56,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/create-langchain@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/create-langchain@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public --ignore-scripts
         env:
@@ -90,15 +86,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/create-crewai@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/create-crewai@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public --ignore-scripts
         env:
@@ -126,15 +116,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/create-openai@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/create-openai@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public --ignore-scripts
         env:
@@ -162,15 +146,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/create-express@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/create-express@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public --ignore-scripts
         env:
