@@ -10,7 +10,7 @@ Verification checks integrity and signatures; it does not establish principal tr
 
 ## Installation
 
-**Requires:** Go 1.25+
+**Requires:** Go 1.26+ for the source on `main` and for the next release. The published v2.14.0 and earlier releases need Go 1.25+.
 
 **Go SDK.** Since v2.11.0 this SDK includes the verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window and the experimental opt-in `dcp-jcs-v2` APIs. The v2.11.0 module tag is `sdks/go/v2.11.0`; the import path keeps `/v2`. Changes remain recorded in the [changelog](../../CHANGELOG.md#unreleased).
 

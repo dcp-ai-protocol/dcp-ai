@@ -18,7 +18,7 @@ A verificação confere a integridade e as assinaturas; não estabelece confian�
 
 ## Instalação
 
-**Requer:** Go 1.25+
+**Requer:** Go 1.26+ para o código-fonte na `main` e para a próxima versão. A v2.14.0 publicada e as versões anteriores precisam do Go 1.25+.
 
 **SDK Go.** Desde a v2.11.0, este SDK inclui as correções do verificador, confiança no principal e `strict-v1`, cadeias de delegação, janela de recepção A2A e APIs experimentais opt-in de `dcp-jcs-v2`. A tag do módulo da v2.11.0 é `sdks/go/v2.11.0`; o caminho de importação mantém `/v2`. As mudanças continuam registradas no [histórico](../../../../CHANGELOG.md#unreleased).
 

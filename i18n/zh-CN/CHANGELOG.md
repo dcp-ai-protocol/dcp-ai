@@ -108,6 +108,16 @@
 
 ### 安全
 
+- **Go SDK 中的 OpenTelemetry Go v1.47.0；源代码现在需要 Go 1.26**（仅 `main` 上的源代码，不在任何已发布版本中；
+  版本号不变）。`go.opentelemetry.io/otel`、`otel/metric`、`otel/sdk`、`otel/sdk/metric` 和 `otel/trace` 从 v1.46.0
+  升级到 v1.47.0，该版本修复了 [GHSA-q7gw-24fr-5p69](https://github.com/advisories/GHSA-q7gw-24fr-5p69)
+  （CVE-2026-128085，中危）：由 U+FFFD 字符组成的属性值可以绕过 `otel/sdk` 和 `otel/trace` 中的
+  `AttributeValueLengthLimit`。SDK 只在可选的遥测桥接层（构建标签 `otlp`）中编译这些模块，自身不设置任何属性长度
+  限制。该通告未列出的两个 OTLP HTTP 导出器保持在 v1.46.0，`golang.org/x/sys`（间接依赖）从 v0.47.0 升级到
+  v0.48.0。v1.47.0 声明了 `go 1.26.0`，因此 `sdks/go/go.mod` 以及针对本仓库检出进行构建的三个辅助模块（一致性
+  包装器、差分模糊测试 shim 和互操作代理）中的 `go` 指令从 1.25.0 改为 1.26.0。已发布的 v2.14.0 不变，仍然需要
+  Go 1.25 或更高版本；下一个 Go SDK 版本将需要 Go 1.26 或更高版本。传输格式、签名和验证均不变。
+
 - **参考验证器、CLI 和 playground 中的 P-ED-1**（仅本地源代码，不在任何已发布版本中；版本号不变）。
   `tools/crypto.js` 中的 `verifyObject` 现在与各 SDK 一样，在 TweetNaCl 之前检查 P-ED-1。通过它，`lib/verify.js` 和
   `bin/dcp.js` 的参考 V1 路径、透明日志的 gossip 以及撤销服务的 Ed25519 检查也会检查。对 V1 文件执行的 `dcp-ai verify`
