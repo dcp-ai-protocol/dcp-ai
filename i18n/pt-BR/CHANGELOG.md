@@ -429,6 +429,17 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
   `"dcp-jcs-v1"`, como TypeScript e Python fazem. Vetores compartilhados `canonicalization_profile_unknown`
   e `canonicalization_profile_not_a_string`.
 
+- **A publicação de Rust para diante de erros do registro** (apenas CI; sem mudanças de pacotes ou versões).
+  `tools/publish/crates-version-check.py` lê o nome e a versão explícitos do pacote Cargo com um parser TOML e consulta
+  o índice sparse oficial. Valida todas as entradas antes de confirmar presença ou ausência; versões yanked e versões
+  que diferem apenas nos metadados de build contam como já publicadas. Erros HTTP (incluindo 403, 404, 429 e 5xx),
+  redirecionamentos, entradas malformadas ou ambíguas e prazos vencidos interrompem o job sem habilitar a publicação.
+  A consulta tem prazo de transferência de 30 segundos, um supervisor que permite mais um segundo e limite de resposta
+  de 256 KiB. Atende crates existentes com identidade explícita no manifesto; a primeira publicação de um crate novo
+  e nome ou versão herdados do workspace estão fora do escopo. O toolchain Rust e `cargo publish` exigem um resultado
+  explícito `skip=false`. Os testes em loopback e as regressões npm existentes rodam no CI; nem esses testes nem o
+  merge desta mudança publicam pacotes.
+
 - **Workflows de publicação no npm preparados para trusted publishing (OIDC)** (CI na `main`; sem mudança de pacotes ou
   de versões; ainda não exercitado). `publish.yml`, `publish-integrations.yml` e `publish-templates.yml` deixam o npm
   se autenticar com trusted publishing, que precisa de um trusted publisher configurado no npmjs.com para cada pacote

@@ -336,21 +336,17 @@ jobs:
         working-directory: sdks/rust
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(grep -E '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
-          # HEAD the static tarball URL; 200 = exists, 403/404 = does not.
-          STATUS=$(curl -s -o /dev/null -w '%{http_code}' -I "https://static.crates.io/crates/dcp-ai/dcp-ai-$LOCAL.crate")
-          echo "HEAD dcp-ai-$LOCAL.crate -> $STATUS"
-          if [ "$STATUS" = "200" ]; then
-            echo "dcp-ai@$LOCAL is already on crates.io — skipping publish."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.check.outputs.skip != 'true'
+        # Only a valid index of this existing crate can confirm version absence.
+        # Errors, including 403/404/429/5xx, never enable publication.
+        run: python3 "$GITHUB_WORKSPACE/tools/publish/crates-version-check.py"
+      - if: steps.check.outputs.skip == 'false'
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.check.outputs.skip == 'false'
         run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
