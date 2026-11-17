@@ -948,6 +948,10 @@ jobs:
       - name: Wiring, version check and tarball check (offline, with negative controls)
         run: python tools/publish/test_publish_workflows.py -v
 
+      - name: Rust registry precheck (loopback only, no publication)
+        if: ${{ matrix.node-version == '20' }}
+        run: python tools/publish/test_crates_version_check.py -v
+
       - name: Rehearse the integration build jobs up to the tarball a publish job accepts
         if: ${{ matrix.node-version == '20' }}
         run: python tools/publish/test_publish_workflows.py --rehearse build-anthropic-mcp build-google-a2a build-express build-openclaw

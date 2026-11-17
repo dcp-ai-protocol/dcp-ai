@@ -408,6 +408,16 @@
   `"dcp-jcs-v1"` 以外の値をすべて拒否します。共有ベクターは `canonicalization_profile_unknown` と
   `canonicalization_profile_not_a_string` です。
 
+- **レジストリのエラー時に Rust の公開を停止**（CI のみ。パッケージとバージョンは変更しません）。
+  `tools/publish/crates-version-check.py` は TOML パーサーで Cargo パッケージの明示的な名前とバージョンを読み、
+  公式の sparse インデックスに問い合わせます。存在・不存在を判断する前に全エントリーを検証し、yanked の
+  バージョンやビルドメタデータだけが異なるバージョンも公開済みとして扱います。HTTP エラー（403、404、429、
+  5xx を含む）、リダイレクト、不正・曖昧なエントリー、タイムアウトは公開を許可せずにジョブを停止します。
+  転送の期限は 30 秒、監視プロセスの猶予は追加 1 秒、応答サイズの上限は 256 KiB です。対象はマニフェストに
+  名前とバージョンを明示した既存 crate です。新規 crate の初回公開と workspace から継承した名前・バージョンは
+  対象外です。Rust ツールチェーンと `cargo publish` は明示的な `skip=false` を必要とします。ループバックの
+  テストと既存の npm 回帰テストを CI で実行します。これらのテストや変更のマージではパッケージを公開しません。
+
 - **npm 公開ワークフローを trusted publishing（OIDC）に対応**（`main` の CI のみ。パッケージとバージョンは
   変わりません。まだ実行していません）。`publish.yml`、`publish-integrations.yml`、`publish-templates.yml` は、
   npm が trusted publishing で認証できるようにします。これには、パッケージごとにワークフローのファイル名を

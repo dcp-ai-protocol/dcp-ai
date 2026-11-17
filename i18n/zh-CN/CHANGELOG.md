@@ -341,6 +341,14 @@
   `"dcp-jcs-v1"` 以外的任何值，与 TypeScript 和 Python 一致。共享向量为 `canonicalization_profile_unknown`
   和 `canonicalization_profile_not_a_string`。
 
+- **Rust 发布在注册表出错时停止**（仅 CI；不更改软件包或版本）。
+  `tools/publish/crates-version-check.py` 使用 TOML 解析器读取 Cargo 软件包显式声明的名称和版本，并查询官方
+  sparse 索引。在确认版本存在或不存在之前，它会验证所有条目；yanked 版本以及仅构建元数据不同的版本均视为
+  已发布。HTTP 错误（包括 403、404、429 和 5xx）、重定向、格式错误或含糊的条目以及超时都会停止作业，不允许发布。
+  传输期限为 30 秒，监督进程额外允许 1 秒，响应大小上限为 256 KiB。该检查适用于在清单中显式声明名称和版本的
+  已有 crate；新 crate 的首次发布以及从 workspace 继承的名称或版本不在范围内。Rust 工具链和 `cargo publish`
+  都要求明确的 `skip=false` 结果。CI 执行本机回环测试及已有 npm 回归测试；这些测试和本次合并均不会发布软件包。
+
 - **npm 发布工作流已为 trusted publishing（OIDC）做好准备**（仅 `main` 上的 CI；软件包和版本号不变；尚未实际
   运行）。`publish.yml`、`publish-integrations.yml` 和 `publish-templates.yml` 允许 npm 通过 trusted publishing
   进行认证，这需要在 npmjs.com 上为每个软件包配置 trusted publisher，并填写工作流文件名。在完成配置并验证之前，
