@@ -105,6 +105,7 @@ jobs:
               - 'sdks/typescript/package.json'
               - 'sdks/wasm/package.json'
               - 'cli/package.json'
+              - 'sdks/rust/Cargo.toml'
             schema_ir:
               - 'schemas/**'
               - 'tools/schema-ir/**'

@@ -10,6 +10,7 @@ import sys
 import tempfile
 import threading
 import time
+import tomllib
 import unittest
 
 import yaml
@@ -23,18 +24,19 @@ ABSENT = [dict(ENTRY, vers="2.13.0")]
 
 
 class Registry(http.server.BaseHTTPRequestHandler):
-    response = (200, PRESENT, 0, False, False)
+    response = (200, PRESENT, 0, False, False, True)
     seen = []
 
     def do_GET(self):
-        status, value, delay, trickle, truncated = type(self).response
+        status, value, delay, trickle, truncated, with_length = type(self).response
         type(self).seen.append((self.path, dict(self.headers)))
         body = value if isinstance(value, bytes) else b"\n".join(json.dumps(row).encode() for row in value) + b"\n"
         try:
             time.sleep(delay)
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body) + (10 if truncated else 0)))
+            if with_length:
+                self.send_header("Content-Length", str(len(body) + (10 if truncated else 0)))
             if status == 302:
                 self.send_header("Location", "/redirect-target")
             self.end_headers()
@@ -67,12 +69,13 @@ class CratesVersionCheck(unittest.TestCase):
         cls.server.server_close()
 
     def invoke(self, status=200, body=PRESENT, manifest=MANIFEST, delay=0,
-               trickle=False, truncated=False, timeout="2", args=None, registry=None, output=True, fake_curl=None):
-        Registry.response = (status, body, delay, trickle, truncated)
+               trickle=False, truncated=False, with_length=True, timeout="2", args=None, registry=None, output=True, fake_curl=None, crate_dir=None):
+        Registry.response = (status, body, delay, trickle, truncated, with_length)
         Registry.seen = []
         with tempfile.TemporaryDirectory(prefix="dcp-crates-test-") as tmp:
             directory = Path(tmp)
-            (directory / "Cargo.toml").write_text(manifest)
+            if crate_dir is None:
+                (directory / "Cargo.toml").write_text(manifest)
             (directory / ".curlrc").write_text('header = "Authorization: Bearer curlrc-canary"\n')
             out = directory / "output"
             out.write_text("")
@@ -90,7 +93,7 @@ class CratesVersionCheck(unittest.TestCase):
             argv = [sys.executable, str(HELPER)] + (args if args is not None else
                     ["--registry", registry or self.registry, "--timeout-seconds", timeout])
             start = time.monotonic()
-            done = subprocess.run(argv, cwd=directory, env=env, capture_output=True, text=True, timeout=8)
+            done = subprocess.run(argv, cwd=crate_dir or directory, env=env, capture_output=True, text=True, timeout=8)
             return done, out.read_text(), list(Registry.seen), time.monotonic() - start
 
     def refused(self, **kwargs):
@@ -149,7 +152,38 @@ class CratesVersionCheck(unittest.TestCase):
                 self.assertLess(elapsed, 3)
 
     def test_oversized_body_is_rejected(self):
-        self.refused(body=b" " * (256 * 1024 + 1))
+        # Otherwise valid JSON must be refused for size alone. Invalid padding
+        # would also fail without either size control and would not test the cap.
+        seed = json.dumps(dict(ENTRY, pad="")).encode() + b"\n"
+        for with_length in (True, False):
+            for size in (256 * 1024 - 1, 256 * 1024, 256 * 1024 + 1):
+                with self.subTest(with_length=with_length, size=size):
+                    body = json.dumps(dict(ENTRY, pad="x" * (size - len(seed)))).encode() + b"\n"
+                    self.assertEqual(len(body), size)
+                    if size > 256 * 1024:
+                        self.refused(body=body, with_length=with_length)
+                    else:
+                        done, out, _, _ = self.invoke(body=body, with_length=with_length)
+                        self.assertEqual((done.returncode, out), (0, "version=2.14.0\nskip=true\n"), done.stderr)
+
+    def test_index_schemas_v1_and_v2_remain_supported(self):
+        for schema in (1, 2):
+            for rows, skip in ((PRESENT, "true"), (ABSENT, "false")):
+                with self.subTest(schema=schema, skip=skip):
+                    body = [dict(row, v=schema, features2={"default": ["dep:optional"]}) for row in rows]
+                    done, out, _, _ = self.invoke(body=body)
+                    self.assertEqual((done.returncode, out), (0, f"version=2.14.0\nskip={skip}\n"), done.stderr)
+
+    def test_checkout_manifest_against_a_current_index_shape(self):
+        crate = ROOT / "sdks/rust"
+        package = tomllib.loads((crate / "Cargo.toml").read_text())["package"]
+        row = dict(ENTRY, name=package["name"], vers=package["version"], v=2,
+                   features2={"default": ["dep:optional"]}, pubtime="2026-11-01T00:00:00Z",
+                   deps=[{"name": "optional", "req": "^1", "features": [], "optional": True,
+                          "default_features": True, "target": None, "kind": "normal"}])
+        done, out, seen, _ = self.invoke(crate_dir=crate, body=[row])
+        self.assertEqual((done.returncode, out), (0, f'version={package["version"]}\nskip=true\n'), done.stderr)
+        self.assertEqual(seen[0][0], "/dc/p-/dcp-ai")
 
     def test_truncation_after_a_valid_row_does_not_confirm_absence(self):
         self.refused(body=ABSENT, truncated=True)
@@ -191,11 +225,37 @@ class CratesVersionCheck(unittest.TestCase):
                 self.assertEqual(seen, [])
 
     def test_prerelease_and_build_metadata_follow_cargo_version_uniqueness(self):
-        manifest = MANIFEST.replace('"2.14.0"', '"2.15.0-rc.1+local"')
-        body = [dict(ENTRY, vers="2.15.0-rc.1+published")]
-        done, out, seen, _ = self.invoke(manifest=manifest, body=body)
-        self.assertEqual((done.returncode, out), (0, "version=2.15.0-rc.1+local\nskip=true\n"), done.stderr)
-        self.assertEqual(seen[0][0], "/dc/p-/dcp-ai")
+        for requested, existing in (("2.15.0-rc.1+local", "2.15.0-rc.1+published"),
+                                    ("2.15.0", "2.15.0+build.5"), ("2.15.0+build.5", "2.15.0")):
+            with self.subTest(requested=requested, existing=existing):
+                done, out, seen, _ = self.invoke(manifest=MANIFEST.replace("2.14.0", requested),
+                                                 body=[dict(ENTRY, vers=existing)])
+                self.assertEqual((done.returncode, out), (0, f"version={requested}\nskip=true\n"), done.stderr)
+                self.assertEqual(seen[0][0], "/dc/p-/dcp-ai")
+
+    def test_prereleases_and_releases_are_distinct_versions(self):
+        for requested, existing in (("2.15.0", "2.15.0-rc.1"), ("2.15.0-rc.1", "2.15.0"),
+                                    ("2.15.0-rc.1", "2.15.0-rc.2")):
+            with self.subTest(requested=requested, existing=existing):
+                done, out, _, _ = self.invoke(manifest=MANIFEST.replace("2.14.0", requested),
+                                              body=[dict(ENTRY, vers=existing)])
+                self.assertEqual((done.returncode, out), (0, f"version={requested}\nskip=false\n"), done.stderr)
+
+    def test_default_registry_and_curl_configuration_are_credential_free(self):
+        # Observe the subprocess boundary without sending a real registry request.
+        # The other tests exercise real curl against a loopback HTTP server.
+        fake = f'''#!{sys.executable}
+import os, sys
+from pathlib import Path
+assert sys.argv[-1] == "https://index.crates.io/dc/p-/dcp-ai", sys.argv[-1]
+assert sys.argv[1] == "--disable", "curl must ignore default configuration"
+assert not ({{"CARGO_REGISTRY_TOKEN", "NODE_AUTH_TOKEN", "CURL_HOME", "HOME"}} & os.environ.keys()), "caller environment leaked"
+Path(sys.argv[sys.argv.index("--output") + 1]).write_bytes({(json.dumps(ENTRY).encode() + bytes([10]))!r})
+print("200", end="")
+'''
+        done, out, seen, _ = self.invoke(args=[], fake_curl=fake)
+        self.assertEqual((done.returncode, out), (0, "version=2.14.0\nskip=true\n"), done.stderr)
+        self.assertEqual(seen, [])
 
     def test_invalid_options_or_missing_output_fail_before_network(self):
         cases = [{"output": False}] + [{"args": args} for args in
@@ -211,8 +271,10 @@ class CratesVersionCheck(unittest.TestCase):
     def test_workflow_requires_an_affirmative_absence_result(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/publish.yml").read_text())
         job = workflow["jobs"]["publish-rust-sdk"]
+        self.assertEqual(job["defaults"]["run"]["working-directory"], "sdks/rust")
         steps = job["steps"]
         check = next(step for step in steps if step.get("id") == "check")
+        self.assertNotIn("working-directory", check)
         self.assertEqual(check["run"], 'python3 "$GITHUB_WORKSPACE/tools/publish/crates-version-check.py"')
         before, after = steps[:steps.index(check)], steps[steps.index(check) + 1:]
         self.assertTrue(any(s.get("uses") == "actions/setup-python@v5" and s["with"]["python-version"] == "3.12" for s in before))
@@ -224,6 +286,10 @@ class CratesVersionCheck(unittest.TestCase):
             self.assertEqual(step["if"], "steps.check.outputs.skip == 'false'")
         self.assertEqual(after[-1]["run"], "cargo publish")
         self.assertEqual(after[-1]["env"], {"CARGO_REGISTRY_TOKEN": "${{ secrets.CRATES_IO_TOKEN }}"})
+        ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+        changes = ci["jobs"]["changes"]["steps"]
+        filters = yaml.safe_load(next(step["with"]["filters"] for step in changes if "filters" in step.get("with", {})))
+        self.assertIn("sdks/rust/Cargo.toml", filters["publish"])
 
 
 if __name__ == "__main__":
