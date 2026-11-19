@@ -4,7 +4,7 @@
 
 # Perfis do DCP
 
-> Tradução informativa da [especificação em inglês](../../../../spec/profiles/README.md), atualizada em 25/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../../spec/profiles/README.md), atualizada em 18/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 Os perfis são extensões que se apoiam no [núcleo do DCP](../../../../spec/core/) para atender necessidades específicas de implantação. Eles não são necessários para a interoperabilidade básica: uma implementação conforme do núcleo é válida sem nenhum perfil.
 
@@ -18,6 +18,7 @@ Os perfis são extensões que se apoiam no [núcleo do DCP](../../../../spec/cor
 | **A2A** | Descoberta de agentes, estabelecimento de sessões, vinculações de transporte, troca de mensagens | [a2a/](../../../../spec/profiles/a2a/) |
 | **Governance** | Níveis de risco, atestação de jurisdição, revogação, recuperação de chaves, cerimônias de governança | [governance/](../../../../spec/profiles/governance/) |
 | **Admission** | Conjuntos de confiança de principais e o perfil `strict-v1` definido pelo operador, acima da verificação | [admission/](../../../../spec/profiles/admission/) |
+| **Multi-party** | O perfil `mpa-v1` definido pelo operador: se uma autorização multipartes autoriza uma operação sobre um alvo | [multi-party/](../../../../spec/profiles/multi-party/) |
 
 <a id="design-principles"></a>
 

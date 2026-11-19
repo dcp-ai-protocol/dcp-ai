@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 09/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 18/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases). Las cinco publicaciones del 05/11/2026 están en [la suya](#2026-11-05-auditable-releases), y las seis del 09/11/2026, en [la suya](#2026-11-09-six-releases).
 
@@ -112,6 +112,29 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 <a id="security"></a>
 
 ### Seguridad
+
+- **Autorización multiparte: decide el perfil opt-in `mpa-v1`; las funciones publicadas solo comprueban la estructura**
+  (código fuente en `main`, en ninguna versión publicada; sin cambio de versión). Un registro de autorización
+  multiparte no decide nada por sí solo: su `required_parties` no está firmado, cada rol lo escribe la parte que lo
+  firma, y nada en él dice qué partes pueden hablar por el objeto de la operación. Las funciones que los SDK de Python,
+  Go y Rust publican como `verify_multi_party_authorization` / `VerifyMultiPartyAuthorization` comprueban la forma de
+  un registro y no verifican ninguna firma: su resultado no es una autorización. Quedan obsoletas en favor de
+  `check_multi_party_authorization_structure` / `CheckMultiPartyAuthorizationStructure`, con los mismos parámetros y
+  el mismo resultado. Quien decide es el nuevo [perfil `mpa-v1`](../../spec/profiles/multi-party/README.md):
+  `evaluateMultiPartyAuthorization` (TypeScript), `evaluate_multi_party_authorization` (Python, Rust) y
+  `EvaluateMultiPartyAuthorization` (Go) dan `authorized: true` solo cuando partes distintas que la política del
+  operador lista para el objetivo firmaron, con los dos componentes de firma y con claves del conjunto de confianza de
+  principales del operador, exactamente la operación, el objetivo y los parámetros que el ejecutor va a llevar a cabo,
+  para este verificador y dentro de la ventana de validez, y alcanzan el umbral y los roles obligatorios del operador.
+  El objetivo, la audiencia y la ventana de validez viajan en un bloque `request` firmado dentro de
+  `operation_payload`; el esquema del registro, los bytes firmados, el contexto `DCP-AI.v2.MultiPartyAuth` y
+  `dcp-jcs-v1` no cambian. Hay dos esquemas nuevos (`multi_party_request.schema.json` y
+  `multi_party_policy_set.schema.json`), y `tests/interop/v2/multi_party_vectors.json` contiene los casos que ejecutan
+  los cuatro SDK. `@dcp-ai/sdk` exporta ahora las funciones multiparte; el módulo estaba en el código fuente pero no se
+  exportaba, y sus pruebas se sustituyen. Un registro firmado sin el bloque `request` nunca se autoriza bajo el perfil:
+  no hay modo heredado, y las partes firman de nuevo. La evaluación no guarda estado, así que un ejecutor cuya
+  operación no es idempotente consume `request_id` y ejecuta de forma atómica. El `POST /v2/multi-party/authorize` del
+  servidor de referencia no aplica el perfil.
 
 - **OpenTelemetry Go v1.47.0 en el SDK de Go; el código fuente necesita ahora Go 1.26** (código fuente en `main`, no
   está en ninguna versión publicada; sin cambio de versión). `go.opentelemetry.io/otel`, `otel/metric`, `otel/sdk`,

@@ -8,7 +8,7 @@
 
 **Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> Tradução informativa do [README em inglês](../../../../sdks/go/README.md), atualizada em 09/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](../../../../sdks/go/README.md), atualizada em 18/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Go para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, assinaturas compostas, cadeias de hash duplas e verificação de bundles.
 
@@ -80,7 +80,8 @@ go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-a
 | Delegação DCP-09 e cadeias de delegação verificáveis (`CreateSubMandate`, `VerifyMandateChain`), limiar de consciência e espelho do principal | — | Sim |
 | Funções auxiliares de nonce de sessão, revogação de emergência | — | Sim |
 | Checkpoints PQ adiados e `PQCheckpointManager` | — | Sim |
-| RPR ocultado, autorização multipartes e funções auxiliares de avisos sobre algoritmos | — | Sim |
+| RPR ocultado e funções auxiliares de avisos sobre algoritmos | — | Sim |
+| Autorização multipartes sob o perfil `mpa-v1` (`EvaluateMultiPartyAuthorization`, spec/profiles/multi-party) | — | Em `main`, em nenhuma versão publicada. As versões publicadas têm apenas a verificação da estrutura (`VerifyMultiPartyAuthorization`), que não verifica nenhuma assinatura |
 | Códigos de erro canônicos (38 compartilhados entre todos os SDKs) e `DetectWireFormat` | — | Sim |
 | Exportador OpenTelemetry / OTLP (tag de compilação `otlp`) | — | Sim |
 | Candidato de canonicalização `dcp-jcs-v2` (entrada, roteador, verificador de bytes, produtores) | — | Experimental e de adesão explícita; não normativo |

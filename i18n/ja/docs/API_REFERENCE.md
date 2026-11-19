@@ -4,7 +4,7 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（18/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.4.0、プロトコル DCP v2.0）のリファレンスです。
 
@@ -887,6 +887,33 @@ Python：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `eval
   アドミッションされ、同じ設定エラーを伴います（Rust：`IngressError::Config`）。
 - バイトでない入力は、TypeScript と Python では `TypeError` です。
 - 各関数の契約は[カバレッジマップ](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026)にあります。
+
+<a id="multi-party-authorization-the-mpa-v1-profile"></a>
+
+### 複数当事者による認可：`mpa-v1` のプロファイル
+
+[`spec/profiles/multi-party`](../../../spec/profiles/multi-party/README.md) で定義されています。オプトインで、`main` の SDK にあり、公開済みのバージョンにはありません。
+
+| 関数 | 説明 |
+|----------|-------------|
+| `createMultiPartyPolicyStore(policySet)` | オペレーターのポリシーセットを検証してストアを返す。`MultiPartyConfigError`（`code`）を投げる |
+| `evaluateMultiPartyAuthorization(record, registry, { policy, trust, expected, now? })` | レコードが `expected`（`operation`、`target`、`parameters`）を認可するかどうかを判断する：構造、リクエストとの結び付け、当事者、`trust` の鍵による各当事者の両方の署名、しきい値、必須の役割 |
+| `createMultiPartyRequest({ target, audience, parameters?, validitySeconds, issuedAt?, requestId? })` | すべての当事者が署名する `request` のブロックを持つ、プロファイルの `operation_payload` を作る |
+| `createPartyAuthorization(registry, operation, operationPayload, partyId, role, keys)` | 操作とそのペイロードに対する、1 人の当事者の複合署名 |
+| `buildMultiPartyAuthorization(operation, operationPayload, authorizations, requiredParties?)` | 認可を 1 つのレコードにまとめる。`required_parties` は署名されず、どの評価もそれを読まない |
+| `checkMultiPartyAuthorizationStructure(record, policy?)` | 形だけ：認可の数、役割、`composite_sig` があること。署名を 1 つも検証せず、何も認可しない |
+
+結果：`profile`, `structure`, `verification`, `authorized`, `operation`, `target`, `request_id`, `expires_at`, `parties`, `parties_counted`, `required_parties`, `policy_set_version`, `trust_set_version`, `errors: [{ code, message }]`。
+
+- `policy` と `trust`（`createPrincipalTrustStore` のストア、またはそれぞれの JSON）は、オペレーターの設定から来ます。
+  レコードやリクエストから来ることは決してありません。しきい値と各当事者の役割は、オペレーターのものです。
+- 拒否されたレコードは `authorized: false` の結果になり、エラーにはなりません。無効な `policy`、`trust`、`expected` は、
+  レコードを読む前に `MultiPartyConfigError` または `AdmissionConfigError` を投げます。
+- 評価は状態を持ちません。同じリクエストを 2 回評価すると、2 回とも認可されます。操作が冪等でない実行者は、
+  `request_id` の消費と実行をアトミックに行います
+  （[仕様 § 7](../../../spec/profiles/multi-party/README.md#7-guarantees-and-limits)）。
+
+Python：`create_multi_party_policy_store`, `evaluate_multi_party_authorization`（async）, `create_multi_party_request`, `create_party_authorization`（async）, `build_multi_party_authorization`, `check_multi_party_authorization_structure`。Go：`NewMultiPartyPolicyStore`, `EvaluateMultiPartyAuthorization`, `NewMultiPartyRequest`, `CreatePartyAuthorization`, `BuildMultiPartyAuthorization`, `CheckMultiPartyAuthorizationStructure`。Rust（`dcp_ai::v2::multi_party_auth`）：`MultiPartyPolicyStore::from_json`, `evaluate_multi_party_authorization`, `create_multi_party_request`, `create_party_authorization`, `build_multi_party_authorization`, `check_multi_party_authorization_structure`。Python、Go、Rust では、構造の確認は `verify_multi_party_authorization` / `VerifyMultiPartyAuthorization` として公開されていました。その名前は非推奨で、同じ結果を返し、署名は 1 つも検証しません。WASM はこれらの関数をエクスポートしません。
 
 ### `DEFAULT_VERIFIER_POLICY`
 

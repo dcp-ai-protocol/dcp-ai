@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/multi_party_request.schema.json",
+  "title": "MultiPartyOperationPayload",
+  "description": "The operation_payload of a multi_party_authorization under the opt-in mpa-v1 profile (spec/profiles/multi-party): the request every party signs, and the operation's parameters. A v2.0 multi_party_authorization does not need it and is never authorized under the profile without it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request", "parameters"],
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "request_id", "target", "audience", "issued_at", "expires_at"],
+      "properties": {
+        "profile": { "type": "string", "const": "mpa-v1" },
+        "request_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "target": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "audience": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "parameters": {
+      "type": "object"
+    }
+  }
+}

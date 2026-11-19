@@ -70,7 +70,8 @@ pip install "dcp-ai[otlp]>=2.11.0,<3"       # OpenTelemetry OTLP exporter
 | DCP-09 delegation + verifiable delegation chains (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + awareness threshold + principal mirror | Yes |
 | Session nonce helpers, security tier engine (`compute_security_tier(intent, policy_decision, mandate_chain_tier)`, spec §14.2), emergency revocation | Yes |
 | Lazy PQ checkpoints + `PQCheckpointManager` | Yes |
-| Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
+| Blinded RPR, algorithm advisory helpers | Yes |
+| Multi-party authorization under the `mpa-v1` profile (`evaluate_multi_party_authorization`, spec/profiles/multi-party) | On `main`, not in a published version. Published versions have only the structure check (`verify_multi_party_authorization`), which verifies no signature |
 | Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
 | OpenTelemetry / OTLP exporter (optional `[otlp]` extra) | Yes |
 | Admission: trusted principals and the `strict-v1` profile | Yes (2.10.0) |

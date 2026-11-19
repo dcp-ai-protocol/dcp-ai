@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 用 TypeScript SDK
 
-> [英語版](../../../../sdks/typescript/README.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../sdks/typescript/README.md)の参考訳です（18/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP-AI）の公式 TypeScript SDK です。ポスト量子のハイブリッド暗号（Ed25519 + ML-DSA-65）、複合署名、適応型セキュリティティア、エージェント間（A2A）通信、組み込みのオブザーバビリティ、本番向けの堅牢化を備え、Citizenship Bundle の作成、署名、検証を行えます。
 
@@ -382,6 +382,32 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `verifySignedBundleV2(bundle, registry, policy, { now })` はオプションのクロックを受け取り、`details.signer_keys` を報告します。それらがなければ従来どおりに動作します。
 - `evaluateAdmissionV2` は、手元にある検証結果を評価します（暗号処理も I/O も行いません）。`revocationSubjects` は、失効情報の提供元が答えるべき対象を列挙します。
 - ガイド：[`docs/ADMISSION.md`](../../../../docs/ADMISSION.md)。仕様とコード：[`spec/profiles/admission`](../../../../spec/profiles/admission/README.md)。
+
+<a id="multi-party-authorization-the-mpa-v1-profile"></a>
+
+### 複数当事者による認可：`mpa-v1` のプロファイル
+
+複数当事者による認可のレコードは、それだけでは何も決めません。その `required_parties` は署名されておらず、それぞれの役割は署名する当事者自身が書きます。オプトインの `mpa-v1` のプロファイルのもとでは、`authorized` が真になるのは、あなたのポリシーがその対象について挙げる別々の当事者が、あなたの信頼セットがその当事者について挙げる鍵で、両方の署名の構成要素について、あなたがこれから実行しようとしている操作、対象、パラメーターそのものに、この検証器に向けて、有効期間の中で署名しており、あなたのしきい値と必須の役割を満たす場合だけです。
+
+```typescript
+// Fragment, not a complete program: policySetJson and trustSetJson come from operator configuration, record from the request, registry as in the V2 Quick Start.
+import { createMultiPartyPolicyStore, createPrincipalTrustStore, evaluateMultiPartyAuthorization } from '@dcp-ai/sdk';
+
+const policy = createMultiPartyPolicyStore(policySetJson); // MultiPartyConfigError on a bad policy set
+const trust = createPrincipalTrustStore(trustSetJson);
+const result = await evaluateMultiPartyAuthorization(record, registry, {
+  policy,
+  trust,
+  expected: { operation: 'revoke_agent', target: 'agent:acme-bot', parameters: { reason: 'key_compromise' } },
+});
+// result.structure, result.verification, result.authorized, result.parties_counted,
+// result.required_parties, result.request_id, result.errors [{ code, message }]
+```
+
+- ポリシーセットと信頼セットは、あなたの設定から来ます。レコードやリクエストから来ることは決してありません。レコードに書かれた `required_parties` と役割は判断を左右しません。
+- 評価は状態を持ちません。操作が冪等でない場合は、`request_id` の消費と実行をアトミックに行ってください。
+- `createMultiPartyRequest`、`createPartyAuthorization`、`buildMultiPartyAuthorization` はレコードを作って署名します。`checkMultiPartyAuthorizationStructure` はその形だけを確認し、署名は 1 つも検証しません。
+- `main` のソースにあり、公開済みのバージョンにはありません。仕様とコード：[`spec/profiles/multi-party`](../../../../spec/profiles/multi-party/README.md)。
 
 <a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>

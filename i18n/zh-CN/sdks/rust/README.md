@@ -4,7 +4,7 @@
 
 **Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> 本文是[英文 README](../../../../sdks/rust/README.md)的参考译文，更新于 09/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+> 本文是[英文 README](../../../../sdks/rust/README.md)的参考译文，更新于 18/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP v2.0）的官方 Rust SDK。提供基于 Serde 的类型、混合后量子密码学（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、使用 `pq_over_classical` 绑定的复合签名、双哈希链、OpenTelemetry 可观测性、DCP-04..09 行为以及可选的 WebAssembly 支持。
 
@@ -76,7 +76,8 @@ dcp-ai = { version = "2.14.0", features = ["wasm"] }
 | DCP-04 A2A AES-256-GCM 会话加密 | _推迟到后续版本_ |
 | 会话 nonce 辅助函数、安全等级引擎（`compute_security_tier(&intent, Some(&policy_decision))`，规范 §14.2；`compute_security_tier_with_floor` 纳入委托链的等级）、紧急撤销 | 支持 |
 | 延迟 PQ 检查点与 `PQCheckpointManager` | 支持 |
-| 盲化 RPR、多方授权、算法通告辅助函数 | 支持 |
+| 盲化 RPR、算法通告辅助函数 | 支持 |
+| `mpa-v1` 配置文件下的多方授权（`evaluate_multi_party_authorization`，spec/profiles/multi-party） | 在 `main` 上，未包含在任何已发布版本中。已发布版本只有结构检查（`verify_multi_party_authorization`），它不验证任何签名 |
 | 通用错误码（所有 SDK 共享 38 个）与 `detect_wire_format` | 支持 |
 | OpenTelemetry / OTLP 导出器（可选 `otlp` 功能） | 支持 |
 | 准入：可信责任主体与 `strict-v1` 配置 | 支持 |

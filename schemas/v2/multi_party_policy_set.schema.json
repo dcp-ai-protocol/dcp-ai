@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/multi_party_policy_set.schema.json",
+  "title": "MultiPartyPolicySet",
+  "description": "Operator configuration for the opt-in mpa-v1 profile (spec/profiles/multi-party): for each target, its parties with their roles, and for each operation how many parties it needs and with which roles. Supplied by the operator only; never derived from a record or a request. A loader also rejects a repeated target, a party repeated within a target, a threshold no set of parties can reach and a required role no party holds.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["policy_set_version", "profile", "audience", "max_validity_seconds", "subjects"],
+  "properties": {
+    "policy_set_version": { "type": "string", "minLength": 1 },
+    "profile": { "type": "string", "const": "mpa-v1" },
+    "audience": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "max_validity_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+    "subjects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "parties", "operations"],
+        "properties": {
+          "target": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "parties": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["party_id", "role"],
+              "properties": {
+                "party_id": { "type": "string", "minLength": 1 },
+                "role": { "type": "string", "enum": ["owner", "org_admin", "recovery_contact"] }
+              }
+            }
+          },
+          "operations": {
+            "type": "object",
+            "propertyNames": {
+              "enum": ["revoke_agent", "rotate_org_key", "change_jurisdiction", "modify_recovery_config"]
+            },
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["required_parties", "allowed_roles", "required_roles"],
+              "properties": {
+                "required_parties": { "type": "integer", "minimum": 2 },
+                "allowed_roles": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": { "type": "string", "enum": ["owner", "org_admin", "recovery_contact"] }
+                },
+                "required_roles": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": { "type": "string", "enum": ["owner", "org_admin", "recovery_contact"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

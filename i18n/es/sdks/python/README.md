@@ -5,7 +5,7 @@
 
 # dcp-ai — SDK de Python
 
-> Traducción informativa de [la versión en inglés](../../../../sdks/python/README.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../sdks/python/README.md), actualizada el 18/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos de Pydantic v2, firmas híbridas poscuánticas (Ed25519 + ML-DSA-65, además de SLH-DSA-192f), la primitiva KEM ML-KEM-768, firmas compuestas con vinculación `pq_over_classical`, firma y verificación de bundles V1 y V2, observabilidad con OpenTelemetry, el comportamiento de DCP-04 a DCP-09 y una CLI completa.
 
@@ -81,7 +81,8 @@ pip install "dcp-ai[otlp]>=2.11.0,<3"       # OpenTelemetry OTLP exporter
 | Delegación de DCP-09 + cadenas de delegación verificables (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + umbral de atención + espejo del principal | Sí |
 | Utilidades de nonce de sesión, motor de niveles de seguridad (`compute_security_tier(intent, policy_decision, mandate_chain_tier)`, spec §14.2), revocación de emergencia | Sí |
 | Checkpoints PQ diferidos + `PQCheckpointManager` | Sí |
-| RPR cegado, autorización multiparte, utilidades de avisos sobre algoritmos | Sí |
+| RPR cegado, utilidades de avisos sobre algoritmos | Sí |
+| Autorización multiparte bajo el perfil `mpa-v1` (`evaluate_multi_party_authorization`, spec/profiles/multi-party) | En `main`, en ninguna versión publicada. Las versiones publicadas solo tienen la comprobación de la estructura (`verify_multi_party_authorization`), que no verifica ninguna firma |
 | Códigos de error canónicos (38 compartidos por todos los SDK) + `detect_wire_format` | Sí |
 | Exportador OpenTelemetry / OTLP (extra opcional `[otlp]`) | Sí |
 | Admisión: principales de confianza y el perfil `strict-v1` | Sí (2.10.0) |

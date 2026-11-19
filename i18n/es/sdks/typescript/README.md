@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — SDK de TypeScript para DCP-AI v2.0
 
-> Traducción informativa de [la versión en inglés](../../../../sdks/typescript/README.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../sdks/typescript/README.md), actualizada el 18/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 SDK oficial de TypeScript para el Digital Citizenship Protocol (DCP-AI). Crea, firma y verifica Citizenship Bundles con criptografía híbrida poscuántica (Ed25519 + ML-DSA-65), firmas compuestas, niveles de seguridad adaptativos, comunicación entre agentes (A2A), observabilidad integrada y refuerzo para producción.
 
@@ -382,6 +382,32 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `verifySignedBundleV2(bundle, registry, policy, { now })` acepta un reloj opcional e informa de `details.signer_keys`; sin ellos se comporta como antes.
 - `evaluateAdmissionV2` evalúa un resultado de verificación que ya tienes (sin criptografía ni E/S); `revocationSubjects` enumera aquello por lo que debe responder una fuente de revocación.
 - Guía: [`docs/ADMISSION.md`](../../../../docs/ADMISSION.md). Especificación y códigos: [`spec/profiles/admission`](../../../../spec/profiles/admission/README.md).
+
+<a id="multi-party-authorization-the-mpa-v1-profile"></a>
+
+### Autorización multiparte: el perfil `mpa-v1`
+
+Un registro de autorización multiparte no decide nada por sí solo: su `required_parties` no está firmado y cada rol lo escribe la parte que lo firma. Bajo el perfil opt-in `mpa-v1`, `authorized` es verdadero solo cuando partes distintas que tu política lista para el objetivo firmaron, con los dos componentes de firma y con claves que tu conjunto de confianza lista para ellas, exactamente la operación, el objetivo y los parámetros que vas a llevar a cabo, para este verificador y dentro de la ventana de validez, y alcanzan tu umbral y tus roles obligatorios.
+
+```typescript
+// Fragment, not a complete program: policySetJson and trustSetJson come from operator configuration, record from the request, registry as in the V2 Quick Start.
+import { createMultiPartyPolicyStore, createPrincipalTrustStore, evaluateMultiPartyAuthorization } from '@dcp-ai/sdk';
+
+const policy = createMultiPartyPolicyStore(policySetJson); // MultiPartyConfigError on a bad policy set
+const trust = createPrincipalTrustStore(trustSetJson);
+const result = await evaluateMultiPartyAuthorization(record, registry, {
+  policy,
+  trust,
+  expected: { operation: 'revoke_agent', target: 'agent:acme-bot', parameters: { reason: 'key_compromise' } },
+});
+// result.structure, result.verification, result.authorized, result.parties_counted,
+// result.required_parties, result.request_id, result.errors [{ code, message }]
+```
+
+- El conjunto de políticas y el conjunto de confianza salen de tu configuración, nunca del registro ni de una petición. `required_parties` y los roles escritos en el registro no deciden.
+- La evaluación no guarda estado: si la operación no es idempotente, consume `request_id` y ejecuta de forma atómica.
+- `createMultiPartyRequest`, `createPartyAuthorization` y `buildMultiPartyAuthorization` construyen y firman un registro; `checkMultiPartyAuthorizationStructure` comprueba solo su forma y no verifica ninguna firma.
+- En el código fuente de `main`, en ninguna versión publicada. Especificación y códigos: [`spec/profiles/multi-party`](../../../../spec/profiles/multi-party/README.md).
 
 <a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>

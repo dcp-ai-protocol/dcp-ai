@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> [英語版](../../../../sdks/python/README.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../sdks/python/README.md)の参考訳です（18/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic v2 のモデル、ポスト量子のハイブリッド署名（Ed25519 + ML-DSA-65、および SLH-DSA-192f）、ML-KEM-768 の KEM プリミティブ、`pq_over_classical` バインディングを持つ複合署名、V1 と V2 のバンドルの署名と検証、OpenTelemetry によるオブザーバビリティ、DCP-04 から DCP-09 までの動作、そして充実した CLI を備えています。
 
@@ -78,7 +78,8 @@ pip install "dcp-ai[otlp]>=2.11.0,<3"       # OpenTelemetry OTLP exporter
 | DCP-09 の委任 + 検証可能な委任チェーン（`create_sub_mandate`、`verify_mandate_chain`、§3.5）+ 注意の閾値 + プリンシパルのミラー | あり |
 | セッション nonce のユーティリティ、セキュリティティアのエンジン（`compute_security_tier(intent, policy_decision, mandate_chain_tier)`、仕様 §14.2）、緊急失効 | あり |
 | 遅延 PQ チェックポイント + `PQCheckpointManager` | あり |
-| ブラインド化された RPR、複数当事者による承認、アルゴリズムに関する勧告のユーティリティ | あり |
+| ブラインド化された RPR、アルゴリズムに関する勧告のユーティリティ | あり |
+| `mpa-v1` のプロファイルによる複数当事者の認可（`evaluate_multi_party_authorization`、spec/profiles/multi-party） | `main` にあり、公開済みのバージョンにはありません。公開済みのバージョンにあるのは構造の確認（`verify_multi_party_authorization`）だけで、署名は 1 つも検証しません |
 | 正規のエラーコード（全 SDK で共通の 38 個）+ `detect_wire_format` | あり |
 | OpenTelemetry / OTLP エクスポーター（オプションの `[otlp]` extra） | あり |
 | アドミッション：信頼済みのプリンシパルと `strict-v1` プロファイル | あり（2.10.0） |

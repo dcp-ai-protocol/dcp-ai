@@ -10,6 +10,7 @@ Profiles are extensions that build on [DCP Core](../core/) to address specific d
 | **A2A** | Agent discovery, session establishment, transport bindings, message exchange | [a2a/](a2a/) |
 | **Governance** | Risk tiers, jurisdiction attestation, revocation, key recovery, governance ceremonies | [governance/](governance/) |
 | **Admission** | Principal trust sets and the operator-fixed `strict-v1` profile on top of verification | [admission/](admission/) |
+| **Multi-party** | The operator-fixed `mpa-v1` profile: whether a multi-party authorization authorizes an operation on a target | [multi-party/](multi-party/) |
 
 ## Design Principles
 
