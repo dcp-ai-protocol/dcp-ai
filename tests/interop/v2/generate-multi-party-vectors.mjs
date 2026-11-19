@@ -190,6 +190,12 @@ const mutate = (entry, change) => {
   change(e);
   return e;
 };
+/** The record the structure cases start from, with one change. No one signed it: it is refused before any signature is read. */
+const reshaped = (change) => mutate(record('revoke_agent', REVOKE, [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]), change);
+/** The same, the change made to the composite signature of the second authorization. */
+const resigned = (change) => reshaped((r) => change(r.authorizations[1].composite_sig));
+/** The same, the change made to the request block. */
+const rerequested = (change) => reshaped((r) => change(r.operation_payload.request));
 
 const RECORDS = {
   two_of_three: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES]),
@@ -200,6 +206,7 @@ const RECORDS = {
   jurisdiction: signed('change_jurisdiction', JURISDICTION, [[BOB, 'org_admin'], [ERIN, 'org_admin']]),
   no_parameters: signed('revoke_agent', NO_PARAMETERS, [[ALICE, 'owner'], [BOB, 'org_admin']]),
   record_asks_for_five: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES], 5),
+  record_asks_for_an_absurd_number: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES], 1e30),
   with_offsets: signed('revoke_agent', WITH_OFFSETS, [[ALICE, 'owner'], [BOB, 'org_admin']]),
 
   // limits: exactly on a bound, so the structure phase lets them through; no signature is read
@@ -227,6 +234,57 @@ const RECORDS = {
   number_not_an_integer: record('revoke_agent', payload({}, { ratio: 0.5 }), [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
   seventeen_authorizations: record('revoke_agent', REVOKE, Array.from({ length: 17 }, (_, n) => unsigned(`human:party-${String(n + 1).padStart(2, '0')}`, 'org_admin', n))),
 
+  // structure, the record schema keyword by keyword: the same record with one change
+  not_an_object: [reshaped(() => {})],
+  member_missing: reshaped((r) => { delete r.required_parties; }),
+  member_renamed: reshaped((r) => { delete r.required_parties; r.threshold = 2; }),
+  another_type: reshaped((r) => { r.type = 'delegation_mandate'; }),
+  operation_not_a_string: reshaped((r) => { r.operation = ['revoke_agent']; }),
+  payload_is_an_array: reshaped((r) => { r.operation_payload = [r.operation_payload]; }),
+  payload_is_null: reshaped((r) => { r.operation_payload = null; }),
+  threshold_not_an_integer: reshaped((r) => { r.required_parties = 2.5; }),
+  threshold_a_boolean: reshaped((r) => { r.required_parties = true; }),
+  threshold_a_string: reshaped((r) => { r.required_parties = '2'; }),
+  authorizations_not_an_array: reshaped((r) => { r.authorizations = { ...r.authorizations }; }),
+  entry_not_an_object: reshaped((r) => { r.authorizations[1] = BOB.id; }),
+  entry_unknown_member: reshaped((r) => { r.authorizations[1].delegated_by = ALICE.id; }),
+  party_id_not_a_string: reshaped((r) => { r.authorizations[1].party_id = 7; }),
+  role_outside_the_list: reshaped((r) => { r.authorizations[1].role = 'admin'; }),
+  role_not_a_string: reshaped((r) => { r.authorizations[1].role = ['org_admin']; }),
+  signature_not_an_object: reshaped((r) => { r.authorizations[1].composite_sig = 'AAAAAAAAAAA='; }),
+  signature_unknown_member: resigned((s) => { s.hash_alg = 'sha256'; }),
+  signature_without_the_pq_member: resigned((s) => { delete s.pq; }),
+  pq_is_false: resigned((s) => { s.pq = false; }),
+  binding_outside_the_list: resigned((s) => { s.binding = 'hybrid'; }),
+  binding_not_a_string: resigned((s) => { s.binding = ['pq_over_classical']; }),
+  part_not_an_object: resigned((s) => { s.classical = s.classical.sig_b64; }),
+  part_unknown_member: resigned((s) => { s.classical.public_key_b64 = ALICE.classical.public_key_b64; }),
+  part_member_missing: resigned((s) => { delete s.pq.alg; }),
+  alg_not_a_string: resigned((s) => { s.classical.alg = 1; }),
+  kid_uppercase: resigned((s) => { s.classical.kid = 'ABCDEF0123456789ABCDEF0123456789'; }),
+  kid_too_long: resigned((s) => { s.classical.kid += '0'; }),
+  kid_with_a_line_feed: resigned((s) => { s.classical.kid += '\n'; }),
+  signature_too_short: resigned((s) => { s.classical.sig_b64 = 'AAAAAA='; }),
+  signature_too_long: resigned((s) => { s.pq.sig_b64 = 'A'.repeat(66477); }),
+  signature_in_base64url: resigned((s) => { s.classical.sig_b64 = 'AAAA-AAA_AA='; }),
+  signature_with_three_padding_characters: resigned((s) => { s.classical.sig_b64 = 'AAAAAAAAA==='; }),
+  signature_padded_in_the_middle: resigned((s) => { s.classical.sig_b64 = 'AAAA=AAAAAA='; }),
+  signature_with_a_line_feed: resigned((s) => { s.classical.sig_b64 += '\n'; }),
+
+  // structure, the request block keyword by keyword
+  request_is_null: reshaped((r) => { r.operation_payload.request = null; }),
+  request_member_missing: rerequested((q) => { delete q.audience; }),
+  without_parameters: reshaped((r) => { delete r.operation_payload.parameters; }),
+  parameters_is_an_array: reshaped((r) => { r.operation_payload.parameters = []; }),
+  request_id_too_long: rerequested((q) => { q.request_id = `mpa:${'f'.repeat(125)}`; }),
+  request_id_not_a_string: rerequested((q) => { q.request_id = 7; }),
+  empty_target: rerequested((q) => { q.target = ''; }),
+  empty_audience: rerequested((q) => { q.audience = ''; }),
+  audience_too_long: rerequested((q) => { q.audience = `verifier:${'a'.repeat(248)}`; }),
+  issued_at_not_a_timestamp: rerequested((q) => { q.issued_at = '2026-11-18'; }),
+  expiry_without_an_offset: rerequested((q) => { q.expires_at = '2026-11-18T00:30:00'; }),
+  expiry_on_an_impossible_day: rerequested((q) => { q.expires_at = '2026-11-31T00:30:00Z'; }),
+
   // binding: every signature verifies
   another_audience: signed('revoke_agent', OTHER_AUDIENCE, [[ALICE, 'owner'], [BOB, 'org_admin']]),
   validity_too_long: signed('revoke_agent', TOO_LONG, [[ALICE, 'owner'], [BOB, 'org_admin']]),
@@ -242,9 +300,13 @@ const RECORDS = {
   self_assigned_role: record('revoke_agent', REVOKE, [sign(CAROL, 'revoke_agent', REVOKE, 'owner'), BOB_REVOKES]),
   role_not_allowed: signed('rotate_org_key', ORG_KEY, [[ALICE, 'owner'], [CAROL, 'recovery_contact']]),
   two_parties_and_an_outsider: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES, sign(MALLORY, 'revoke_agent', REVOKE, 'recovery_contact')]),
+  empty_party_id: record('revoke_agent', REVOKE, [ALICE_REVOKES, sign(MALLORY, 'revoke_agent', REVOKE, 'org_admin', { as: '' })]),
 
   // signatures: Alice's entry is valid, Bob's is not
   classical_only: withBob(mutate(BOB_REVOKES, (e) => { e.composite_sig.pq = null; e.composite_sig.binding = 'classical_only'; })),
+  pq_removed_under_the_hybrid_binding: withBob(mutate(BOB_REVOKES, (e) => { e.composite_sig.pq = null; })),
+  hybrid_signature_declared_classical_only: withBob(mutate(BOB_REVOKES, (e) => { e.composite_sig.binding = 'classical_only'; })),
+  unknown_classical_algorithm: withBob(mutate(BOB_REVOKES, (e) => { e.composite_sig.classical.alg = 'rsa-2048'; })),
   two_classical_signatures: withBob(mutate(BOB_REVOKES, (e) => {
     const msg = signedBytes('revoke_agent', REVOKE, BOB.id, 'org_admin');
     const second = ALGS.ed25519.sign(Buffer.concat([msg, Buffer.from(e.composite_sig.classical.sig_b64, 'base64')]), BOB.classical.secretKey);
@@ -334,6 +396,7 @@ const CASES = [
   ['no_required_role', 'controls', 'An operation with no required role: two administrators', { record: 'jurisdiction' }, yes(2)],
   ['empty_parameters', 'controls', 'An operation without parameters', { record: 'no_parameters' }, yes(2)],
   ['record_asks_for_more_than_the_operator', 'controls', 'required_parties in the record is not signed and does not count', { record: 'record_asks_for_five' }, yes(2)],
+  ['record_asks_for_an_absurd_number', 'controls', 'required_parties 1e+30: an integer for the schema, larger than any machine integer, and it does not count', { record: 'record_asks_for_an_absurd_number' }, yes(2)],
   ['last_instant', 'controls', 'One millisecond before expires_at', { record: 'two_of_three', now: '2026-11-18T00:29:59.999Z' }, yes(2)],
   ['issued_within_the_clock_allowance', 'controls', 'issued_at 30 seconds ahead of now', { record: 'two_of_three', now: '2026-11-17T23:59:30Z' }, yes(2)],
   ['timestamps_with_offsets', 'controls', 'RFC 3339 instants with numeric offsets and microseconds', { record: 'with_offsets' }, yes(2)],
@@ -349,6 +412,41 @@ const CASES = [
   ['entry_without_signature', 'structure', 'An authorization without composite_sig', { record: 'entry_without_signature' }, malformed('MPA_SCHEMA_INVALID')],
   ['kid_not_hex', 'structure', 'A kid that is not 32 hexadecimal characters', { record: 'kid_not_hex' }, malformed('MPA_SCHEMA_INVALID')],
   ['threshold_below_two', 'structure', 'required_parties below the schema minimum', { record: 'threshold_below_two' }, malformed('MPA_SCHEMA_INVALID')],
+  ['not_an_object', 'structure', 'The record inside an array', { record: 'not_an_object' }, malformed('MPA_SCHEMA_INVALID')],
+  ['member_missing', 'structure', 'A record without required_parties: no evaluation reads it, and the schema requires it', { record: 'member_missing' }, malformed('MPA_SCHEMA_INVALID')],
+  ['member_renamed', 'structure', 'Five members, one of them under another name', { record: 'member_renamed' }, malformed('MPA_SCHEMA_INVALID')],
+  ['another_type', 'structure', 'The type of another artifact', { record: 'another_type' }, malformed('MPA_SCHEMA_INVALID')],
+  ['operation_not_a_string', 'structure', 'An operation that is an array holding one', { record: 'operation_not_a_string' }, malformed('MPA_SCHEMA_INVALID')],
+  ['payload_is_an_array', 'structure', 'operation_payload inside an array', { record: 'payload_is_an_array' }, malformed('MPA_SCHEMA_INVALID')],
+  ['payload_is_null', 'structure', 'operation_payload that is null', { record: 'payload_is_null' }, malformed('MPA_SCHEMA_INVALID')],
+  ['threshold_not_an_integer', 'structure', 'required_parties 2.5', { record: 'threshold_not_an_integer' }, malformed('MPA_SCHEMA_INVALID')],
+  ['threshold_a_boolean', 'structure', 'required_parties true', { record: 'threshold_a_boolean' }, malformed('MPA_SCHEMA_INVALID')],
+  ['threshold_a_string', 'structure', 'required_parties "2"', { record: 'threshold_a_string' }, malformed('MPA_SCHEMA_INVALID')],
+  ['authorizations_not_an_array', 'structure', 'authorizations as an object with the members "0" and "1"', { record: 'authorizations_not_an_array' }, malformed('MPA_SCHEMA_INVALID')],
+  ['entry_not_an_object', 'structure', 'An authorization that is a party_id alone', { record: 'entry_not_an_object' }, malformed('MPA_SCHEMA_INVALID')],
+  ['entry_unknown_member', 'structure', 'An authorization with a member the schema does not have', { record: 'entry_unknown_member' }, malformed('MPA_SCHEMA_INVALID')],
+  ['party_id_not_a_string', 'structure', 'A party_id that is a number', { record: 'party_id_not_a_string' }, malformed('MPA_SCHEMA_INVALID')],
+  ['role_outside_the_list', 'structure', 'A role outside the list', { record: 'role_outside_the_list' }, malformed('MPA_SCHEMA_INVALID')],
+  ['role_not_a_string', 'structure', 'A role that is an array holding one', { record: 'role_not_a_string' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_not_an_object', 'structure', 'composite_sig that is a string', { record: 'signature_not_an_object' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_unknown_member', 'structure', 'composite_sig with a fourth member', { record: 'signature_unknown_member' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_without_the_pq_member', 'structure', 'composite_sig without pq: absent is not null', { record: 'signature_without_the_pq_member' }, malformed('MPA_SCHEMA_INVALID')],
+  ['pq_is_false', 'structure', 'pq that is false: only null stands for no post-quantum component', { record: 'pq_is_false' }, malformed('MPA_SCHEMA_INVALID')],
+  ['binding_outside_the_list', 'structure', 'A binding outside the list', { record: 'binding_outside_the_list' }, malformed('MPA_SCHEMA_INVALID')],
+  ['binding_not_a_string', 'structure', 'A binding that is an array holding one', { record: 'binding_not_a_string' }, malformed('MPA_SCHEMA_INVALID')],
+  ['part_not_an_object', 'structure', 'A component that is its sig_b64 alone', { record: 'part_not_an_object' }, malformed('MPA_SCHEMA_INVALID')],
+  ['part_unknown_member', 'structure', 'A component that brings a public key with it', { record: 'part_unknown_member' }, malformed('MPA_SCHEMA_INVALID')],
+  ['part_member_missing', 'structure', 'A component without alg', { record: 'part_member_missing' }, malformed('MPA_SCHEMA_INVALID')],
+  ['alg_not_a_string', 'structure', 'An alg that is a number', { record: 'alg_not_a_string' }, malformed('MPA_SCHEMA_INVALID')],
+  ['kid_uppercase', 'structure', 'A kid of 32 uppercase hexadecimal characters', { record: 'kid_uppercase' }, malformed('MPA_SCHEMA_INVALID')],
+  ['kid_too_long', 'structure', 'A kid of 33 hexadecimal characters', { record: 'kid_too_long' }, malformed('MPA_SCHEMA_INVALID')],
+  ['kid_with_a_line_feed', 'structure', 'A kid followed by a line feed', { record: 'kid_with_a_line_feed' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_too_short', 'structure', 'A sig_b64 of 7 characters', { record: 'signature_too_short' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_too_long', 'structure', 'A sig_b64 of 66477 characters', { record: 'signature_too_long' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_in_base64url', 'structure', 'A sig_b64 in the URL-safe alphabet', { record: 'signature_in_base64url' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_with_three_padding_characters', 'structure', 'A sig_b64 that ends in three padding characters', { record: 'signature_with_three_padding_characters' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_padded_in_the_middle', 'structure', 'A sig_b64 with a padding character before its end', { record: 'signature_padded_in_the_middle' }, malformed('MPA_SCHEMA_INVALID')],
+  ['signature_with_a_line_feed', 'structure', 'A sig_b64 followed by a line feed', { record: 'signature_with_a_line_feed' }, malformed('MPA_SCHEMA_INVALID')],
   ['without_request', 'structure', 'A v2.0 record, validly signed by two parties, without the request block: never authorized under the profile', { record: 'without_request' }, malformed('MPA_REQUEST_MISSING')],
   ['request_unknown_member', 'structure', 'A member the request block does not have', { record: 'request_unknown_member' }, malformed('MPA_REQUEST_INVALID')],
   ['payload_unknown_member', 'structure', 'operation_payload with a third member', { record: 'payload_unknown_member' }, malformed('MPA_REQUEST_INVALID')],
@@ -357,6 +455,18 @@ const CASES = [
   ['empty_request_id', 'structure', 'An empty request_id', { record: 'empty_request_id' }, malformed('MPA_REQUEST_INVALID')],
   ['target_too_long', 'structure', 'A target of 257 characters', { record: 'target_too_long' }, malformed('MPA_REQUEST_INVALID')],
   ['parameters_not_an_object', 'structure', 'parameters that is a string', { record: 'parameters_not_an_object' }, malformed('MPA_REQUEST_INVALID')],
+  ['request_is_null', 'structure', 'A request member that is null: it is there, and it is not a request', { record: 'request_is_null' }, malformed('MPA_REQUEST_INVALID')],
+  ['request_member_missing', 'structure', 'A request without audience', { record: 'request_member_missing' }, malformed('MPA_REQUEST_INVALID')],
+  ['without_parameters', 'structure', 'operation_payload without parameters: absent is not empty', { record: 'without_parameters' }, malformed('MPA_REQUEST_INVALID')],
+  ['parameters_is_an_array', 'structure', 'parameters that is an empty array', { record: 'parameters_is_an_array' }, malformed('MPA_REQUEST_INVALID')],
+  ['request_id_too_long', 'structure', 'A request_id of 129 characters', { record: 'request_id_too_long' }, malformed('MPA_REQUEST_INVALID')],
+  ['request_id_not_a_string', 'structure', 'A request_id that is a number', { record: 'request_id_not_a_string' }, malformed('MPA_REQUEST_INVALID')],
+  ['empty_target', 'structure', 'An empty target', { record: 'empty_target' }, malformed('MPA_REQUEST_INVALID')],
+  ['empty_audience', 'structure', 'An empty audience', { record: 'empty_audience' }, malformed('MPA_REQUEST_INVALID')],
+  ['audience_too_long', 'structure', 'An audience of 257 characters', { record: 'audience_too_long' }, malformed('MPA_REQUEST_INVALID')],
+  ['issued_at_not_a_timestamp', 'structure', 'issued_at that is a date without a time', { record: 'issued_at_not_a_timestamp' }, malformed('MPA_REQUEST_INVALID')],
+  ['expiry_without_an_offset', 'structure', 'expires_at without Z or an offset', { record: 'expiry_without_an_offset' }, malformed('MPA_REQUEST_INVALID')],
+  ['expiry_on_an_impossible_day', 'structure', 'expires_at on 31 November', { record: 'expiry_on_an_impossible_day' }, malformed('MPA_REQUEST_INVALID')],
   ['number_not_an_integer', 'structure', 'A number dcp-jcs-v1 cannot represent', { record: 'number_not_an_integer' }, malformed('MPA_NOT_REPRESENTABLE')],
   ['seventeen_authorizations', 'structure', 'More than 16 authorizations', { record: 'seventeen_authorizations' }, malformed('MPA_TOO_MANY_AUTHORIZATIONS')],
 
@@ -382,10 +492,14 @@ const CASES = [
   ['self_assigned_role', 'parties', 'A recovery contact signs as owner', { record: 'self_assigned_role' }, unbound(['MPA_ROLE_MISMATCH'])],
   ['role_not_allowed_for_the_operation', 'parties', 'A party of the target whose role the operation does not allow', { record: 'role_not_allowed' }, unbound(['MPA_ROLE_NOT_ALLOWED'])],
   ['enough_parties_and_an_outsider', 'parties', 'Two valid parties meet the threshold; a third entry from no party of the target refuses the record', { record: 'two_parties_and_an_outsider' }, unbound(['MPA_PARTY_UNKNOWN'])],
+  ['empty_party_id', 'parties', 'An empty party_id: a string for the schema, and a party of nothing', { record: 'empty_party_id' }, unbound(['MPA_PARTY_UNKNOWN'])],
 
   // signatures: one party's authorization is not a hybrid signature by its trusted keys over this request
   ['classical_only', 'signatures', 'The post-quantum component removed', { record: 'classical_only' }, unverified(1, 'MPA_HYBRID_REQUIRED')],
   ['two_classical_signatures', 'signatures', 'A classical signature in the post-quantum slot', { record: 'two_classical_signatures' }, unverified(1, 'MPA_HYBRID_REQUIRED')],
+  ['pq_removed_under_the_hybrid_binding', 'signatures', 'The post-quantum component removed and the binding left as it was', { record: 'pq_removed_under_the_hybrid_binding' }, unverified(1, 'MPA_HYBRID_REQUIRED')],
+  ['hybrid_signature_declared_classical_only', 'signatures', 'Both components present and valid, under the binding classical_only', { record: 'hybrid_signature_declared_classical_only' }, unverified(1, 'MPA_HYBRID_REQUIRED')],
+  ['unknown_classical_algorithm', 'signatures', 'An algorithm no registry has, in the classical slot', { record: 'unknown_classical_algorithm' }, unverified(1, 'MPA_HYBRID_REQUIRED')],
   ['signed_by_an_outsider', 'signatures', 'Keys the trust set has for no one', { record: 'signed_by_an_outsider' }, unverified(1, 'MPA_KEY_NOT_ANCHORED')],
   ['signed_by_another_party', 'signatures', 'One party signs for another with its own trusted keys', { record: 'signed_by_another_party' }, unverified(1, 'MPA_KEY_NOT_ANCHORED')],
   ['outsider_under_the_party_kids', 'signatures', 'The kids of the party over signatures made with other keys', { record: 'outsider_under_the_party_kids' }, unverified(1, 'MPA_SIGNATURE_INVALID')],
@@ -449,6 +563,31 @@ const CONFIG_CASES = [
   ['party_twice', policy((p) => { p.subjects[0].parties.push({ party_id: ALICE.id, role: 'org_admin' }); }), 'CONFIG_MPA_DUPLICATE'],
   ['threshold_no_one_can_reach', policy((p) => { op(p).required_parties = 3; }), 'CONFIG_MPA_UNSATISFIABLE'],
   ['required_role_no_party_holds', policy((p) => { op(p).allowed_roles = ROLES; op(p).required_roles = ['recovery_contact']; }), 'CONFIG_MPA_UNSATISFIABLE'],
+  // the policy set schema keyword by keyword: the same set with one change
+  ['subject_with_no_operation', policy((p) => { p.subjects[0].operations = {}; }), null],
+  ['not_an_object', [MINI], 'CONFIG_INVALID_VALUE'],
+  ['version_not_a_string', policy((p) => { p.policy_set_version = 1; }), 'CONFIG_INVALID_VALUE'],
+  ['audience_too_long', policy((p) => { p.audience = `verifier:${'a'.repeat(248)}`; }), 'CONFIG_INVALID_VALUE'],
+  ['validity_not_an_integer', policy((p) => { p.max_validity_seconds = 900.5; }), 'CONFIG_INVALID_VALUE'],
+  ['validity_a_string', policy((p) => { p.max_validity_seconds = '900'; }), 'CONFIG_INVALID_VALUE'],
+  ['subjects_not_an_array', policy((p) => { p.subjects = {}; }), 'CONFIG_INVALID_VALUE'],
+  ['subject_not_an_object', policy((p) => { p.subjects.push('agent:other-bot'); }), 'CONFIG_INVALID_VALUE'],
+  ['unknown_field_in_a_subject', policy((p) => { p.subjects[0].required_parties = 2; }), 'CONFIG_UNKNOWN_FIELD'],
+  ['subject_without_operations', policy((p) => { delete p.subjects[0].operations; }), 'CONFIG_INVALID_VALUE'],
+  ['target_not_a_string', policy((p) => { p.subjects[0].target = 7; }), 'CONFIG_INVALID_VALUE'],
+  ['target_too_long', policy((p) => { p.subjects[0].target = `agent:${'a'.repeat(251)}`; }), 'CONFIG_INVALID_VALUE'],
+  ['parties_not_an_array', policy((p) => { p.subjects[0].parties = { ...p.subjects[0].parties }; }), 'CONFIG_INVALID_VALUE'],
+  ['party_not_an_object', policy((p) => { p.subjects[0].parties.push(CAROL.id); }), 'CONFIG_INVALID_VALUE'],
+  ['empty_party_id', policy((p) => { p.subjects[0].parties.push({ party_id: '', role: 'recovery_contact' }); }), 'CONFIG_INVALID_VALUE'],
+  ['party_id_not_a_string', policy((p) => { p.subjects[0].parties.push({ party_id: 7, role: 'recovery_contact' }); }), 'CONFIG_INVALID_VALUE'],
+  ['party_without_a_role', policy((p) => { p.subjects[0].parties.push({ party_id: CAROL.id }); }), 'CONFIG_INVALID_VALUE'],
+  ['operations_not_an_object', policy((p) => { p.subjects[0].operations = ['revoke_agent']; }), 'CONFIG_INVALID_VALUE'],
+  ['rule_not_an_object', policy((p) => { p.subjects[0].operations.revoke_agent = 2; }), 'CONFIG_INVALID_VALUE'],
+  ['rule_without_required_roles', policy((p) => { delete op(p).required_roles; }), 'CONFIG_INVALID_VALUE'],
+  ['threshold_not_an_integer', policy((p) => { op(p).required_parties = 2.5; }), 'CONFIG_INVALID_VALUE'],
+  ['unknown_allowed_role', policy((p) => { op(p).allowed_roles = ['owner', 'org_admin', 'admin']; }), 'CONFIG_INVALID_VALUE'],
+  ['required_roles_not_an_array', policy((p) => { op(p).required_roles = 'owner'; }), 'CONFIG_INVALID_VALUE'],
+  ['required_role_repeated', policy((p) => { op(p).required_roles = ['owner', 'owner']; }), 'CONFIG_INVALID_VALUE'],
 ].map(([name, policy_set, expect_code]) => ({ name, policy_set, expect_code }));
 
 // A key under two parties would let one signer count twice. The existing trust set rule refuses it when it loads.
@@ -463,8 +602,15 @@ for (const f of ['composite_signature', 'multi_party_authorization', 'multi_part
   ajv.addSchema(JSON.parse(readFileSync(join(SCHEMAS, `${f}.schema.json`), 'utf8')));
 }
 const conforms = (name, value) => ajv.getSchema(`https://dcp-ai.org/schemas/v2/${name}.schema.json`)(value);
-const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
-const isInstant = (v) => typeof v === 'string' && RFC3339.test(v) && !Number.isNaN(Date.parse(v));
+const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/;
+/** An RFC 3339 instant on the calendar. Date.parse alone rolls 31 November over to December and takes 24:00. */
+function isInstant(v) {
+  const m = typeof v === 'string' ? RFC3339.exec(v) : null;
+  if (!m) return false;
+  const [year, month, day, hour, minute, second, offsetHours = 0, offsetMinutes = 0] = m.slice(1).map((n) => (n === undefined ? undefined : Number(n)));
+  const daysInMonth = [31, year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  return daysInMonth !== undefined && day >= 1 && day <= daysInMonth && hour <= 23 && minute <= 59 && second <= 59 && offsetHours <= 23 && offsetMinutes <= 59;
+}
 const canonicalBytes = (value) => {
   const bytes = Buffer.from(value, 'base64');
   return bytes.toString('base64') === value ? bytes : undefined;
@@ -571,15 +717,17 @@ function evaluate(rec, policySet, trust, expected, now) {
 
 /** The code a policy set is refused with, or null. Unknown fields first, then values, then the two rules a schema cannot state. */
 function policyCode(p) {
-  const known = (o, allowed) => o !== null && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).every((k) => allowed.includes(k));
-  const objects = (v) => (Array.isArray(v) ? v : []).filter((o) => o !== null && typeof o === 'object');
+  // What is not an object has no fields to be unknown: the schema refuses it below, as a value.
+  const isObject = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
+  const known = (o, allowed) => !isObject(o) || Object.keys(o).every((k) => allowed.includes(k));
+  const objects = (v) => (Array.isArray(v) ? v : []).filter(isObject);
   const subjects = objects(p.subjects);
   const everyKnown =
     known(p, ['policy_set_version', 'profile', 'audience', 'max_validity_seconds', 'subjects']) &&
     subjects.every((s) =>
       known(s, ['target', 'parties', 'operations']) &&
       objects(s.parties).every((party) => known(party, ['party_id', 'role'])) &&
-      Object.values(s.operations ?? {}).every((rule) => typeof rule !== 'object' || rule === null || known(rule, ['required_parties', 'allowed_roles', 'required_roles'])));
+      Object.values(isObject(s.operations) ? s.operations : {}).every((rule) => known(rule, ['required_parties', 'allowed_roles', 'required_roles'])));
   if (!everyKnown) return 'CONFIG_UNKNOWN_FIELD';
   if (!conforms('multi_party_policy_set', p)) return 'CONFIG_INVALID_VALUE';
   for (const s of p.subjects) {
