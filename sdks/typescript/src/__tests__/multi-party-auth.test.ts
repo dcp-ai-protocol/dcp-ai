@@ -274,6 +274,40 @@ describe('multi-party authorization: signing', () => {
     expect(checkMultiPartyAuthorizationStructure(record).valid).toBe(true);
   });
 
+  it('with no clock given, the system clock decides', async () => {
+    const [owner, admin] = [await party('human:owner'), await party('human:admin')];
+    const options = {
+      policy: {
+        policy_set_version: 'here.1',
+        profile: 'mpa-v1',
+        audience: 'verifier:here',
+        max_validity_seconds: 600,
+        subjects: [{
+          target: 'agent:signed-here',
+          parties: [{ party_id: owner.id, role: 'owner' }, { party_id: admin.id, role: 'org_admin' }],
+          operations: { revoke_agent: { required_parties: 2, allowed_roles: ['owner', 'org_admin'], required_roles: ['owner'] } },
+        }],
+      },
+      trust: { trust_set_version: 'here.1', principals: [owner.trusted, admin.trusted] },
+      expected: { operation: 'revoke_agent' as const, target: 'agent:signed-here', parameters: {} },
+    };
+    const evaluated = async (issuedAt?: number) => {
+      const request = { target: 'agent:signed-here', audience: 'verifier:here', validitySeconds: 60 };
+      const payload = createMultiPartyRequest(issuedAt === undefined ? request : { ...request, issuedAt });
+      const record = buildMultiPartyAuthorization('revoke_agent', payload, [
+        await createPartyAuthorization(registry, 'revoke_agent', payload, owner.id, 'owner', owner.keys),
+        await createPartyAuthorization(registry, 'revoke_agent', payload, admin.id, 'org_admin', admin.keys),
+      ]);
+      return evaluateMultiPartyAuthorization(clone(record), registry, options);
+    };
+    // Issued by the builder's clock and read by the evaluator's: in force.
+    const fresh = await evaluated();
+    expect([fresh.authorized, codes(fresh)]).toEqual([true, []]);
+    // Issued an hour ago for a minute: over.
+    const stale = await evaluated(Date.now() - 3_600_000);
+    expect([stale.authorized, codes(stale)]).toEqual([false, ['MPA_EXPIRED']]);
+  });
+
   it('refuses to build a request the profile would not accept', () => {
     const base = { target: 'agent:x', audience: 'verifier:y', validitySeconds: 60 };
     for (const input of [

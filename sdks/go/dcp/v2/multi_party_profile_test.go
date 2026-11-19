@@ -507,6 +507,83 @@ func TestMultiPartyRefusesToBuildARequestTheProfileWouldNotAccept(t *testing.T) 
 		if payload, err := v2.NewMultiPartyRequest(in); !errors.As(err, &cfg) || cfg.Code != "CONFIG_INVALID_VALUE" || payload != nil {
 			t.Fatalf("%s: got %v, %v", name, payload, err)
 		}
+		if cfg.Message == "" || cfg.Error() != "CONFIG_INVALID_VALUE: "+cfg.Message {
+			t.Fatalf("%s: the error reads %q", name, cfg.Error())
+		}
+	}
+}
+
+func TestMultiPartyWithNoClockGivenTheSystemClockDecides(t *testing.T) {
+	reg := mpaRegistry()
+	owner, admin := newMpaParty(t, "human:owner"), newMpaParty(t, "human:admin")
+	policyJSON, _ := json.Marshal(map[string]interface{}{
+		"policy_set_version": "here.1", "profile": "mpa-v1", "audience": "verifier:here", "max_validity_seconds": 600,
+		"subjects": []interface{}{map[string]interface{}{
+			"target":     "agent:signed-here",
+			"parties":    []interface{}{map[string]interface{}{"party_id": owner.id, "role": "owner"}, map[string]interface{}{"party_id": admin.id, "role": "org_admin"}},
+			"operations": map[string]interface{}{"revoke_agent": map[string]interface{}{"required_parties": 2, "allowed_roles": []string{"owner", "org_admin"}, "required_roles": []string{"owner"}}},
+		}},
+	})
+	trustJSON, _ := json.Marshal(map[string]interface{}{"trust_set_version": "here.1", "principals": []interface{}{owner.trusted, admin.trusted}})
+	policy, err := v2.NewMultiPartyPolicyStore(policyJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trust, err := v2.NewPrincipalTrustStore(trustJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evaluated := func(issuedAt time.Time) *v2.MultiPartyEvaluation {
+		t.Helper()
+		payload, err := v2.NewMultiPartyRequest(v2.MultiPartyRequestInput{Target: "agent:signed-here", Audience: "verifier:here", IssuedAt: issuedAt, ValiditySeconds: 60})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var authorizations []map[string]interface{}
+		for _, p := range []struct {
+			party mpaTestParty
+			role  string
+		}{{owner, "owner"}, {admin, "org_admin"}} {
+			a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", payload, p.party.id, p.role, p.party.classical, p.party.pq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			authorizations = append(authorizations, a)
+		}
+		recordJSON, err := json.Marshal(v2.BuildMultiPartyAuthorization("revoke_agent", payload, authorizations, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := v2.EvaluateMultiPartyAuthorization(reg, recordJSON, v2.MultiPartyOptions{
+			Policy: policy, Trust: trust, Expected: v2.MultiPartyExpected{Operation: "revoke_agent", Target: "agent:signed-here"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	// Issued by the builder's clock and read by the evaluator's: in force.
+	if fresh := evaluated(time.Time{}); !fresh.Authorized || len(fresh.Errors) != 0 {
+		t.Fatalf("a request issued now: %+v", fresh)
+	}
+	// Issued an hour ago for a minute: over.
+	if stale := evaluated(time.Now().Add(-time.Hour)); stale.Authorized || !reflect.DeepEqual(mpaCodes(stale), []string{"MPA_EXPIRED"}) {
+		t.Fatalf("a request that ended an hour ago: %+v", stale)
+	}
+}
+
+func TestMultiPartyAPartySignsNothingItCannotSign(t *testing.T) {
+	reg := mpaRegistry()
+	party := newMpaParty(t, "human:owner")
+	// A payload dcp-jcs-v1 cannot represent.
+	if a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", map[string]interface{}{"ratio": 0.5}, party.id, "owner", party.classical, party.pq); err == nil || a != nil {
+		t.Fatalf("a payload that is not representable: %v, %v", a, err)
+	}
+	// A secret key that is not one.
+	broken := party.classical
+	broken.SecretKeyB64 = "AAAA"
+	if a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", map[string]interface{}{}, party.id, "owner", broken, party.pq); err == nil || a != nil {
+		t.Fatalf("a key that is not one: %v, %v", a, err)
 	}
 }
 

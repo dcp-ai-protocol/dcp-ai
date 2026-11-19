@@ -272,6 +272,45 @@ fn what_the_sdk_signs_the_sdk_authorizes() {
 }
 
 #[test]
+fn a_request_built_with_no_clock_given_is_issued_now() {
+    let (owner, admin) = (party("human:owner"), party("human:admin"));
+    let empty = json!({});
+    let input = MultiPartyRequestInput {
+        target: "agent:signed-here",
+        audience: "verifier:here",
+        parameters: None,
+        validity_seconds: 60,
+        issued_at_ms: None,
+        request_id: None,
+    };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
+    let payload = create_multi_party_request(&input).unwrap();
+    let sign = |p: &Party, role: &str| {
+        create_party_authorization(&Ed25519Provider, &MlDsa65Provider, "revoke_agent", &payload, p.id, role, &p.classical, &p.pq).unwrap()
+    };
+    let record = build_multi_party_authorization("revoke_agent", &payload, vec![sign(&owner, "owner"), sign(&admin, "org_admin")], 0);
+    let policy = MultiPartyPolicyStore::from_json(&json!({
+        "policy_set_version": "here.1", "profile": "mpa-v1", "audience": "verifier:here", "max_validity_seconds": 600,
+        "subjects": [{
+            "target": "agent:signed-here",
+            "parties": [{ "party_id": owner.id, "role": "owner" }, { "party_id": admin.id, "role": "org_admin" }],
+            "operations": { "revoke_agent": { "required_parties": 2, "allowed_roles": ["owner", "org_admin"], "required_roles": ["owner"] } },
+        }],
+    }))
+    .unwrap();
+    let trust = PrincipalTrustStore::from_json(&json!({ "trust_set_version": "here.1", "principals": [owner.trusted, admin.trusted] })).unwrap();
+    let at = |now_ms: i64| {
+        let expected = MultiPartyExpected { operation: "revoke_agent", target: "agent:signed-here", parameters: &empty };
+        evaluate_multi_party_authorization(&record, &MultiPartyOptions { policy: &policy, trust: &trust, expected, now_ms }).unwrap()
+    };
+    // The evaluation takes its clock from the caller; the builder read the system's, in milliseconds:
+    // in force now, not yet a minute before, over a minute after.
+    assert!(at(now).authorized, "{:?}", at(now).errors);
+    assert_eq!(codes(&at(now - 60_000)), ["MPA_NOT_YET_VALID"]);
+    assert_eq!(codes(&at(now + 61_000)), ["MPA_EXPIRED"]);
+}
+
+#[test]
 fn refuses_to_build_a_request_the_profile_would_not_accept() {
     let (not_representable, not_an_object) = (json!({ "ratio": 0.5 }), json!("none"));
     let long = "a".repeat(257);

@@ -10,6 +10,7 @@ import asyncio
 import copy
 import json
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -223,13 +224,23 @@ async def test_what_the_executor_states_wrongly_is_an_error_not_a_decision(regis
                 copy.deepcopy(V["records"][c["record"]]), registry,
                 policy=V["policy_sets"]["base"], trust=V["trust_sets"]["base"], expected=expected, now_ms=c["now_ms"],
             )
+    # A clock that is not a number of milliseconds is the caller's mistake too.
+    for now_ms in ("2026-11-18T00:10:00Z", 1.5, True):
+        with pytest.raises(MultiPartyConfigError):
+            await evaluate_multi_party_authorization(
+                copy.deepcopy(V["records"][c["record"]]), registry,
+                policy=V["policy_sets"]["base"], trust=V["trust_sets"]["base"], expected=c["expected"], now_ms=now_ms,
+            )
 
 
 def test_a_policy_store_cannot_be_changed_after_it_is_loaded():
     store = create_multi_party_policy_store(copy.deepcopy(V["policy_sets"]["base"]))
     assert create_multi_party_policy_store(store) is store
+    assert repr(store) == f"MultiPartyPolicyStore(version={store.version!r}, subjects={len(store.subjects)})"
     with pytest.raises(AttributeError):
         store.audience = "verifier:other"
+    with pytest.raises(AttributeError):
+        del store.audience
     with pytest.raises(TypeError):
         store.subjects["agent:acme-bot"] = None
     with pytest.raises(TypeError):
@@ -292,6 +303,38 @@ async def test_what_the_sdk_signs_the_sdk_authorizes(registry):
     assert check_multi_party_authorization_structure(MultiPartyAuthorization(**record))["valid"] is True
 
 
+@pytest.mark.asyncio
+async def test_with_no_clock_given_the_system_clock_decides(registry):
+    owner, admin = await _party("human:owner"), await _party("human:admin")
+    configuration = {
+        "policy": {
+            "policy_set_version": "here.1", "profile": "mpa-v1", "audience": "verifier:here", "max_validity_seconds": 600,
+            "subjects": [{
+                "target": "agent:signed-here",
+                "parties": [{"party_id": owner["id"], "role": "owner"}, {"party_id": admin["id"], "role": "org_admin"}],
+                "operations": {"revoke_agent": {"required_parties": 2, "allowed_roles": ["owner", "org_admin"], "required_roles": ["owner"]}},
+            }],
+        },
+        "trust": {"trust_set_version": "here.1", "principals": [owner["trusted"], admin["trusted"]]},
+        "expected": {"operation": "revoke_agent", "target": "agent:signed-here", "parameters": {}},
+    }
+
+    async def evaluated(**issued) -> dict:
+        payload = create_multi_party_request(target="agent:signed-here", audience="verifier:here", validity_seconds=60, **issued)
+        record = build_multi_party_authorization("revoke_agent", payload, [
+            await create_party_authorization(registry, "revoke_agent", payload, owner["id"], "owner", owner["classical"], owner["pq"]),
+            await create_party_authorization(registry, "revoke_agent", payload, admin["id"], "org_admin", admin["classical"], admin["pq"]),
+        ])
+        return await evaluate_multi_party_authorization(json.loads(json.dumps(record)), registry, **configuration)
+
+    # Issued by the builder's clock and read by the evaluator's: in force.
+    fresh = await evaluated()
+    assert [fresh["authorized"], _codes(fresh)] == [True, []]
+    # Issued an hour ago for a minute: over.
+    stale = await evaluated(issued_at_ms=int(time.time() * 1000) - 3_600_000)
+    assert [stale["authorized"], _codes(stale)] == [False, ["MPA_EXPIRED"]]
+
+
 def test_refuses_to_build_a_request_the_profile_would_not_accept():
     base = {"target": "agent:x", "audience": "verifier:y", "validity_seconds": 60}
     for change in (
@@ -300,6 +343,7 @@ def test_refuses_to_build_a_request_the_profile_would_not_accept():
         {"validity_seconds": 0},
         {"validity_seconds": 86_401},
         {"validity_seconds": 1.5},
+        {"issued_at_ms": 1.5},
         {"request_id": ""},
         {"parameters": {"ratio": 0.5}},
     ):
