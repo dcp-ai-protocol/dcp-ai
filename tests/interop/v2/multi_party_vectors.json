@@ -3861,6 +3861,60 @@
         }
       ]
     },
+    "kid_not_a_string": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": 7,
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
     "signature_too_short": {
       "type": "multi_party_authorization",
       "operation": "revoke_agent",
@@ -4185,6 +4239,60 @@
         }
       ]
     },
+    "sig_b64_not_a_string": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000003",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": 7
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
     "request_is_null": {
       "type": "multi_party_authorization",
       "operation": "revoke_agent",
@@ -4240,6 +4348,115 @@
           "profile": "mpa-v1",
           "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
           "target": "agent:acme-bot",
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000003",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
+    "request_without_expiry": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
+          "issued_at": "2026-11-18T00:00:00Z"
+        },
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000003",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
+    "profile_not_a_string": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": [
+            "mpa-v1"
+          ],
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
           "issued_at": "2026-11-18T00:00:00Z",
           "expires_at": "2026-11-18T00:30:00Z"
         },
@@ -4658,6 +4875,116 @@
         }
       ]
     },
+    "target_not_a_string": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": 7,
+          "audience": "verifier:acme-gateway",
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000003",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
+    "audience_not_a_string": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": [
+            "verifier:acme-gateway"
+          ],
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000003",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
     "issued_at_not_a_timestamp": {
       "type": "multi_party_authorization",
       "operation": "revoke_agent",
@@ -4777,6 +5104,114 @@
           "audience": "verifier:acme-gateway",
           "issued_at": "2026-11-18T00:00:00Z",
           "expires_at": "2026-11-31T00:30:00Z"
+        },
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000003",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
+    "issued_at_a_number": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
+          "issued_at": 1794960000000,
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000003",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
+    "expiry_a_number": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": 1794961800000
         },
         "parameters": {
           "reason": "key_compromise"
@@ -7708,6 +8143,33 @@
       }
     },
     {
+      "name": "kid_not_a_string",
+      "group": "structure",
+      "rule": "A kid that is a number",
+      "record": "kid_not_a_string",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_SCHEMA_INVALID"
+        ]
+      }
+    },
+    {
       "name": "signature_too_short",
       "group": "structure",
       "rule": "A sig_b64 of 7 characters",
@@ -7847,6 +8309,33 @@
       "group": "structure",
       "rule": "A sig_b64 followed by a line feed",
       "record": "signature_with_a_line_feed",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_SCHEMA_INVALID"
+        ]
+      }
+    },
+    {
+      "name": "sig_b64_not_a_string",
+      "group": "structure",
+      "rule": "A sig_b64 that is a number",
+      "record": "sig_b64_not_a_string",
       "policy_set": "base",
       "trust_set": "base",
       "now": "2026-11-18T00:10:00Z",
@@ -8140,6 +8629,60 @@
       }
     },
     {
+      "name": "request_without_expiry",
+      "group": "structure",
+      "rule": "A request without expires_at: absent is not never",
+      "record": "request_without_expiry",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_REQUEST_INVALID"
+        ]
+      }
+    },
+    {
+      "name": "profile_not_a_string",
+      "group": "structure",
+      "rule": "A profile that is an array holding mpa-v1",
+      "record": "profile_not_a_string",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_REQUEST_INVALID"
+        ]
+      }
+    },
+    {
       "name": "without_parameters",
       "group": "structure",
       "rule": "operation_payload without parameters: absent is not empty",
@@ -8329,6 +8872,60 @@
       }
     },
     {
+      "name": "target_not_a_string",
+      "group": "structure",
+      "rule": "A target that is a number",
+      "record": "target_not_a_string",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_REQUEST_INVALID"
+        ]
+      }
+    },
+    {
+      "name": "audience_not_a_string",
+      "group": "structure",
+      "rule": "An audience that is an array holding the right one",
+      "record": "audience_not_a_string",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_REQUEST_INVALID"
+        ]
+      }
+    },
+    {
       "name": "issued_at_not_a_timestamp",
       "group": "structure",
       "rule": "issued_at that is a date without a time",
@@ -8387,6 +8984,60 @@
       "group": "structure",
       "rule": "expires_at on 31 November",
       "record": "expiry_on_an_impossible_day",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_REQUEST_INVALID"
+        ]
+      }
+    },
+    {
+      "name": "issued_at_a_number",
+      "group": "structure",
+      "rule": "issued_at as a number of milliseconds",
+      "record": "issued_at_a_number",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_REQUEST_INVALID"
+        ]
+      }
+    },
+    {
+      "name": "expiry_a_number",
+      "group": "structure",
+      "rule": "expires_at as a number of milliseconds",
+      "record": "expiry_a_number",
       "policy_set": "base",
       "trust_set": "base",
       "now": "2026-11-18T00:10:00Z",
@@ -11207,6 +11858,521 @@
                 "required_roles": [
                   "owner",
                   "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "empty_version",
+      "policy_set": {
+        "policy_set_version": "",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "profile_missing",
+      "policy_set": {
+        "policy_set_version": "1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "audience_missing",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "audience_not_a_string",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": 7,
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "validity_missing",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "subjects_missing",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "subject_without_a_target",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "empty_target",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "subject_without_parties",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "party_without_an_id",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              },
+              {
+                "role": "recovery_contact"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "role_not_a_string",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              },
+              {
+                "party_id": "human:carol",
+                "role": [
+                  "recovery_contact"
+                ]
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "rule_without_a_threshold",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "rule_without_allowed_roles",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "allowed_roles_not_an_array",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": "owner",
+                "required_roles": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect_code": "CONFIG_INVALID_VALUE"
+    },
+    {
+      "name": "unknown_required_role",
+      "policy_set": {
+        "policy_set_version": "1",
+        "profile": "mpa-v1",
+        "audience": "verifier:acme-gateway",
+        "max_validity_seconds": 900,
+        "subjects": [
+          {
+            "target": "agent:acme-bot",
+            "parties": [
+              {
+                "party_id": "human:alice",
+                "role": "owner"
+              },
+              {
+                "party_id": "human:bob",
+                "role": "org_admin"
+              }
+            ],
+            "operations": {
+              "revoke_agent": {
+                "required_parties": 2,
+                "allowed_roles": [
+                  "owner",
+                  "org_admin"
+                ],
+                "required_roles": [
+                  "admin"
                 ]
               }
             }
