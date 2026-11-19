@@ -268,6 +268,6 @@ La comprobación de la estructura mira el número de autorizaciones, sus roles y
 > el código de referencia de `main` se relaciona con este texto. Donde difieran, prevalece el texto normativo anterior.
 
 - **Dónde está implementado.** Los cuatro SDK de `main` implementan este perfil. Ninguna versión publicada lo tiene: el SDK de TypeScript publicado exporta solo los tipos del registro, y los SDK de Python, Go y Rust publicados tienen únicamente la comprobación de la estructura, con su nombre anterior.
-- **El servidor de referencia.** `POST /v2/multi-party/authorize` no aplica este perfil: véase [server/README.md](../../../../../server/README.md).
+- **El servidor de referencia.** `POST /v2/multi-party/authorize` aplica este perfil bajo el conjunto de políticas del operador (`DCP_MULTI_PARTY_POLICY_FILE`) y no existe sin él. No ejecuta nada: véase [server/README.md](../../../../../server/README.md).
 - **Ninguna operación consume una autorización.** Nada en este repositorio lleva a cabo `revoke_agent`, `rotate_org_key`, `change_jurisdiction` ni `modify_recovery_config` a partir de una autorización multiparte. El perfil decide; un adaptador ejecuta.
 - **Quién revisó los vectores.** El evaluador del generador y las cuatro implementaciones tienen el mismo autor. Que coincidan no es una revisión independiente.

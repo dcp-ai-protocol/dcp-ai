@@ -120,7 +120,10 @@
   `@dcp-ai/sdk` 现在导出多方授权函数；该模块原先在源代码中但没有导出，其测试已被替换。
   没有 `request` 块而签名的记录在该配置文件下永远不会被授权：没有旧版模式，参与方需要重新签名。
   评估不保存状态，因此操作不是幂等的执行方应以原子方式消费 `request_id` 并执行。
-  参考服务器的 `POST /v2/multi-party/authorize` 不应用该配置文件。
+  **参考服务器的接受行为变更：** `POST /v2/multi-party/authorize` 现在应用该配置文件，并且只在运营方的配置下工作。
+  没有 `DCP_MULTI_PARTY_POLICY_FILE`（它需要 `DCP_TRUSTED_PRINCIPALS_FILE`）时，该路由不存在，`features.multi_party_auth` 为 `false`。
+  有该配置时，请求体为 `{ authorization, expected }`，应答是评估结果，只有 `authorized` 为真时才是 200。
+  它不再依据记录自身的 `required_parties` 和角色返回 `threshold_met`，通过 `/v2/passport/register` 登记的身份也不是参与方。
 
 - **Go SDK 中的 OpenTelemetry Go v1.47.0；源代码现在需要 Go 1.26**（仅 `main` 上的源代码，不在任何已发布版本中；
   版本号不变）。`go.opentelemetry.io/otel`、`otel/metric`、`otel/sdk`、`otel/sdk/metric` 和 `otel/trace` 从 v1.46.0

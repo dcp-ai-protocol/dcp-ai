@@ -1018,74 +1018,80 @@ paths:
   /v2/multi-party/authorize:
     post:
       tags: [MultiParty]
-      summary: Multi-party M-of-N authorization
+      summary: Multi-party authorization under the mpa-v1 profile
       operationId: multiPartyAuthorize
       description: |
-        Validates a multi-party authorization request. Requires at least the
-        threshold number of authorizations including an owner signature.
+        Decides whether a multi-party authorization authorizes what the caller is about to do, under the
+        opt-in `mpa-v1` profile (spec/profiles/multi-party). The route exists only when the operator sets
+        `DCP_MULTI_PARTY_POLICY_FILE`; otherwise it answers 404. The parties of each target, their roles, the
+        threshold, the audience and the keys of the parties are the operator's configuration: a role or a
+        `required_parties` written in the record decides nothing, and an identity registered through
+        `/v2/passport/register` is not a party. Nothing is executed and no state is kept, so the same request
+        gets the same answer every time: a caller whose operation is not idempotent consumes `request_id`
+        and executes atomically.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [authorization]
+              required: [authorization, expected]
               properties:
                 authorization:
                   type: object
-                  required: [type, operation, authorizations]
+                  description: >-
+                    A multi_party_authorization record (schemas/v2/multi_party_authorization.schema.json) whose
+                    `operation_payload` carries the signed `request` block of the profile
+                    (schemas/v2/multi_party_request.schema.json).
+                expected:
+                  type: object
+                  description: What the caller is about to carry out. The authorization must be for exactly this.
+                  required: [operation, target, parameters]
                   properties:
-                    type:
-                      type: string
-                      enum: [multi_party_authorization]
                     operation:
                       type: string
                       enum: [revoke_agent, rotate_org_key, change_jurisdiction, modify_recovery_config]
-                    required_parties:
-                      type: integer
-                      default: 2
-                    authorizations:
-                      type: array
-                      maxItems: 20
-                      items:
-                        type: object
-                        properties:
-                          party_id:
-                            type: string
-                            maxLength: 256
-                          role:
-                            type: string
-                            maxLength: 64
-                          composite_sig:
-                            $ref: "#/components/schemas/CompositeSignature"
+                    target:
+                      type: string
+                      minLength: 1
+                      maxLength: 256
+                    parameters:
+                      type: object
       responses:
         "200":
-          description: Authorization verified
+          description: Authorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiPartyEvaluation"
+        "400":
+          description: Invalid JSON, or `expected` missing or not usable (`code` is `CONFIG_INVALID_VALUE`)
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  ok:
+                  authorized:
                     type: boolean
-                  operation:
+                    enum: [false]
+                  code:
                     type: string
-                  parties_verified:
-                    type: integer
-                  threshold_met:
-                    type: boolean
-        "400":
-          description: Invalid authorization
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                  error:
+                    type: string
         "403":
-          description: Insufficient authorizations or missing owner
+          description: Not authorized. The same body as 200, with `authorized` false and the codes in `errors`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiPartyEvaluation"
+        "404":
+          description: The operator has not configured a multi-party policy set
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: The operator's trusted principals cannot be loaded
 
   /v2/advisory/publish:
     post:
@@ -1629,6 +1635,63 @@ components:
           type: string
         signature:
           type: string
+
+    MultiPartyEvaluation:
+      type: object
+      description: Result of the mpa-v1 evaluation (spec/profiles/multi-party, section 5).
+      required: [profile, structure, verification, authorized, parties, errors]
+      properties:
+        profile:
+          type: string
+          enum: [mpa-v1]
+        structure:
+          type: string
+          enum: [valid, invalid]
+        verification:
+          type: string
+          enum: [verified, failed, not_evaluated]
+        authorized:
+          type: boolean
+        operation:
+          type: [string, "null"]
+        target:
+          type: [string, "null"]
+        request_id:
+          type: [string, "null"]
+        expires_at:
+          type: [string, "null"]
+        parties:
+          type: array
+          maxItems: 16
+          items:
+            type: object
+            properties:
+              party_id:
+                type: string
+              role:
+                type: string
+                description: The role the party signed. The one that counts is the operator's.
+              verified:
+                type: [boolean, "null"]
+        parties_counted:
+          type: [integer, "null"]
+        required_parties:
+          type: [integer, "null"]
+          description: The operator's threshold for the operation on the target, never the record's.
+        policy_set_version:
+          type: string
+        trust_set_version:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+                maxLength: 300
 
     ErrorResponse:
       type: object

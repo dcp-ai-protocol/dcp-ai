@@ -133,8 +133,13 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   los cuatro SDK. `@dcp-ai/sdk` exporta ahora las funciones multiparte; el módulo estaba en el código fuente pero no se
   exportaba, y sus pruebas se sustituyen. Un registro firmado sin el bloque `request` nunca se autoriza bajo el perfil:
   no hay modo heredado, y las partes firman de nuevo. La evaluación no guarda estado, así que un ejecutor cuya
-  operación no es idempotente consume `request_id` y ejecuta de forma atómica. El `POST /v2/multi-party/authorize` del
-  servidor de referencia no aplica el perfil.
+  operación no es idempotente consume `request_id` y ejecuta de forma atómica. **Cambio de aceptación en el servidor de
+  referencia:** `POST /v2/multi-party/authorize` aplica ahora el perfil, y solo bajo la configuración del operador. Sin
+  `DCP_MULTI_PARTY_POLICY_FILE` (que necesita `DCP_TRUSTED_PRINCIPALS_FILE`) la ruta no existe y
+  `features.multi_party_auth` es `false`. Con ella, el cuerpo es `{ authorization, expected }` y la respuesta es el
+  resultado de la evaluación, 200 solo cuando `authorized` es verdadero. Ya no responde `threshold_met` a partir del
+  `required_parties` y de los roles del propio registro, y las identidades registradas mediante
+  `/v2/passport/register` no son partes.
 
 - **OpenTelemetry Go v1.47.0 en el SDK de Go; el código fuente necesita ahora Go 1.26** (código fuente en `main`, no
   está en ninguna versión publicada; sin cambio de versión). `go.opentelemetry.io/otel`, `otel/metric`, `otel/sdk`,

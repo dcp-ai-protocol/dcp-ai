@@ -17,6 +17,8 @@
  *   POST /v2/keys/rotate                      — Key rotation with PoP
  *   POST /v2/emergency-revoke                 — Emergency revocation (panic button)
  *   POST /v2/admit                            — Admission: trusted principals, strict-v1 (spec/profiles/admission)
+ *   POST /v2/multi-party/authorize            — Multi-party authorization, mpa-v1 (spec/profiles/multi-party);
+ *                                               only with DCP_MULTI_PARTY_POLICY_FILE
  *
  * Phase 3 Endpoints:
  *   GET  /v2/policy                           — Current verifier policy (Phase 3)
@@ -34,6 +36,9 @@
  *     POST /v2/admit; re-read when the file changes
  *   DCP_ADMISSION_PROFILE_FILE — strict-v1 profile (schemas/v2/admission_profile.schema.json);
  *     needs DCP_TRUSTED_PRINCIPALS_FILE and DCP_REVOCATION_LIST_URL
+ *   DCP_MULTI_PARTY_POLICY_FILE — policy set (schemas/v2/multi_party_policy_set.schema.json) for
+ *     POST /v2/multi-party/authorize; needs DCP_TRUSTED_PRINCIPALS_FILE, the keys of the parties;
+ *     read once at startup. Without it the endpoint does not exist
  *   DCP_DEMO_ENDPOINTS — "off" (the default) or "dcp-05-09": the 31 DCP-05–09 demo endpoints
  *     (schema checks only, no signature verification), each request needing the operator token;
  *     "dcp-05-09" needs an OPERATOR_TOKEN of at least 32 RFC 6750 b64token characters (server/demo-gate.js)
@@ -49,7 +54,8 @@ import { fileURLToPath } from "url";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
-  DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, createPrincipalTrustStore, resolveStrictV1Profile, verifyKeyRotation,
+  DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, MultiPartyConfigError, createMultiPartyPolicyStore, createPrincipalTrustStore,
+  evaluateMultiPartyAuthorization, resolveStrictV1Profile, verifyKeyRotation,
 } from "@dcp-ai/sdk";
 import {
   verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry, isCanonicalB64, KEY_BYTES, SIG_BYTES,
@@ -239,6 +245,27 @@ function loadAdmission() {
   return { trust, profile, revocationSource, timeoutMs };
 }
 
+// ── Multi-party authorization (spec/profiles/multi-party): the operator's policy set, checked at startup ──
+// The parties, their roles, the threshold and the audience come from this file and the keys of the parties from the
+// trusted principals; nothing of that is ever read from a request. Without the file there is no endpoint.
+
+const MULTI_PARTY = loadMultiParty();
+
+function loadMultiParty() {
+  const file = process.env.DCP_MULTI_PARTY_POLICY_FILE;
+  if (file === undefined) return null;
+  if (file.trim() === "") throw new Error("CONFIG_INVALID_VALUE: DCP_MULTI_PARTY_POLICY_FILE is set but empty");
+  if (!ADMISSION) throw new Error("CONFIG_PROFILE_CONTRADICTION: multi-party authorization needs DCP_TRUSTED_PRINCIPALS_FILE");
+  let policy;
+  try {
+    policy = createMultiPartyPolicyStore(JSON.parse(fs.readFileSync(file, "utf8")));
+  } catch (e) {
+    throw new Error(`multi-party policy: cannot load ${file}: ${e.message}`);
+  }
+  console.log(`[multi-party] policy set ${JSON.stringify(policy.version)} from ${file}: ${policy.subjects.size} target(s)`);
+  return { policy };
+}
+
 // Phase 3: POLICY_HASH is now computed dynamically via computePolicyHash()
 const POLICY_HASH = computePolicyHash();
 
@@ -263,7 +290,7 @@ const DCP_CAPABILITIES = {
     dual_hash_chains: true,
     pq_checkpoints: true,
     emergency_revocation: true,
-    multi_party_auth: true,
+    multi_party_auth: MULTI_PARTY !== null, // only under the operator's policy set (DCP_MULTI_PARTY_POLICY_FILE)
     pq_only_mode: true,
     advisory_auto_response: true,
     governance_keys: true,
@@ -1128,69 +1155,37 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── V2: Multi-party authorization (Gap #5) ──
-  // Each party signs {operation, operation_payload, party_id, role} under
-  // "DCP-AI.v2.MultiPartyAuth" (createPartyAuthorization in sdks/typescript). A party
-  // is an identity registered via /v2/passport/register: its signing kids must
-  // be active keys registered to its party_id. Roles are asserted by the
-  // signer, not looked up.
-  if (req.method === "POST" && req.url === "/v2/multi-party/authorize") {
+  // ── V2: Multi-party authorization under the mpa-v1 profile (spec/profiles/multi-party) ──
+  // Only the record and what the caller is about to do are read from the body. The parties, their
+  // roles and keys, the threshold and the audience are the operator's. Nothing is executed here and
+  // the evaluation keeps no state: a caller whose operation is not idempotent consumes request_id
+  // and executes atomically. Without the operator's policy set the route does not exist.
+  if (MULTI_PARTY && req.method === "POST" && req.url === "/v2/multi-party/authorize") {
     let body;
     try { body = await parseBody(req); }
     catch (e) {
       if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
-      return send(res, 400, { error: "Invalid JSON" });
+      return send(res, 400, { authorized: false, error: "Invalid JSON" }, "2.0");
     }
-
-    const { authorization } = body;
-    const schemaResult = validateAgainstSchema(
-      "https://dcp-ai.org/schemas/v2/multi_party_authorization.schema.json", authorization);
-    if (!authorization || !schemaResult.valid) {
-      return send(res, 400, { error: "Missing or invalid multi_party_authorization", details: schemaResult.errors });
+    let trust;
+    try {
+      trust = ADMISSION.trust();
+    } catch (e) {
+      console.error(`[multi-party] trusted principals unavailable: ${e.message}`);
+      return send(res, 503, { authorized: false, error: "Trusted principals unavailable" }, "2.0");
     }
-
-    const hasOwner = authorization.authorizations.some(a => a.role === "owner");
-    if (!hasOwner) {
-      return send(res, 403, { error: "Owner authorization required but not present" });
-    }
-
-    const errors = [];
-    const verifiedParties = new Set();
-    for (const auth of authorization.authorizations) {
-      const partyKeys = [auth.composite_sig.classical?.kid, auth.composite_sig.pq?.kid]
-        .map((kid) => keyRegistry.get(kid))
-        .filter((e) => e?.agent_id === auth.party_id && isActiveKey(e))
-        .map((e) => e.key);
-      const signable = {
-        operation: authorization.operation,
-        operation_payload: authorization.operation_payload,
-        party_id: auth.party_id,
-        role: auth.role,
-      };
-      if (await verifyCompositeSig(DCP_CONTEXTS.MultiPartyAuth, signable, auth.composite_sig, partyKeys)) {
-        verifiedParties.add(auth.party_id);
-      } else {
-        errors.push(`Party ${auth.party_id}: signature does not verify against its registered keys`);
-      }
-    }
-
-    if (errors.length > 0) {
-      return send(res, 403, { error: "Authorization validation failed", details: errors });
-    }
-
-    // A party counts once, however many roles it signs for.
-    if (verifiedParties.size < authorization.required_parties) {
-      return send(res, 403, {
-        error: `Insufficient authorizations: ${verifiedParties.size} distinct parties < ${authorization.required_parties}`,
+    let result;
+    try {
+      result = await evaluateMultiPartyAuthorization(body?.authorization, v2Registry, {
+        policy: MULTI_PARTY.policy, trust, expected: body?.expected,
       });
+    } catch (e) {
+      // What the caller states it is about to do is not usable: there is nothing to decide.
+      if (!(e instanceof MultiPartyConfigError)) throw e;
+      return send(res, 400, { authorized: false, code: e.code, error: e.message }, "2.0");
     }
-
-    send(res, 200, {
-      ok: true,
-      operation: authorization.operation,
-      parties_verified: verifiedParties.size,
-      threshold_met: true,
-    }, "2.0");
+    // 200 only for an authorization: a client that reads nothing but the status is not misled.
+    send(res, result.authorized ? 200 : 403, result, "2.0");
     return;
   }
 
@@ -2331,7 +2326,7 @@ server.listen(PORT, () => {
   console.log("    GET  /v2/keys/:kid                        — key lookup");
   console.log("    POST /v2/keys/rotate                      — key rotation");
   console.log("    POST /v2/emergency-revoke                 — panic button revocation");
-  console.log("    POST /v2/multi-party/authorize            — multi-party M-of-N auth");
+  if (MULTI_PARTY) console.log("    POST /v2/multi-party/authorize            — multi-party authorization (mpa-v1)");
   console.log("    POST /v2/advisory/publish                 — publish algorithm advisory");
   console.log("    GET  /v2/advisory/check                   — check active advisories");
   console.log("  Phase 3:");

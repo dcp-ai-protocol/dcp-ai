@@ -5,7 +5,7 @@
 
 # Guia do operador — executar um serviço de verificação
 
-> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 18/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este guia é para **terceiros** que queiram executar um serviço de «agente verificado»: uma API HTTP que verifica Signed Bundles do DCP (e, opcionalmente, ancora hashes numa blockchain). O protocolo **não** exige nenhum servidor central; a verificação sempre pode ser feita localmente com `dcp verify-bundle`. Este serviço é **opcional** e executado por escolha do operador.
 
@@ -348,7 +348,7 @@ Os serviços V2 expõem `GET /.well-known/dcp-capabilities.json`. O servidor de 
     "dual_hash_chains": true,
     "pq_checkpoints": true,
     "emergency_revocation": true,
-    "multi_party_auth": true,
+    "multi_party_auth": false,
     "pq_only_mode": true,
     "advisory_auto_response": true,
     "governance_keys": true,
@@ -368,7 +368,7 @@ Os serviços V2 expõem `GET /.well-known/dcp-capabilities.json`. O servidor de 
 }
 ```
 
-Isso é o que o servidor anuncia, não uma lista de garantias verificadas. Os endpoints dele só leem corpos JSON, embora `application/cbor` seja listado. Desde 06/11/2026 ele anuncia `hsm_provider: false`: o repositório não tem nenhum provedor HSM ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)). Desde 07/11/2026 as funcionalidades do DCP-05 ao DCP-09 são `false`: o servidor não implementa nenhuma de forma normativa. `dcp05_09_demo_endpoints` e `demo_endpoints` dizem se os [endpoints demo](#dcp-0509-service-endpoints) estão ativados; não são normativos, não verificam assinaturas e precisam do token do operador.
+Isso é o que o servidor anuncia, não uma lista de garantias verificadas. Os endpoints dele só leem corpos JSON, embora `application/cbor` seja listado. Desde 06/11/2026 ele anuncia `hsm_provider: false`: o repositório não tem nenhum provedor HSM ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)). `multi_party_auth` é `true` apenas quando o operador configurou um conjunto de políticas multipartes (`DCP_MULTI_PARTY_POLICY_FILE`, [server/README.md](../../../server/README.md)). Desde 07/11/2026 as funcionalidades do DCP-05 ao DCP-09 são `false`: o servidor não implementa nenhuma de forma normativa. `dcp05_09_demo_endpoints` e `demo_endpoints` dizem se os [endpoints demo](#dcp-0509-service-endpoints) estão ativados; não são normativos, não verificam assinaturas e precisam do token do operador.
 
 <a id="observability"></a>
 

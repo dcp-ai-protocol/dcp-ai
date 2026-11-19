@@ -123,7 +123,10 @@
   `@dcp-ai/sdk` は複数当事者の関数をエクスポートするようになりました。このモジュールはソースにありましたがエクスポートされておらず、そのテストは置き換えられます。
   `request` のブロックなしで署名されたレコードは、このプロファイルのもとで認可されることは決してありません。レガシーモードはなく、当事者は署名し直します。
   評価は状態を持たないため、操作が冪等でない実行者は、`request_id` の消費と実行をアトミックに行います。
-  リファレンスのサーバーの `POST /v2/multi-party/authorize` は、このプロファイルを適用しません。
+  **リファレンスのサーバーでの受け入れの変更：** `POST /v2/multi-party/authorize` はこのプロファイルを適用するようになり、オペレーターの設定があるときにだけ動作します。
+  `DCP_MULTI_PARTY_POLICY_FILE`（`DCP_TRUSTED_PRINCIPALS_FILE` が必要）がなければ、このルートは存在せず、`features.multi_party_auth` は `false` です。
+  設定があるとき、ボディは `{ authorization, expected }` で、応答は評価結果です。200 になるのは `authorized` が真のときだけです。
+  レコード自身の `required_parties` と役割から `threshold_met` を返すことはなくなり、`/v2/passport/register` で登録した身元は当事者ではありません。
 
 - **Go SDK の OpenTelemetry Go v1.47.0。ソースには Go 1.26 が必要になりました**（`main` のソースのみで、公開済みの
   どのバージョンにも含まれません。バージョン番号は変わりません）。`go.opentelemetry.io/otel`、`otel/metric`、

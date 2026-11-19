@@ -304,7 +304,7 @@ V2 services expose `GET /.well-known/dcp-capabilities.json`. The reference serve
     "dual_hash_chains": true,
     "pq_checkpoints": true,
     "emergency_revocation": true,
-    "multi_party_auth": true,
+    "multi_party_auth": false,
     "pq_only_mode": true,
     "advisory_auto_response": true,
     "governance_keys": true,
@@ -324,7 +324,7 @@ V2 services expose `GET /.well-known/dcp-capabilities.json`. The reference serve
 }
 ```
 
-This is what the server advertises, not a list of checked guarantees. Its endpoints read JSON bodies only, although `application/cbor` is listed. Since 06/11/2026 it advertises `hsm_provider: false`: the repository has no HSM provider ([SECURITY_MODEL.md](SECURITY_MODEL.md)). Since 07/11/2026 the DCP-05 to DCP-09 features are `false`: the server implements none of them normatively. `dcp05_09_demo_endpoints` and `demo_endpoints` say whether the [demo endpoints](#dcp-0509-service-endpoints) are enabled; they are not normative, verify no signature and need the operator token.
+This is what the server advertises, not a list of checked guarantees. Its endpoints read JSON bodies only, although `application/cbor` is listed. Since 06/11/2026 it advertises `hsm_provider: false`: the repository has no HSM provider ([SECURITY_MODEL.md](SECURITY_MODEL.md)). `multi_party_auth` is `true` only when the operator has configured a multi-party policy set (`DCP_MULTI_PARTY_POLICY_FILE`, [server/README.md](../server/README.md)). Since 07/11/2026 the DCP-05 to DCP-09 features are `false`: the server implements none of them normatively. `dcp05_09_demo_endpoints` and `demo_endpoints` say whether the [demo endpoints](#dcp-0509-service-endpoints) are enabled; they are not normative, verify no signature and need the operator token.
 
 ### Observability
 

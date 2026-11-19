@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, createKeyRotation } from "@dcp-ai/sdk";
+import {
+  DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, buildMultiPartyAuthorization, createKeyRotation, createMultiPartyRequest,
+  createPartyAuthorization,
+} from "@dcp-ai/sdk";
 import { buildV2Examples } from "../scripts/generate-v2-examples.js";
 import { computeSecurityTier } from "../lib/security-tier.js";
 import { later, newAgent, post as postTo, registry, sha256Hex, sign, signPassport, startService } from "../tests/helpers.js";
@@ -326,32 +329,139 @@ test("expired keys cannot re-register, extend their expiry or authorize a rotati
   assert.equal((await post("/v2/keys/rotate", rotation)).status, 403);
 });
 
-test("multi-party authorization verifies each party's registered composite signature", async () => {
-  const owner = await newAgent("party:owner-01");
-  const admin = await newAgent("party:admin-01");
-  const outsider = await newAgent("party:outsider");
-  for (const party of [owner, admin]) {
-    assert.equal((await registerNew(base, party.signedPassport)).status, 201);
-  }
+// ── Multi-party authorization: the mpa-v1 profile under the operator's configuration (spec/profiles/multi-party) ──
 
-  const operation_payload = { agent_id: "agent:bob-0001" };
-  const authorize = async ({ keys }, party_id, role) => ({
-    party_id,
-    role,
-    composite_sig: await sign(DCP_CONTEXTS.MultiPartyAuth, { operation: "revoke_agent", operation_payload, party_id, role }, keys),
+const MPA_TARGET = "agent:bob-0001";
+const MPA_AUDIENCE = "verifier:reference-server";
+const trustedParty = (human_id, { keys }) => ({
+  human_id,
+  keys: Object.values(keys).map((k) => ({ kid: k.kid, alg: k.alg, public_key_b64: k.publicKeyB64, status: "active" })),
+});
+const mpaPolicy = (parties) => ({
+  policy_set_version: "test-1",
+  profile: "mpa-v1",
+  audience: MPA_AUDIENCE,
+  max_validity_seconds: 600,
+  subjects: [{
+    target: MPA_TARGET,
+    parties,
+    operations: { revoke_agent: { required_parties: 2, allowed_roles: ["owner", "org_admin"], required_roles: ["owner"] } },
+  }],
+});
+const writeJson = async (prefix, files) => {
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  return Object.fromEntries(Object.entries(files).map(([name, value]) => {
+    const file = path.join(dir, `${name}.json`);
+    fs.writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+    return [name, file];
+  }));
+};
+const capabilities = async (url) => (await (await fetch(`${url}/.well-known/dcp-capabilities.json`)).json()).features;
+
+test("multi-party authorization: without the operator's policy there is no endpoint", async () => {
+  const anything = { authorization: {}, expected: { operation: "revoke_agent", target: MPA_TARGET, parameters: {} } };
+  const answer = await post("/v2/multi-party/authorize", anything);
+  assert.deepEqual([answer.status, answer.body], [404, { error: "Not found" }]);
+  assert.equal((await capabilities(base)).multi_party_auth, false);
+});
+
+test("multi-party authorization: the operator's parties, roles and threshold decide", async () => {
+  const [owner, admin, contact, eve, frank] = await Promise.all(
+    ["party:owner-01", "party:admin-01", "party:contact-01", "party:eve", "party:frank"].map((id) => newAgent(id)));
+  const files = await writeJson("dcp-multi-party-", {
+    trust: { trust_set_version: "test-1", principals: [trustedParty("human:owner", owner), trustedParty("human:admin", admin), trustedParty("human:contact", contact), trustedParty("human:eve", eve), trustedParty("human:frank", frank)] },
+    policy: mpaPolicy([{ party_id: "human:owner", role: "owner" }, { party_id: "human:admin", role: "org_admin" }, { party_id: "human:contact", role: "recovery_contact" }]),
   });
-  const submit = async (...authorizations) => (await post("/v2/multi-party/authorize", {
-    authorization: { type: "multi_party_authorization", operation: "revoke_agent", operation_payload, required_parties: 2, authorizations },
-  })).status;
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN, REGISTRATIONS_PER_HOUR: "1000", DCP_TRUSTED_PRINCIPALS_FILE: files.trust, DCP_MULTI_PARTY_POLICY_FILE: files.policy });
+  try {
+    assert.equal((await capabilities(url)).multi_party_auth, true);
 
-  assert.equal(await submit(await authorize(owner, "party:owner-01", "owner"), await authorize(admin, "party:admin-01", "org_admin")), 200);
-  // One party signing under two roles is still one party.
-  assert.equal(await submit(await authorize(owner, "party:owner-01", "owner"), await authorize(owner, "party:owner-01", "org_admin")), 403);
-  // A party signing with one key in both slots is not a hybrid signature.
-  const ownerOneKey = { keys: { classical: owner.keys.classical, pq: owner.keys.classical } };
-  assert.equal(await submit(await authorize(ownerOneKey, "party:owner-01", "owner"), await authorize(admin, "party:admin-01", "org_admin")), 403);
-  // Claiming a registered party_id with other keys fails.
-  assert.equal(await submit(await authorize(owner, "party:owner-01", "owner"), await authorize(outsider, "party:admin-01", "org_admin")), 403);
+    const parameters = { reason: "key_compromise" };
+    const expected = { operation: "revoke_agent", target: MPA_TARGET, parameters };
+    const payload = createMultiPartyRequest({ target: MPA_TARGET, audience: MPA_AUDIENCE, parameters, validitySeconds: 300 });
+    const by = ({ keys }, party_id, role, signed = payload) => createPartyAuthorization(registry, "revoke_agent", signed, party_id, role, keys);
+    const submit = async (authorizations, { stated = expected, signed = payload, required = 2 } = {}) => {
+      const answer = await postTo(url, "/v2/multi-party/authorize", { authorization: buildMultiPartyAuthorization("revoke_agent", signed, authorizations, required), expected: stated });
+      const codes = [...new Set((answer.body.errors ?? []).map((e) => e.code))].sort();
+      return { status: answer.status, authorized: answer.body.authorized, required: answer.body.required_parties, counted: answer.body.parties_counted, codes, text: JSON.stringify(answer.body) };
+    };
+    const refused = (answer, ...codes) => {
+      assert.deepEqual([answer.status, answer.authorized], [403, false], answer.text);
+      for (const code of codes) assert.ok(answer.codes.includes(code), `${code} in ${answer.text}`);
+    };
+    const byOwner = await by(owner, "human:owner", "owner");
+    const byAdmin = await by(admin, "human:admin", "org_admin");
+
+    const ok = await submit([byOwner, byAdmin]);
+    assert.deepEqual([ok.status, ok.authorized, ok.required, ok.counted, ok.codes], [200, true, 2, 2, []], ok.text);
+    // The operator's threshold, whatever the record says of itself.
+    const more = await submit([byOwner, byAdmin], { required: 5 });
+    assert.deepEqual([more.status, more.authorized, more.required], [200, true, 2], more.text);
+    // No key and no signature comes back.
+    for (const secret of [owner.keys.classical.publicKeyB64, byOwner.composite_sig.classical.sig_b64]) assert.ok(!ok.text.includes(secret));
+
+    // Two identities registered on this server, with valid hybrid signatures, who are not parties of the target.
+    for (const party of [eve, frank]) assert.equal((await registerNew(url, party.signedPassport)).status, 201);
+    refused(await submit([await by(eve, "party:eve", "owner"), await by(frank, "party:frank", "org_admin")]), "MPA_PARTY_UNKNOWN");
+    // The same two, named as the operator's trust set names them: known signers, still not parties.
+    refused(await submit([await by(eve, "human:eve", "owner"), await by(frank, "human:frank", "org_admin")]), "MPA_PARTY_UNKNOWN");
+    // A role is the operator's, not the signer's: the recovery contact signs as owner.
+    refused(await submit([await by(contact, "human:contact", "owner"), byAdmin]), "MPA_ROLE_MISMATCH");
+    // One party under two roles is one party.
+    refused(await submit([byOwner, await by(owner, "human:owner", "org_admin")]), "MPA_PARTY_DUPLICATE");
+    // One key in both slots is not a hybrid signature.
+    refused(await submit([await by({ keys: { classical: owner.keys.classical, pq: owner.keys.classical } }, "human:owner", "owner"), byAdmin]), "MPA_HYBRID_REQUIRED");
+    // A party's name over someone else's keys.
+    refused(await submit([byOwner, await by(eve, "human:admin", "org_admin")]), "MPA_KEY_NOT_ANCHORED");
+    // One party is not two.
+    refused(await submit([byOwner]), "MPA_THRESHOLD_NOT_MET");
+    // Signed for one target, stated for another; and signed for another target altogether.
+    refused(await submit([byOwner, byAdmin], { stated: { ...expected, target: "agent:carol-0001" } }), "MPA_TARGET_MISMATCH");
+    const elsewhere = createMultiPartyRequest({ target: "agent:carol-0001", audience: MPA_AUDIENCE, parameters, validitySeconds: 300 });
+    refused(await submit([await by(owner, "human:owner", "owner", elsewhere), await by(admin, "human:admin", "org_admin", elsewhere)], { signed: elsewhere, stated: { ...expected, target: "agent:carol-0001" } }), "MPA_TARGET_UNKNOWN");
+    // A record without the request block is a valid v2.0 record and authorizes nothing.
+    const bare = { agent_id: MPA_TARGET };
+    refused(await submit([await by(owner, "human:owner", "owner", bare), await by(admin, "human:admin", "org_admin", bare)], { signed: bare }), "MPA_REQUEST_MISSING");
+
+    // What the caller is about to do is required: without it there is nothing to authorize.
+    const record = buildMultiPartyAuthorization("revoke_agent", payload, [byOwner, byAdmin]);
+    for (const body of [{ authorization: record }, { authorization: record, expected: { operation: "revoke_agent", target: MPA_TARGET } }, { authorization: record, expected: { ...expected, operation: "launch" } }]) {
+      const answer = await postTo(url, "/v2/multi-party/authorize", body);
+      assert.deepEqual([answer.status, answer.body.authorized, answer.body.code], [400, false, "CONFIG_INVALID_VALUE"], JSON.stringify(answer.body));
+    }
+    const nothing = await postTo(url, "/v2/multi-party/authorize", { expected });
+    assert.deepEqual([nothing.status, nothing.body.authorized, nothing.body.structure], [403, false, "invalid"]);
+  } finally {
+    proc.kill();
+  }
+});
+
+test("multi-party authorization: the server refuses to start with an unusable policy", async () => {
+  const good = mpaPolicy([{ party_id: "human:owner", role: "owner" }, { party_id: "human:admin", role: "org_admin" }]);
+  const files = await writeJson("dcp-multi-party-bad-", {
+    trust: { trust_set_version: "v1", principals: [] },
+    policy: good,
+    notJson: "{",
+    anotherProfile: { ...good, profile: "mpa-v2" },
+    unknownField: { ...good, default_threshold: 1 },
+    unsatisfiable: mpaPolicy([{ party_id: "human:owner", role: "owner" }]),
+  });
+  for (const env of [
+    { DCP_MULTI_PARTY_POLICY_FILE: files.policy },
+    { DCP_MULTI_PARTY_POLICY_FILE: "", DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
+    { DCP_MULTI_PARTY_POLICY_FILE: `${files.policy}.missing`, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
+    { DCP_MULTI_PARTY_POLICY_FILE: files.notJson, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
+    { DCP_MULTI_PARTY_POLICY_FILE: files.anotherProfile, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
+    { DCP_MULTI_PARTY_POLICY_FILE: files.unknownField, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
+    { DCP_MULTI_PARTY_POLICY_FILE: files.unsatisfiable, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
+  ]) {
+    await assert.rejects(startService(SERVER, env), /exited/, JSON.stringify(env));
+  }
+  // The control: the same policy with its trust set starts.
+  const { proc } = await startService(SERVER, { DCP_MULTI_PARTY_POLICY_FILE: files.policy, DCP_TRUSTED_PRINCIPALS_FILE: files.trust });
+  proc.kill();
 });
 
 test("VERIFIER_MODE and ALLOW_V1_BUNDLES are read from the environment", async () => {

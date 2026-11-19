@@ -268,6 +268,6 @@
 > 与本文的关系。两者不一致时，以上文的规范性文本为准。
 
 - **在哪里实现。** `main` 上的四个 SDK 实现了本配置文件。已发布的版本都不包含它：已发布的 TypeScript SDK 只导出记录的类型，已发布的 Python、Go 和 Rust SDK 只有结构检查，并且使用原来的名称。
-- **参考服务器。** `POST /v2/multi-party/authorize` 不应用本配置文件：参见 [server/README.md](../../../../../server/README.md)。
+- **参考服务器。** `POST /v2/multi-party/authorize` 在运营方的策略集（`DCP_MULTI_PARTY_POLICY_FILE`）下应用本配置文件，没有策略集时不存在。它不执行任何操作：参见 [server/README.md](../../../../../server/README.md)。
 - **没有任何操作会消费授权。** 本仓库中没有任何代码依据多方授权执行 `revoke_agent`、`rotate_org_key`、`change_jurisdiction` 或 `modify_recovery_config`。配置文件作出决定，适配器负责执行。
 - **谁审查了向量。** 生成器的评估器和四个实现出自同一作者。它们相互一致并不构成独立审查。

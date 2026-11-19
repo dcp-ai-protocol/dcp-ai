@@ -4,7 +4,7 @@
 
 # DCP 参考网关
 
-> 本文是[英文版](../../../server/README.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../server/README.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 实现 Digital Citizenship Protocol 的 V1、V2 和第 3 阶段（PQ 优先）的 HTTP 验证服务。**内存存储**：不需要外部数据库，重启后什么都不会保留（参见[持久化](#persistence)）。设计为可由任何第三方运行；协议不需要中央服务器。
 
@@ -69,7 +69,7 @@ node server/index.js
 
 | 方法 | 路径 | 说明 |
 |--------|------|-------------|
-| POST | `/v2/multi-party/authorize` | M-of-N 多方授权，签名对照各方已登记的密钥检查 |
+| POST | `/v2/multi-party/authorize` | [`mpa-v1` 配置文件](../../../spec/profiles/multi-party/README.md)下的多方授权，由运营方的策略集决定。只有设置了 `DCP_MULTI_PARTY_POLICY_FILE` 才存在，否则该路由不存在（404） |
 | POST | `/v2/governance/register` | 登记治理密钥集（**运营方**） |
 | GET | `/.well-known/governance-keys.json` | 已发布的治理密钥 |
 
@@ -113,6 +113,7 @@ node server/index.js
 | `DCP_TRUSTED_PRINCIPALS_FILE` | — | `POST /v2/admit` 的信任集（`schemas/v2/principal_trust_set.schema.json`），每次准入时读取，内容变化时重新加载。无效的文件会使服务器在启动时停止；如果之后损坏，则拒绝准入（503）。任何准入变量被设为空值都会使服务器停止 |
 | `DCP_ADMISSION_PROFILE_FILE` | — | strict-v1 配置（`schemas/v2/admission_profile.schema.json`）。需要与其相邻的两个变量；存在矛盾时服务器会停止 |
 | `DCP_REVOCATION_LIST_URL` | — | 用于 strict-v1 的、采用撤销服务 `/.well-known/dcp-revocations.json` 格式的完整拒绝列表：`https`（明文 `http` 仅限回环主机），不跟随重定向，最多 16 MiB。`DCP_REVOCATION_LIST_AUTHORIZATION` 设置 `Authorization` 请求头；`DCP_REVOCATION_TIMEOUT_MS`（默认 5000）限制请求时长 |
+| `DCP_MULTI_PARTY_POLICY_FILE` | — | 用于 `POST /v2/multi-party/authorize` 的策略集（`schemas/v2/multi_party_policy_set.schema.json`）：每个目标的参与方及其角色，以及每项操作所需的阈值和角色。启动时读取一次。需要 `DCP_TRUSTED_PRINCIPALS_FILE`，其中保存参与方的密钥（该变量同时会启用 `POST /v2/admit`）。无法加载的文件，或缺少信任集而单独设置该变量，都会使服务器停止。没有该变量时端点不存在，`features.multi_party_auth` 为 `false` |
 | `MAX_KEYS_PER_AGENT` | `64` | 一个智能体在其生命周期内可登记的密钥数；之后的轮换会得到 409。对于经常轮换的智能体请调高它（每个退役密钥占用约 100 字节的墓碑） |
 
 `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS`、`PQ_CHECKPOINT_INTERVAL` 和
@@ -137,10 +138,13 @@ node server/index.js
 - **密钥轮换**接收由 `@dcp-ai/sdk` 中的 `createKeyRotation` 构建的 `KeyRotationRecord`：新密钥在 `DCP-AI.v2.KeyRotation`
   下对 `{old_kid, new_kid, timestamp}` 签名（持有证明），旧密钥对其进行会签。旧密钥必须有效（未撤销、未过期）；之后它会被
   标记为已撤销。
-- **多方授权**：每一方在 `DCP-AI.v2.MultiPartyAuth` 下对 `{operation, operation_payload, party_id, role}` 签名
-  （`sdks/typescript/src/core/multi-party-auth.ts` 中的 `createPartyAuthorization`，`@dcp-ai/sdk` 2.2.0 未导出）。一方是
-  通过 `/v2/passport/register` 登记的身份，其签名 kid 必须是登记在其 `party_id` 名下的有效（未撤销、未过期）密钥。无论以
-  哪些角色签名，每一方对 `required_parties` 只计一次。角色由签名者自行声明，不会在任何地方查证。
+- **多方授权**：遵循 [`mpa-v1` 配置文件](../../../spec/profiles/multi-party/README.md)，只有在运营方设置了
+  `DCP_MULTI_PARTY_POLICY_FILE` 时才存在。请求体携带记录以及调用方即将要做的事：
+  `{ "authorization": …, "expected": { "operation", "target", "parameters" } }`。每个目标的参与方、它们的角色、阈值、
+  受众以及参与方的密钥（受信任的委托人）都由运营方决定：记录中写入的角色或 `required_parties` 不起任何决定作用，通过
+  `/v2/passport/register` 登记的身份也不是参与方。应答就是该配置文件的评估结果：只有 `authorized` 为真时才是 200，否则是
+  带有同一结果及其代码的 403，`expected` 缺失或不可用时是 400。服务器不执行任何操作，也不保存状态：同一请求每次得到
+  相同的应答，因此操作不是幂等的调用方应以原子方式消费 `request_id` 并执行。
 - **运营方端点**只由 `OPERATOR_TOKEN` 保护。通告的 `composite_sig` 只做结构检查：`@dcp-ai/sdk` 目前还没有
   `AlgorithmAdvisory` 上下文标签，因此由运营方为通告担保。
 - 密钥注册表在达到 `MAX_REGISTERED_KEYS` 个密钥（10,000）后会拒绝新智能体和轮换（507），而不是逐出旧密钥，因为被逐出的
