@@ -5,7 +5,7 @@
 
 # Guía del operador — ejecutar un servicio de verificación
 
-> Traducción informativa de [la versión en inglés](../../../docs/OPERATOR_GUIDE.md), actualizada el 18/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/OPERATOR_GUIDE.md), actualizada el 20/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Esta guía es para **terceros** que quieran ejecutar un servicio de «agente verificado»: una API HTTP que verifica Signed Bundles de DCP (y, opcionalmente, ancla hashes en una blockchain). El protocolo **no** exige ningún servidor central; la verificación siempre puede hacerse localmente con `dcp verify-bundle`. Este servicio es **opcional** y lo ejecuta quien opere a su elección.
 
@@ -368,7 +368,7 @@ Los servicios V2 exponen `GET /.well-known/dcp-capabilities.json`. El servidor d
 }
 ```
 
-Esto es lo que el servidor anuncia, no una lista de garantías comprobadas. Sus endpoints solo leen cuerpos JSON, aunque se enumera `application/cbor`. Desde el 06/11/2026 anuncia `hsm_provider: false`: el repositorio no tiene ningún proveedor HSM ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)). `multi_party_auth` es `true` solo cuando el operador ha configurado un conjunto de políticas multiparte (`DCP_MULTI_PARTY_POLICY_FILE`, [server/README.md](../../../server/README.md)). Desde el 07/11/2026 las funciones de DCP-05 a DCP-09 son `false`: el servidor no implementa ninguna de forma normativa. `dcp05_09_demo_endpoints` y `demo_endpoints` indican si los [endpoints demo](#dcp-0509-service-endpoints) están activados; no son normativos, no verifican firmas y necesitan el token del operador.
+Esto es lo que el servidor anuncia, no una lista de garantías comprobadas. Sus endpoints solo leen cuerpos JSON, aunque se enumera `application/cbor`. Desde el 06/11/2026 anuncia `hsm_provider: false`: el repositorio no tiene ningún proveedor HSM ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)). `multi_party_auth` es `true` solo cuando el operador ha configurado un conjunto de políticas multiparte (`DCP_MULTI_PARTY_POLICY_FILE`, [server/README.md](../../../server/README.md)). Su endpoint requiere el token del operador. Desde el 07/11/2026 las funciones de DCP-05 a DCP-09 son `false`: el servidor no implementa ninguna de forma normativa. `dcp05_09_demo_endpoints` y `demo_endpoints` indican si los [endpoints demo](#dcp-0509-service-endpoints) están activados; no son normativos, no verifican firmas y necesitan el token del operador.
 
 <a id="observability"></a>
 

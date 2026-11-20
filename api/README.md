@@ -72,7 +72,7 @@ What they cover (25/10/2026):
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST /v2/emergency-revoke` | Emergency revocation (panic button) | Rate-limited, pre-image verification |
-| `POST /v2/multi-party/authorize` | Multi-party M-of-N authorization | Request: `{ authorization }` |
+| `POST /v2/multi-party/authorize` | Multi-party authorization (`mpa-v1` profile) | Operator token; only with `DCP_MULTI_PARTY_POLICY_FILE`. Request: `{ authorization, expected }` |
 
 #### V2 Advisory & Governance
 

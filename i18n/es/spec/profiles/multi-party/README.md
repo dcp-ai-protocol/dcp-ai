@@ -4,7 +4,7 @@
 
 # Perfil de autorización multiparte: `mpa-v1`
 
-> Traducción informativa de [la especificación en inglés](../../../../../spec/profiles/multi-party/README.md), actualizada el 18/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../../../spec/profiles/multi-party/README.md), actualizada el 20/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 **Estado:** Borrador, v1
 **Alcance:** Si una autorización multiparte autoriza una operación sobre un objetivo, para un verificador, bajo una política que fijó el operador
@@ -268,6 +268,6 @@ La comprobación de la estructura mira el número de autorizaciones, sus roles y
 > el código de referencia de `main` se relaciona con este texto. Donde difieran, prevalece el texto normativo anterior.
 
 - **Dónde está implementado.** Los cuatro SDK de `main` implementan este perfil. Ninguna versión publicada lo tiene: el SDK de TypeScript publicado exporta solo los tipos del registro, y los SDK de Python, Go y Rust publicados tienen únicamente la comprobación de la estructura, con su nombre anterior.
-- **El servidor de referencia.** `POST /v2/multi-party/authorize` aplica este perfil bajo el conjunto de políticas del operador (`DCP_MULTI_PARTY_POLICY_FILE`) y no existe sin él. No ejecuta nada: véase [server/README.md](../../../../../server/README.md).
+- **El servidor de referencia.** `POST /v2/multi-party/authorize` aplica este perfil bajo el conjunto de políticas del operador (`DCP_MULTI_PARTY_POLICY_FILE`) y no existe sin él. Solo responde al token del operador y no ejecuta nada: véase [server/README.md](../../../../../server/README.md).
 - **Ninguna operación consume una autorización.** Nada en este repositorio lleva a cabo `revoke_agent`, `rotate_org_key`, `change_jurisdiction` ni `modify_recovery_config` a partir de una autorización multiparte. El perfil decide; un adaptador ejecuta.
 - **Quién revisó los vectores.** El evaluador del generador y las cuatro implementaciones tienen el mismo autor. Que coincidan no es una revisión independiente.

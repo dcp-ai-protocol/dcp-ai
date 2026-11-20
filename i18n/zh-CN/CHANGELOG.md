@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 18/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 20/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。09/11/2026 的六个版本见[其单独的章节](#2026-11-09-six-releases)。
 
@@ -122,7 +122,8 @@
   评估不保存状态，因此操作不是幂等的执行方应以原子方式消费 `request_id` 并执行。
   **参考服务器的接受行为变更：** `POST /v2/multi-party/authorize` 现在应用该配置文件，并且只在运营方的配置下工作。
   没有 `DCP_MULTI_PARTY_POLICY_FILE`（它需要 `DCP_TRUSTED_PRINCIPALS_FILE`）时，该路由不存在，`features.multi_party_auth` 为 `false`。
-  有该配置时，请求体为 `{ authorization, expected }`，应答是评估结果，只有 `authorized` 为真时才是 200。
+  有该配置时，该路由只应答运营方令牌（`Authorization: Bearer <OPERATOR_TOKEN>`）；没有至少 32 个字符的令牌，服务器不会启动。
+  请求体为 `{ authorization, expected }`，应答是评估结果，只有 `authorized` 为真时才是 200。
   它不再依据记录自身的 `required_parties` 和角色返回 `threshold_met`，通过 `/v2/passport/register` 登记的身份也不是参与方。
 
 - **Go SDK 中的 OpenTelemetry Go v1.47.0；源代码现在需要 Go 1.26**（仅 `main` 上的源代码，不在任何已发布版本中；

@@ -4,7 +4,7 @@
 
 # DCP のリファレンスゲートウェイ
 
-> [英語版](../../../server/README.md)の参考訳です（18/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../server/README.md)の参考訳です（20/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol の V1、V2、フェーズ 3（PQ 優先）を実装する HTTP の検証サービスです。**メモリ上のストレージ**：外部のデータベースは不要で、再起動の後には何も残りません（[永続化](#persistence)を参照）。どの第三者でも運用できるように設計されており、プロトコルは中央のサーバーを必要としません。
 
@@ -69,7 +69,7 @@ node server/index.js
 
 | メソッド | パス | 説明 |
 |--------|------|-------------|
-| POST | `/v2/multi-party/authorize` | [`mpa-v1` のプロファイル](../../../spec/profiles/multi-party/README.md)によるマルチパーティ承認。オペレーターのポリシーセットが判断します。`DCP_MULTI_PARTY_POLICY_FILE` があるときだけで、なければこのルートは存在しません（404） |
+| POST | `/v2/multi-party/authorize` | [`mpa-v1` のプロファイル](../../../spec/profiles/multi-party/README.md)によるマルチパーティ承認。オペレーターのポリシーセットが判断します。`DCP_MULTI_PARTY_POLICY_FILE` があるときだけで、なければこのルートは存在しません（404）。オペレーターのトークンが必要です |
 | POST | `/v2/governance/register` | ガバナンスの鍵セットを登録する（**オペレーター**） |
 | GET | `/.well-known/governance-keys.json` | 公開されたガバナンスの鍵 |
 
@@ -113,7 +113,7 @@ node server/index.js
 | `DCP_TRUSTED_PRINCIPALS_FILE` | — | `POST /v2/admit` の信頼セット（`schemas/v2/principal_trust_set.schema.json`）。アドミッションのたびに読み、内容が変わると読み直します。無効なファイルでは起動時にサーバーが停止し、後で壊れた場合はアドミッションを拒否します（503）。アドミッションの変数を空の値で設定すると、サーバーが停止します |
 | `DCP_ADMISSION_PROFILE_FILE` | — | strict-v1 のプロファイル（`schemas/v2/admission_profile.schema.json`）。前後の 2 つの変数が必要で、矛盾があるとサーバーが停止します |
 | `DCP_REVOCATION_LIST_URL` | — | strict-v1 のための、失効サービスの `/.well-known/dcp-revocations.json` 形式の完全な拒否リスト：`https`（平文の `http` はループバックのホストだけ）、リダイレクトなし、最大 16 MiB。`DCP_REVOCATION_LIST_AUTHORIZATION` で `Authorization` ヘッダーを設定し、`DCP_REVOCATION_TIMEOUT_MS`（既定 5000）でリクエストの時間を制限します |
-| `DCP_MULTI_PARTY_POLICY_FILE` | — | `POST /v2/multi-party/authorize` のポリシーセット（`schemas/v2/multi_party_policy_set.schema.json`）：対象ごとの当事者と役割、そして操作ごとに必要なしきい値と役割。起動時に 1 回だけ読み込みます。当事者の鍵を持つ `DCP_TRUSTED_PRINCIPALS_FILE` が必要です（この変数は `POST /v2/admit` も有効にします）。読み込めないファイル、または信頼セットのないこの変数は、サーバーを停止させます。この変数がなければエンドポイントは存在せず、`features.multi_party_auth` は `false` です |
+| `DCP_MULTI_PARTY_POLICY_FILE` | — | `POST /v2/multi-party/authorize` のポリシーセット（`schemas/v2/multi_party_policy_set.schema.json`）：対象ごとの当事者と役割、そして操作ごとに必要なしきい値と役割。起動時に 1 回だけ読み込みます。当事者の鍵を持つ `DCP_TRUSTED_PRINCIPALS_FILE` が必要です（この変数は `POST /v2/admit` も有効にします）。RFC 6750 の b64token で 32 文字以上の `OPERATOR_TOKEN` も必要で、エンドポイントへのすべてのリクエストがこれを送ります。読み込めないファイル、または信頼セットやそのトークンのないこの変数は、サーバーを停止させます。この変数がなければエンドポイントは存在せず、`features.multi_party_auth` は `false` です |
 | `MAX_KEYS_PER_AGENT` | `64` | エージェントが生涯で登録できる鍵の数。それ以降のローテーションには 409 が返ります。頻繁にローテーションするエージェントでは引き上げてください（引退した鍵ごとに約 100 バイトの墓標がかかります） |
 
 `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS`、`PQ_CHECKPOINT_INTERVAL`、
@@ -145,7 +145,10 @@ node server/index.js
   `{old_kid, new_kid, timestamp}` に `DCP-AI.v2.KeyRotation` のもとで署名し（保有の証明）、古い鍵が連署します。古い鍵は有効
   （失効しておらず、期限切れでない）でなければならず、その後は失効したものとして記録されます。
 - **マルチパーティ承認**：[`mpa-v1` のプロファイル](../../../spec/profiles/multi-party/README.md)に従い、オペレーターが
-  `DCP_MULTI_PARTY_POLICY_FILE` を設定したときにだけ存在します。ボディには、レコードと、呼び出し側がこれから行おうと
+  `DCP_MULTI_PARTY_POLICY_FILE` を設定したときにだけ存在します。オペレーターのトークン
+  （`Authorization: Bearer <OPERATOR_TOKEN>`）にだけ応答し、なければボディを読む前に 401 を返します。呼び出すのは
+  オペレーター自身の実行側であり、応答にはオペレーターの対象、当事者、役割、しきい値、信頼する鍵が現れるからです。
+  ボディには、レコードと、呼び出し側がこれから行おうと
   していることを入れます：`{ "authorization": …, "expected": { "operation", "target", "parameters" } }`。対象ごとの
   当事者、その役割、しきい値、オーディエンス、当事者の鍵（信頼するプリンシパル）はオペレーターのものです。レコードに
   書かれた役割や `required_parties` は何も決めず、`/v2/passport/register` で登録した身元は当事者ではありません。応答は

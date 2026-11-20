@@ -18,7 +18,8 @@
  *   POST /v2/emergency-revoke                 — Emergency revocation (panic button)
  *   POST /v2/admit                            — Admission: trusted principals, strict-v1 (spec/profiles/admission)
  *   POST /v2/multi-party/authorize            — Multi-party authorization, mpa-v1 (spec/profiles/multi-party);
- *                                               only with DCP_MULTI_PARTY_POLICY_FILE
+ *                                               only with DCP_MULTI_PARTY_POLICY_FILE, and for the operator
+ *                                               token only
  *
  * Phase 3 Endpoints:
  *   GET  /v2/policy                           — Current verifier policy (Phase 3)
@@ -37,8 +38,9 @@
  *   DCP_ADMISSION_PROFILE_FILE — strict-v1 profile (schemas/v2/admission_profile.schema.json);
  *     needs DCP_TRUSTED_PRINCIPALS_FILE and DCP_REVOCATION_LIST_URL
  *   DCP_MULTI_PARTY_POLICY_FILE — policy set (schemas/v2/multi_party_policy_set.schema.json) for
- *     POST /v2/multi-party/authorize; needs DCP_TRUSTED_PRINCIPALS_FILE, the keys of the parties;
- *     read once at startup. Without it the endpoint does not exist
+ *     POST /v2/multi-party/authorize; needs DCP_TRUSTED_PRINCIPALS_FILE, the keys of the parties,
+ *     and an OPERATOR_TOKEN of at least 32 RFC 6750 b64token characters, which every request to
+ *     the endpoint carries; read once at startup. Without it the endpoint does not exist
  *   DCP_DEMO_ENDPOINTS — "off" (the default) or "dcp-05-09": the 31 DCP-05–09 demo endpoints
  *     (schema checks only, no signature verification), each request needing the operator token;
  *     "dcp-05-09" needs an OPERATOR_TOKEN of at least 32 RFC 6750 b64token characters (server/demo-gate.js)
@@ -62,7 +64,7 @@ import {
   admitSignedBundle, denyListRevocationSource,
 } from "../lib/verify.js";
 import { parseBody, getClientIp, isOperator, rateLimiter } from "../lib/http.js";
-import { DEMO_FAMILIES, demoEnabled, isDemoOperator } from "./demo-gate.js";
+import { DEMO_FAMILIES, demoEnabled, isDemoOperator, usableOperatorToken } from "./demo-gate.js";
 import { computeSecurityTier } from "../lib/security-tier.js";
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -247,7 +249,10 @@ function loadAdmission() {
 
 // ── Multi-party authorization (spec/profiles/multi-party): the operator's policy set, checked at startup ──
 // The parties, their roles, the threshold and the audience come from this file and the keys of the parties from the
-// trusted principals; nothing of that is ever read from a request. Without the file there is no endpoint.
+// trusted principals; nothing of that is ever read from a request. Without the file there is no endpoint. With it,
+// the endpoint is for the operator token only: its answers say which targets, parties, roles, thresholds and keys the
+// operator has, and whoever asks is the operator's own executor. A route nobody could call, or one a short token
+// opens, is not started.
 
 const MULTI_PARTY = loadMultiParty();
 
@@ -256,6 +261,9 @@ function loadMultiParty() {
   if (file === undefined) return null;
   if (file.trim() === "") throw new Error("CONFIG_INVALID_VALUE: DCP_MULTI_PARTY_POLICY_FILE is set but empty");
   if (!ADMISSION) throw new Error("CONFIG_PROFILE_CONTRADICTION: multi-party authorization needs DCP_TRUSTED_PRINCIPALS_FILE");
+  if (!usableOperatorToken(process.env.OPERATOR_TOKEN)) {
+    throw new Error("CONFIG_INVALID_VALUE: DCP_MULTI_PARTY_POLICY_FILE needs OPERATOR_TOKEN, an RFC 6750 b64token of at least 32 characters");
+  }
   let policy;
   try {
     policy = createMultiPartyPolicyStore(JSON.parse(fs.readFileSync(file, "utf8")));
@@ -1159,8 +1167,14 @@ const server = http.createServer(async (req, res) => {
   // Only the record and what the caller is about to do are read from the body. The parties, their
   // roles and keys, the threshold and the audience are the operator's. Nothing is executed here and
   // the evaluation keeps no state: a caller whose operation is not idempotent consumes request_id
-  // and executes atomically. Without the operator's policy set the route does not exist.
+  // and executes atomically. Without the operator's policy set the route does not exist. With it, the
+  // operator token comes first: before the body is read, and before anything of the policy is answered.
   if (MULTI_PARTY && req.method === "POST" && req.url === "/v2/multi-party/authorize") {
+    if (!isDemoOperator(req.headers.authorization, process.env.OPERATOR_TOKEN)) {
+      res.setHeader("Connection", "close"); // a body still arriving is not waited for
+      res.setHeader("WWW-Authenticate", "Bearer");
+      return send(res, 401, { error: "Operator token required (Authorization: Bearer <OPERATOR_TOKEN>)" });
+    }
     let body;
     try { body = await parseBody(req); }
     catch (e) {

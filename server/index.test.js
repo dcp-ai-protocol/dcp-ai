@@ -359,11 +359,28 @@ const writeJson = async (prefix, files) => {
   }));
 };
 const capabilities = async (url) => (await (await fetch(`${url}/.well-known/dcp-capabilities.json`)).json()).features;
+// The route is for the operator's executor: its token is checked when the server starts, by the rule of the demo
+// gate (an RFC 6750 b64token of at least 32 characters), and on every request.
+const MPA_OPERATOR_TOKEN = "multi-party-test-operator-token-0123456789"; // TEST ONLY
+const asMpaOperator = { authorization: `Bearer ${MPA_OPERATOR_TOKEN}` };
+/** The server must not start with `env`. If it does, it is stopped before the test fails. */
+const refusesToStart = async (env, reason) => {
+  let started;
+  try {
+    started = await startService(SERVER, env);
+  } catch (e) {
+    return assert.match(e.message, reason, JSON.stringify(env));
+  }
+  started.proc.kill();
+  assert.fail(`the server started with ${JSON.stringify(env)}`);
+};
 
 test("multi-party authorization: without the operator's policy there is no endpoint", async () => {
   const anything = { authorization: {}, expected: { operation: "revoke_agent", target: MPA_TARGET, parameters: {} } };
-  const answer = await post("/v2/multi-party/authorize", anything);
-  assert.deepEqual([answer.status, answer.body], [404, { error: "Not found" }]);
+  for (const headers of [{}, asOperator]) {
+    const answer = await post("/v2/multi-party/authorize", anything, headers);
+    assert.deepEqual([answer.status, answer.body], [404, { error: "Not found" }]);
+  }
   assert.equal((await capabilities(base)).multi_party_auth, false);
 });
 
@@ -374,7 +391,7 @@ test("multi-party authorization: the operator's parties, roles and threshold dec
     trust: { trust_set_version: "test-1", principals: [trustedParty("human:owner", owner), trustedParty("human:admin", admin), trustedParty("human:contact", contact), trustedParty("human:eve", eve), trustedParty("human:frank", frank)] },
     policy: mpaPolicy([{ party_id: "human:owner", role: "owner" }, { party_id: "human:admin", role: "org_admin" }, { party_id: "human:contact", role: "recovery_contact" }]),
   });
-  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN, REGISTRATIONS_PER_HOUR: "1000", DCP_TRUSTED_PRINCIPALS_FILE: files.trust, DCP_MULTI_PARTY_POLICY_FILE: files.policy });
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN: MPA_OPERATOR_TOKEN, REGISTRATIONS_PER_HOUR: "1000", DCP_TRUSTED_PRINCIPALS_FILE: files.trust, DCP_MULTI_PARTY_POLICY_FILE: files.policy });
   try {
     assert.equal((await capabilities(url)).multi_party_auth, true);
 
@@ -383,7 +400,7 @@ test("multi-party authorization: the operator's parties, roles and threshold dec
     const payload = createMultiPartyRequest({ target: MPA_TARGET, audience: MPA_AUDIENCE, parameters, validitySeconds: 300 });
     const by = ({ keys }, party_id, role, signed = payload) => createPartyAuthorization(registry, "revoke_agent", signed, party_id, role, keys);
     const submit = async (authorizations, { stated = expected, signed = payload, required = 2 } = {}) => {
-      const answer = await postTo(url, "/v2/multi-party/authorize", { authorization: buildMultiPartyAuthorization("revoke_agent", signed, authorizations, required), expected: stated });
+      const answer = await postTo(url, "/v2/multi-party/authorize", { authorization: buildMultiPartyAuthorization("revoke_agent", signed, authorizations, required), expected: stated }, asMpaOperator);
       const codes = [...new Set((answer.body.errors ?? []).map((e) => e.code))].sort();
       return { status: answer.status, authorized: answer.body.authorized, required: answer.body.required_parties, counted: answer.body.parties_counted, codes, text: JSON.stringify(answer.body) };
     };
@@ -403,7 +420,7 @@ test("multi-party authorization: the operator's parties, roles and threshold dec
     for (const secret of [owner.keys.classical.publicKeyB64, byOwner.composite_sig.classical.sig_b64]) assert.ok(!ok.text.includes(secret));
 
     // Two identities registered on this server, with valid hybrid signatures, who are not parties of the target.
-    for (const party of [eve, frank]) assert.equal((await registerNew(url, party.signedPassport)).status, 201);
+    for (const party of [eve, frank]) assert.equal((await postTo(url, "/v2/passport/register", { signed_passport: party.signedPassport }, asMpaOperator)).status, 201);
     refused(await submit([await by(eve, "party:eve", "owner"), await by(frank, "party:frank", "org_admin")]), "MPA_PARTY_UNKNOWN");
     // The same two, named as the operator's trust set names them: known signers, still not parties.
     refused(await submit([await by(eve, "human:eve", "owner"), await by(frank, "human:frank", "org_admin")]), "MPA_PARTY_UNKNOWN");
@@ -428,11 +445,26 @@ test("multi-party authorization: the operator's parties, roles and threshold dec
     // What the caller is about to do is required: without it there is nothing to authorize.
     const record = buildMultiPartyAuthorization("revoke_agent", payload, [byOwner, byAdmin]);
     for (const body of [{ authorization: record }, { authorization: record, expected: { operation: "revoke_agent", target: MPA_TARGET } }, { authorization: record, expected: { ...expected, operation: "launch" } }]) {
-      const answer = await postTo(url, "/v2/multi-party/authorize", body);
+      const answer = await postTo(url, "/v2/multi-party/authorize", body, asMpaOperator);
       assert.deepEqual([answer.status, answer.body.authorized, answer.body.code], [400, false, "CONFIG_INVALID_VALUE"], JSON.stringify(answer.body));
     }
-    const nothing = await postTo(url, "/v2/multi-party/authorize", { expected });
+    const nothing = await postTo(url, "/v2/multi-party/authorize", { expected }, asMpaOperator);
     assert.deepEqual([nothing.status, nothing.body.authorized, nothing.body.structure], [403, false, "invalid"]);
+
+    // Without the operator's token nothing is evaluated and nothing of the operator's policy comes back: not for
+    // the record that was just authorized, and not for a well-formed one that nobody signed, whose answer would
+    // otherwise name the role the operator gives each party.
+    const unsigned = { ...record, authorizations: record.authorizations.map((a) => ({ ...a, role: "recovery_contact" })) };
+    for (const headers of [{}, asOperator, { authorization: MPA_OPERATOR_TOKEN }, { authorization: `Basic ${MPA_OPERATOR_TOKEN}` }]) {
+      for (const authorization of [record, unsigned]) {
+        const res = await fetch(`${url}/v2/multi-party/authorize`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ authorization, expected }) });
+        assert.deepEqual(
+          [res.status, res.headers.get("www-authenticate"), await res.json()],
+          [401, "Bearer", { error: "Operator token required (Authorization: Bearer <OPERATOR_TOKEN>)" }],
+          JSON.stringify(headers),
+        );
+      }
+    }
   } finally {
     proc.kill();
   }
@@ -448,19 +480,24 @@ test("multi-party authorization: the server refuses to start with an unusable po
     unknownField: { ...good, default_threshold: 1 },
     unsatisfiable: mpaPolicy([{ party_id: "human:owner", role: "owner" }]),
   });
+  const usable = { OPERATOR_TOKEN: MPA_OPERATOR_TOKEN, DCP_TRUSTED_PRINCIPALS_FILE: files.trust };
   for (const env of [
-    { DCP_MULTI_PARTY_POLICY_FILE: files.policy },
-    { DCP_MULTI_PARTY_POLICY_FILE: "", DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
-    { DCP_MULTI_PARTY_POLICY_FILE: `${files.policy}.missing`, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
-    { DCP_MULTI_PARTY_POLICY_FILE: files.notJson, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
-    { DCP_MULTI_PARTY_POLICY_FILE: files.anotherProfile, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
-    { DCP_MULTI_PARTY_POLICY_FILE: files.unknownField, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
-    { DCP_MULTI_PARTY_POLICY_FILE: files.unsatisfiable, DCP_TRUSTED_PRINCIPALS_FILE: files.trust },
+    { OPERATOR_TOKEN: MPA_OPERATOR_TOKEN, DCP_MULTI_PARTY_POLICY_FILE: files.policy },
+    { ...usable, DCP_MULTI_PARTY_POLICY_FILE: "" },
+    { ...usable, DCP_MULTI_PARTY_POLICY_FILE: `${files.policy}.missing` },
+    { ...usable, DCP_MULTI_PARTY_POLICY_FILE: files.notJson },
+    { ...usable, DCP_MULTI_PARTY_POLICY_FILE: files.anotherProfile },
+    { ...usable, DCP_MULTI_PARTY_POLICY_FILE: files.unknownField },
+    { ...usable, DCP_MULTI_PARTY_POLICY_FILE: files.unsatisfiable },
   ]) {
-    await assert.rejects(startService(SERVER, env), /exited/, JSON.stringify(env));
+    await refusesToStart(env, /exited/);
   }
-  // The control: the same policy with its trust set starts.
-  const { proc } = await startService(SERVER, { DCP_MULTI_PARTY_POLICY_FILE: files.policy, DCP_TRUSTED_PRINCIPALS_FILE: files.trust });
+  // A route nobody could call, or one a guessable token opens, is not started: the token is the demo gate's.
+  for (const OPERATOR_TOKEN of [undefined, "", MPA_OPERATOR_TOKEN.slice(0, 31), `${MPA_OPERATOR_TOKEN.slice(0, 20)} ${MPA_OPERATOR_TOKEN.slice(20)}`]) {
+    await refusesToStart({ ...usable, OPERATOR_TOKEN, DCP_MULTI_PARTY_POLICY_FILE: files.policy }, /DCP_MULTI_PARTY_POLICY_FILE needs OPERATOR_TOKEN/);
+  }
+  // The control: the same policy with its trust set and a usable token starts.
+  const { proc } = await startService(SERVER, { ...usable, DCP_MULTI_PARTY_POLICY_FILE: files.policy });
   proc.kill();
 });
 

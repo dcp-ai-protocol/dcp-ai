@@ -5,7 +5,7 @@
 
 # 运营方指南 — 运行验证服务
 
-> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 20/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本指南面向希望运行“智能体已验证”服务的**第三方**：一个验证 DCP Signed Bundle 的 HTTP API（还可以选择把哈希锚定到区块链上）。协议**不**要求任何中央服务器；验证随时都可以用 `dcp verify-bundle` 在本地完成。此服务是**可选的**，由运营方自行决定是否运行。
 
@@ -370,7 +370,7 @@ V2 服务公开 `GET /.well-known/dcp-capabilities.json`。参考服务器的响
 }
 ```
 
-这是服务器所声明的内容，而不是经过检查的保证清单。虽然列出了 `application/cbor`，但其端点只读取 JSON 请求体。自 06/11/2026 起，它声明 `hsm_provider: false`：仓库中没有 HSM 提供者（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。只有在运营方配置了多方授权策略集时，`multi_party_auth` 才为 `true`（`DCP_MULTI_PARTY_POLICY_FILE`，[server/README.md](../../../server/README.md)）。自 07/11/2026 起，DCP-05 至 DCP-09 的功能为 `false`：服务器没有规范性地实现其中任何一项。`dcp05_09_demo_endpoints` 和 `demo_endpoints` 说明[演示端点](#dcp-0509-service-endpoints)是否已启用；它们不具规范性，不验证签名，并需要运营方令牌。
+这是服务器所声明的内容，而不是经过检查的保证清单。虽然列出了 `application/cbor`，但其端点只读取 JSON 请求体。自 06/11/2026 起，它声明 `hsm_provider: false`：仓库中没有 HSM 提供者（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。只有在运营方配置了多方授权策略集时，`multi_party_auth` 才为 `true`（`DCP_MULTI_PARTY_POLICY_FILE`，[server/README.md](../../../server/README.md)）。该端点需要运营方令牌。自 07/11/2026 起，DCP-05 至 DCP-09 的功能为 `false`：服务器没有规范性地实现其中任何一项。`dcp05_09_demo_endpoints` 和 `demo_endpoints` 说明[演示端点](#dcp-0509-service-endpoints)是否已启用；它们不具规范性，不验证签名，并需要运营方令牌。
 
 <a id="observability"></a>
 

@@ -1023,12 +1023,17 @@ paths:
       description: |
         Decides whether a multi-party authorization authorizes what the caller is about to do, under the
         opt-in `mpa-v1` profile (spec/profiles/multi-party). The route exists only when the operator sets
-        `DCP_MULTI_PARTY_POLICY_FILE`; otherwise it answers 404. The parties of each target, their roles, the
+        `DCP_MULTI_PARTY_POLICY_FILE`; otherwise it answers 404. It answers only to the operator token
+        (`Authorization: Bearer <OPERATOR_TOKEN>`), before the body is read: the caller is the operator's own
+        executor, and the answers name the operator's targets, parties, roles, thresholds and trusted keys.
+        The parties of each target, their roles, the
         threshold, the audience and the keys of the parties are the operator's configuration: a role or a
         `required_parties` written in the record decides nothing, and an identity registered through
         `/v2/passport/register` is not a party. Nothing is executed and no state is kept, so the same request
         gets the same answer every time: a caller whose operation is not idempotent consumes `request_id`
         and executes atomically.
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -1078,6 +1083,17 @@ paths:
                     type: string
                   error:
                     type: string
+        "401":
+          description: The operator token is missing or is not the operator's. Nothing is evaluated
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                enum: [Bearer]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Not authorized. The same body as 200, with `authorized` false and the codes in `errors`
           content:

@@ -5,7 +5,7 @@
 
 # オペレーターガイド — 検証サービスの運用
 
-> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（18/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（20/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドは、「エージェント検証済み」サービス、つまり DCP の Signed Bundle を検証する（オプションでハッシュをブロックチェーンにアンカーする）HTTP API を運用したい**第三者**のためのものです。プロトコルは中央のサーバーを**必要としません**。検証はいつでも `dcp verify-bundle` でローカルに行えます。このサービスは**オプション**であり、オペレーターの判断で運用されます。
 
@@ -370,7 +370,7 @@ V2 のサービスは `GET /.well-known/dcp-capabilities.json` を公開しま�
 }
 ```
 
-これはサーバーが宣伝している内容であって、確認済みの保証の一覧ではありません。`application/cbor` が挙げられていますが、そのエンドポイントが読むのは JSON のボディだけです。06/11/2026 からは `hsm_provider: false` と宣伝しています。リポジトリには HSM プロバイダーがありません（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。`multi_party_auth` が `true` になるのは、オペレーターがマルチパーティ承認のポリシーセットを設定したときだけです（`DCP_MULTI_PARTY_POLICY_FILE`、[server/README.md](../../../server/README.md)）。2026 年 11 月 7 日からは、DCP-05 から DCP-09 の機能は `false` です。サーバーはどれも規範どおりには実装していません。`dcp05_09_demo_endpoints` と `demo_endpoints` は[デモのエンドポイント](#dcp-0509-service-endpoints)が有効かどうかを示します。これらは規範的ではなく、署名を検証せず、オペレーターのトークンを必要とします。
+これはサーバーが宣伝している内容であって、確認済みの保証の一覧ではありません。`application/cbor` が挙げられていますが、そのエンドポイントが読むのは JSON のボディだけです。06/11/2026 からは `hsm_provider: false` と宣伝しています。リポジトリには HSM プロバイダーがありません（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。`multi_party_auth` が `true` になるのは、オペレーターがマルチパーティ承認のポリシーセットを設定したときだけです（`DCP_MULTI_PARTY_POLICY_FILE`、[server/README.md](../../../server/README.md)）。そのエンドポイントにはオペレーターのトークンが必要です。2026 年 11 月 7 日からは、DCP-05 から DCP-09 の機能は `false` です。サーバーはどれも規範どおりには実装していません。`dcp05_09_demo_endpoints` と `demo_endpoints` は[デモのエンドポイント](#dcp-0509-service-endpoints)が有効かどうかを示します。これらは規範的ではなく、署名を検証せず、オペレーターのトークンを必要とします。
 
 <a id="observability"></a>
 

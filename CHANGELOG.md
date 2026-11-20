@@ -115,8 +115,10 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   executes atomically. **Acceptance change in the reference server:**
   `POST /v2/multi-party/authorize` now applies the profile, and only under the operator's configuration. Without
   `DCP_MULTI_PARTY_POLICY_FILE` (which needs `DCP_TRUSTED_PRINCIPALS_FILE`) the route does not exist and
-  `features.multi_party_auth` is `false`. With it, the body is `{ authorization, expected }` and the answer is the
-  evaluation result, 200 only when `authorized` is true. It no longer answers `threshold_met` from the record's own
+  `features.multi_party_auth` is `false`. With it, the route answers only to the operator token
+  (`Authorization: Bearer <OPERATOR_TOKEN>`; the server does not start without one of at least 32 characters), the
+  body is `{ authorization, expected }` and the answer is the evaluation result, 200 only when `authorized` is true.
+  It no longer answers `threshold_met` from the record's own
   `required_parties` and roles, and identities registered through `/v2/passport/register` are not parties.
 
 - **OpenTelemetry Go v1.47.0 in the Go SDK; the source now needs Go 1.26** (source on `main`, not in a published
