@@ -4,7 +4,7 @@
 
 # API — OpenAPI と Protocol Buffers
 
-> [英語版](../../../api/README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../api/README.md)の参考訳です（20/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 DCP の API の正式な定義です。HTTP/REST 向けの OpenAPI 3.1 の仕様と、gRPC 向けの Protocol Buffers があります。これらの定義を使って、任意の言語でクライアントを生成できます。
 
@@ -102,7 +102,7 @@ DCP の API の正式な定義です。HTTP/REST 向けの OpenAPI 3.1 の仕様
 | メソッド | パス | 説明 |
 |--------|------|-------------|
 | `POST /v2/emergency-revoke` | 緊急失効（パニックボタン） | レート制限と原像の検証あり |
-| `POST /v2/multi-party/authorize` | M-of-N のマルチパーティ承認 | リクエスト：`{ authorization }` |
+| `POST /v2/multi-party/authorize` | マルチパーティ承認（`mpa-v1` のプロファイル） | オペレーターのトークンが必要。`DCP_MULTI_PARTY_POLICY_FILE` があるときだけ。リクエスト：`{ authorization, expected }` |
 
 <a id="v2-advisory--governance"></a>
 <a id="v2-advisory-governance"></a>

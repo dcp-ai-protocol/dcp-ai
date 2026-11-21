@@ -228,6 +228,6 @@ The structure check looks at the number of authorizations, their roles and the p
 > the reference code on `main` relates to this text. Where they differ, the normative text above stands.
 
 - **Where it is implemented.** The four SDKs on `main` implement this profile. No published version has it: the published TypeScript SDK exports only the types of the record, and the published Python, Go and Rust SDKs have the structure check alone, under its former name.
-- **The reference server.** `POST /v2/multi-party/authorize` does not apply this profile: see [server/README.md](../../../server/README.md).
+- **The reference server.** `POST /v2/multi-party/authorize` applies this profile under the operator's policy set (`DCP_MULTI_PARTY_POLICY_FILE`) and does not exist without it. It answers only to the operator token, and it executes nothing: see [server/README.md](../../../server/README.md).
 - **No operation consumes an authorization.** Nothing in this repository carries out `revoke_agent`, `rotate_org_key`, `change_jurisdiction` or `modify_recovery_config` from a multi-party authorization. The profile decides; an adapter executes.
 - **Who reviewed the vectors.** The generator's evaluator and the four implementations have the same author. Their agreement is not an independent review.

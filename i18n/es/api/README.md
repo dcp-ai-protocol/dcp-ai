@@ -5,7 +5,7 @@
 
 # API — OpenAPI y Protocol Buffers
 
-> Traducción informativa de [la versión en inglés](../../../api/README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../api/README.md), actualizada el 20/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Definiciones formales de la API de DCP: especificación OpenAPI 3.1 para HTTP/REST y Protocol Buffers para gRPC. Usa estas definiciones para generar clientes en cualquier lenguaje.
 
@@ -101,7 +101,7 @@ Qué cubren (25/10/2026):
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `POST /v2/emergency-revoke` | Revocación de emergencia (botón de pánico) | Con límite de tasa y verificación de la preimagen |
-| `POST /v2/multi-party/authorize` | Autorización multiparte M de N | Petición: `{ authorization }` |
+| `POST /v2/multi-party/authorize` | Autorización multiparte (perfil `mpa-v1`) | Token del operador; solo con `DCP_MULTI_PARTY_POLICY_FILE`. Petición: `{ authorization, expected }` |
 
 <a id="v2-advisory--governance"></a>
 <a id="v2-advisory-governance"></a>

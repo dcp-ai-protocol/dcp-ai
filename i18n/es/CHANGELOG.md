@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 18/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 20/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases). Las cinco publicaciones del 05/11/2026 están en [la suya](#2026-11-05-auditable-releases), y las seis del 09/11/2026, en [la suya](#2026-11-09-six-releases).
 
@@ -133,8 +133,15 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   los cuatro SDK. `@dcp-ai/sdk` exporta ahora las funciones multiparte; el módulo estaba en el código fuente pero no se
   exportaba, y sus pruebas se sustituyen. Un registro firmado sin el bloque `request` nunca se autoriza bajo el perfil:
   no hay modo heredado, y las partes firman de nuevo. La evaluación no guarda estado, así que un ejecutor cuya
-  operación no es idempotente consume `request_id` y ejecuta de forma atómica. El `POST /v2/multi-party/authorize` del
-  servidor de referencia no aplica el perfil.
+  operación no es idempotente consume `request_id` y ejecuta de forma atómica. **Cambio de aceptación en el servidor de
+  referencia:** `POST /v2/multi-party/authorize` aplica ahora el perfil, y solo bajo la configuración del operador. Sin
+  `DCP_MULTI_PARTY_POLICY_FILE` (que necesita `DCP_TRUSTED_PRINCIPALS_FILE`) la ruta no existe y
+  `features.multi_party_auth` es `false`. Con ella, la ruta solo responde al token del operador
+  (`Authorization: Bearer <OPERATOR_TOKEN>`; el servidor no arranca sin uno de al menos 32 caracteres), el cuerpo es
+  `{ authorization, expected }` y la respuesta es el resultado de la evaluación, 200 solo cuando `authorized` es
+  verdadero. Ya no responde `threshold_met` a partir del
+  `required_parties` y de los roles del propio registro, y las identidades registradas mediante
+  `/v2/passport/register` no son partes.
 
 - **OpenTelemetry Go v1.47.0 en el SDK de Go; el código fuente necesita ahora Go 1.26** (código fuente en `main`, no
   está en ninguna versión publicada; sin cambio de versión). `go.opentelemetry.io/otel`, `otel/metric`, `otel/sdk`,
