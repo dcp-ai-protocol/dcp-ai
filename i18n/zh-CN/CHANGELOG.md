@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 09/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 18/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。09/11/2026 的六个版本见[其单独的章节](#2026-11-09-six-releases)。
 
@@ -107,6 +107,20 @@
 <a id="security"></a>
 
 ### 安全
+
+- **多方授权：由选择性启用的 `mpa-v1` 配置文件作出决定；已发布的函数只检查结构**（`main` 上的源代码，未包含在任何已发布版本中；版本号不变）。
+  多方授权记录本身不作任何决定：其中的 `required_parties` 没有被签名，每个角色都由为它签名的参与方自己写入，而且其中没有任何内容说明哪些参与方可以代表该操作的对象。
+  Python、Go 和 Rust SDK 以 `verify_multi_party_authorization` / `VerifyMultiPartyAuthorization` 的名称发布的函数只检查记录的形式，不验证任何签名：它们的结果不是授权。
+  这些名称已弃用，由 `check_multi_party_authorization_structure` / `CheckMultiPartyAuthorizationStructure` 取代，参数和结果相同。
+  作出决定的是新的 [`mpa-v1` 配置文件](../../spec/profiles/multi-party/README.md)：
+  只有当运营方的策略为该目标列出的不同参与方，用运营方委托人信任集中的密钥、以两个签名组件，在有效期窗口内为本验证器，恰好对执行方即将执行的操作、目标和参数签了名，并且达到运营方的阈值和必需角色时，
+  `evaluateMultiPartyAuthorization`（TypeScript）、`evaluate_multi_party_authorization`（Python、Rust）和 `EvaluateMultiPartyAuthorization`（Go）才给出 `authorized: true`。
+  目标、受众和有效期窗口放在 `operation_payload` 内一个已签名的 `request` 块中；记录的模式、被签名的字节、`DCP-AI.v2.MultiPartyAuth` 上下文和 `dcp-jcs-v1` 都不变。
+  新增两个模式（`multi_party_request.schema.json` 和 `multi_party_policy_set.schema.json`），四个 SDK 运行的用例保存在 `tests/interop/v2/multi_party_vectors.json` 中。
+  `@dcp-ai/sdk` 现在导出多方授权函数；该模块原先在源代码中但没有导出，其测试已被替换。
+  没有 `request` 块而签名的记录在该配置文件下永远不会被授权：没有旧版模式，参与方需要重新签名。
+  评估不保存状态，因此操作不是幂等的执行方应以原子方式消费 `request_id` 并执行。
+  参考服务器的 `POST /v2/multi-party/authorize` 不应用该配置文件。
 
 - **Go SDK 中的 OpenTelemetry Go v1.47.0；源代码现在需要 Go 1.26**（仅 `main` 上的源代码，不在任何已发布版本中；
   版本号不变）。`go.opentelemetry.io/otel`、`otel/metric`、`otel/sdk`、`otel/sdk/metric` 和 `otel/trace` 从 v1.46.0

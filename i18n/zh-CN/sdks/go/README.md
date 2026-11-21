@@ -6,7 +6,7 @@
 
 **Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> 本文是[英文 README](../../../../sdks/go/README.md)的参考译文，更新于 09/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+> 本文是[英文 README](../../../../sdks/go/README.md)的参考译文，更新于 18/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。
 
@@ -78,7 +78,8 @@ go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-a
 | DCP-09 委托与可验证委托链（`CreateSubMandate`、`VerifyMandateChain`）、认知阈值与责任主体镜像 | — | 支持 |
 | 会话 nonce 辅助函数、紧急撤销 | — | 支持 |
 | 延迟 PQ 检查点与 `PQCheckpointManager` | — | 支持 |
-| 盲化 RPR、多方授权、算法通告辅助函数 | — | 支持 |
+| 盲化 RPR、算法通告辅助函数 | — | 支持 |
+| `mpa-v1` 配置文件下的多方授权（`EvaluateMultiPartyAuthorization`，spec/profiles/multi-party） | — | 在 `main` 上，未包含在任何已发布版本中。已发布版本只有结构检查（`VerifyMultiPartyAuthorization`），它不验证任何签名 |
 | 通用错误码（所有 SDK 共享 38 个）与 `DetectWireFormat` | — | 支持 |
 | OpenTelemetry / OTLP 导出器（构建标签 `otlp`） | — | 支持 |
 | 规范化候选方案 `dcp-jcs-v2`（入口处理、路由器、字节验证器、生成器） | — | 实验性，须显式选择；非规范性 |

@@ -172,6 +172,37 @@ export type {
   CompositeVerifyResult,
 } from './core/composite-ops.js';
 
+// ── Multi-party authorization: the opt-in mpa-v1 profile (spec/profiles/multi-party) ──
+export {
+  MPA_V1,
+  MPA_V1_MAX_AUTHORIZATIONS,
+  MPA_V1_MAX_VALIDITY_SECONDS,
+  MultiPartyConfigError,
+  createMultiPartyPolicyStore,
+  isMultiPartyPolicyStore,
+  createMultiPartyRequest,
+  createPartyAuthorization,
+  buildMultiPartyAuthorization,
+  checkMultiPartyAuthorizationStructure,
+  evaluateMultiPartyAuthorization,
+} from './core/multi-party-auth.js';
+export type {
+  MultiPartyConfigCode,
+  MultiPartyCode,
+  MultiPartyOperationRule,
+  MultiPartyPolicySet,
+  MultiPartyPolicyStore,
+  MultiPartySubject,
+  MultiPartyRequest,
+  MultiPartyOperationPayload,
+  CreateMultiPartyRequestInput,
+  MultiPartyStructurePolicy,
+  MultiPartyStructureResult,
+  MultiPartyExpected,
+  EvaluateMultiPartyOptions,
+  MultiPartyEvaluation,
+} from './core/multi-party-auth.js';
+
 // ── V2 Proof of Possession ──
 export {
   generateRegistrationPoP,

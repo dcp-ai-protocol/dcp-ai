@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 的 TypeScript SDK
 
-> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量子混合密码学（Ed25519 + ML-DSA-65）、复合签名、自适应安全等级、智能体间（A2A）通信、内置可观测性和面向生产的加固，创建、签署并验证 Citizenship Bundle。
 
@@ -382,6 +382,32 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `verifySignedBundleV2(bundle, registry, policy, { now })` 接受一个可选的时钟，并报告 `details.signer_keys`；不提供时行为与以前相同。
 - `evaluateAdmissionV2` 评估你已有的验证结果（不做密码学运算，也没有 I/O）；`revocationSubjects` 列出吊销信息源必须回答的对象。
 - 指南：[`docs/ADMISSION.md`](../../../../docs/ADMISSION.md)。规范和代码：[`spec/profiles/admission`](../../../../spec/profiles/admission/README.md)。
+
+<a id="multi-party-authorization-the-mpa-v1-profile"></a>
+
+### 多方授权：`mpa-v1` 配置文件
+
+多方授权记录本身不作任何决定：其中的 `required_parties` 没有被签名，每个角色都由为它签名的参与方自己写入。在选择性启用的 `mpa-v1` 配置文件下，只有当你的策略为该目标列出的不同参与方，用你的信任集为它们列出的密钥、以两个签名组件，在有效期窗口内为本验证器，恰好对你即将执行的操作、目标和参数签了名，并且达到你的阈值和必需角色时，`authorized` 才为真。
+
+```typescript
+// Fragment, not a complete program: policySetJson and trustSetJson come from operator configuration, record from the request, registry as in the V2 Quick Start.
+import { createMultiPartyPolicyStore, createPrincipalTrustStore, evaluateMultiPartyAuthorization } from '@dcp-ai/sdk';
+
+const policy = createMultiPartyPolicyStore(policySetJson); // MultiPartyConfigError on a bad policy set
+const trust = createPrincipalTrustStore(trustSetJson);
+const result = await evaluateMultiPartyAuthorization(record, registry, {
+  policy,
+  trust,
+  expected: { operation: 'revoke_agent', target: 'agent:acme-bot', parameters: { reason: 'key_compromise' } },
+});
+// result.structure, result.verification, result.authorized, result.parties_counted,
+// result.required_parties, result.request_id, result.errors [{ code, message }]
+```
+
+- 策略集和信任集来自你的配置，绝不来自记录或请求。记录中写入的 `required_parties` 和角色不起决定作用。
+- 评估不保存状态：如果操作不是幂等的，请以原子方式消费 `request_id` 并执行。
+- `createMultiPartyRequest`、`createPartyAuthorization` 和 `buildMultiPartyAuthorization` 构建并签署记录；`checkMultiPartyAuthorizationStructure` 只检查其形式，不验证任何签名。
+- 在 `main` 的源代码中，未包含在任何已发布版本中。规范和代码：[`spec/profiles/multi-party`](../../../../spec/profiles/multi-party/README.md)。
 
 <a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>

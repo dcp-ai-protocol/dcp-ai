@@ -5,7 +5,7 @@
 
 # DCP-AI v2.0 最终安全审计 — 13 个缺口全部确认关闭
 
-> 本文是[英文版](../../../spec/AUDIT-v2.0-FINAL.md)的参考译文，更新于 06/11/2026。**这是带日期的历史记录**，不代表当前状态。如有出入，以英文版为准。
+> 本文是[英文版](../../../spec/AUDIT-v2.0-FINAL.md)的参考译文，更新于 18/11/2026。**这是带日期的历史记录**，不代表当前状态。如有出入，以英文版为准。
 
 **审计日期：** 2026-02-26  
 **审计方：** DCP-AI Protocol Governance  
@@ -17,6 +17,7 @@
 > - **第 11 号缺口与 HSM 参考实现。** `HsmCryptoProvider` 和 `HsmProviderFactory` 曾是一个模拟的模式，而不是 HSM 集成。它们没有从 `@dcp-ai/sdk` 导出，也没有 PKCS#11 绑定；`sign` 返回的是哈希而不是签名，`verify` 接受任何长度正确的签名。它们已于2026 年 11 月 6 日从源码中移除：仓库中没有 HSM 提供者，第 11 号缺口并未关闭（[docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2）。
 > - **第 1 号缺口。** SDK 的密钥恢复和 `dcp recovery-setup` 会生成 Shamir 份额，但不会用混合 KEM 加密这些份额。
 > - **第 4 号缺口。** 参考服务器检查公告 `composite_sig` 的结构，而不检查其签名；保护它的是运营方令牌（[server/README.md](../../../server/README.md)）。
+> - **第 5 号缺口。** Python、Go 和 Rust SDK 中已发布的多方授权函数只检查记录的形式：它们不验证任何签名，也不应用运营方的任何策略；下文引用的 TypeScript 模块没有由 `@dcp-ai/sdk` 导出。一条记录是否授权某项操作，由选择性启用的 `mpa-v1` 配置文件（[profiles/multi-party](../../../spec/profiles/multi-party/README.md)）决定，它在 `main` 的 SDK 中，未包含在任何已发布版本中。
 > - **仅 PQ 模式。** SDK 验证器中的 `pq_only` 仍然需要经典签名字节：在 `pq_over_classical` 下 PQ 签名覆盖这些字节，因此这并不意味着可以省略经典组件。
 > - **缺口 #6。** 自 28/10/2026 起，已发布的验证器（`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1、Go v2.11.1、Rust `dcp-ai` 2.11.1）会在 `prev_hash_secondary`、`intent_hash_secondary` 和 `audit_merkle_root_secondary` 存在时检查它们（[VERIFICATION.md](../../../spec/VERIFICATION.md)，V2-11 及其勘误）；更早的版本不检查。这些可选字段不是必需的，因此已验证的 bundle 仍可能没有完整的二级链。
 > - **`dcp audit gaps`** 检查的是文件是否存在以及是否包含标记，而不是行为。在 2026 年 10 月 25 日，它把第 7 号缺口报告为未关闭，因为它查找的是 `integrations/fastapi/__init__.py`，而该文件现在是 `sdks/python/dcp_ai/fastapi/__init__.py`。自2026 年 11 月 6 日起，无论存在哪些文件，它都把第 11 号缺口报告为未关闭，因此不再显示全部 13 个缺口已关闭。

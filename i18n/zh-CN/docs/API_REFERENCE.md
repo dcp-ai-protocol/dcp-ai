@@ -4,7 +4,7 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.4.0，协议 DCP v2.0）的参考文档。
 
@@ -885,6 +885,32 @@ Python：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `eval
   （Rust：`IngressError::Config`）。
 - 不是字节的输入在 TypeScript 和 Python 中是 `TypeError`。
 - 每个函数的约定见[覆盖图](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026)。
+
+<a id="multi-party-authorization-the-mpa-v1-profile"></a>
+
+### 多方授权：`mpa-v1` 配置文件
+
+定义见 [`spec/profiles/multi-party`](../../../spec/profiles/multi-party/README.md)。选择性启用；在 `main` 的 SDK 中，未包含在任何已发布版本中。
+
+| 函数 | 说明 |
+|----------|-------------|
+| `createMultiPartyPolicyStore(policySet)` | 验证运营方的策略集并返回一个存储；抛出 `MultiPartyConfigError`（`code`） |
+| `evaluateMultiPartyAuthorization(record, registry, { policy, trust, expected, now? })` | 判定记录是否授权 `expected`（`operation`、`target`、`parameters`）：结构、与请求的绑定、参与方、用 `trust` 中的密钥验证每个参与方的两个签名、阈值和必需角色 |
+| `createMultiPartyRequest({ target, audience, parameters?, validitySeconds, issuedAt?, requestId? })` | 构建该配置文件的 `operation_payload`，其中包含每个参与方都要签名的 `request` 块 |
+| `createPartyAuthorization(registry, operation, operationPayload, partyId, role, keys)` | 一个参与方对操作及其载荷的复合签名 |
+| `buildMultiPartyAuthorization(operation, operationPayload, authorizations, requiredParties?)` | 把各个授权放入一条记录。`required_parties` 没有被签名，任何评估都不读取它 |
+| `checkMultiPartyAuthorizationStructure(record, policy?)` | 仅检查形式：授权的数量、角色以及是否存在 `composite_sig`。不验证任何签名，也不授权任何事情 |
+
+结果：`profile`, `structure`, `verification`, `authorized`, `operation`, `target`, `request_id`, `expires_at`, `parties`, `parties_counted`, `required_parties`, `policy_set_version`, `trust_set_version`, `errors: [{ code, message }]`。
+
+- `policy` 和 `trust`（来自 `createPrincipalTrustStore` 的存储，或两者各自的 JSON）来自运营方的配置，绝不来自记录或请求。
+  阈值和每个参与方的角色都以运营方的为准。
+- 被拒绝的记录给出 `authorized: false` 的结果，绝不是错误。无效的 `policy`、`trust` 或 `expected` 会在读取记录之前抛出
+  `MultiPartyConfigError` 或 `AdmissionConfigError`。
+- 评估不保存状态：对同一请求评估两次会授权两次。操作不是幂等的执行方应以原子方式消费 `request_id` 并执行
+  （[规范 § 7](../../../spec/profiles/multi-party/README.md#7-guarantees-and-limits)）。
+
+Python：`create_multi_party_policy_store`, `evaluate_multi_party_authorization`（async）, `create_multi_party_request`, `create_party_authorization`（async）, `build_multi_party_authorization`, `check_multi_party_authorization_structure`；Go：`NewMultiPartyPolicyStore`, `EvaluateMultiPartyAuthorization`, `NewMultiPartyRequest`, `CreatePartyAuthorization`, `BuildMultiPartyAuthorization`, `CheckMultiPartyAuthorizationStructure`；Rust（`dcp_ai::v2::multi_party_auth`）：`MultiPartyPolicyStore::from_json`, `evaluate_multi_party_authorization`, `create_multi_party_request`, `create_party_authorization`, `build_multi_party_authorization`, `check_multi_party_authorization_structure`。在 Python、Go 和 Rust 中，结构检查曾以 `verify_multi_party_authorization` / `VerifyMultiPartyAuthorization` 的名称发布；该名称已弃用，结果相同，并且不验证任何签名。WASM 不导出这些函数。
 
 ### `DEFAULT_VERIFIER_POLICY`
 

@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> 本文是[英文版](../../../../sdks/python/README.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../sdks/python/README.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic v2 模型、后量子混合签名（Ed25519 + ML-DSA-65，以及 SLH-DSA-192f）、ML-KEM-768 KEM 原语、带 `pq_over_classical` 绑定的复合签名、V1 和 V2 bundle 的签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 的行为，以及功能完整的 CLI。
 
@@ -78,7 +78,8 @@ pip install "dcp-ai[otlp]>=2.11.0,<3"       # OpenTelemetry OTLP exporter
 | DCP-09 委托 + 可验证的委托链（`create_sub_mandate`、`verify_mandate_chain`，§3.5）+ 关注阈值 + 委托人镜像 | 是 |
 | 会话 nonce 工具、安全等级引擎（`compute_security_tier(intent, policy_decision, mandate_chain_tier)`，规范 §14.2）、紧急吊销 | 是 |
 | 惰性 PQ 检查点 + `PQCheckpointManager` | 是 |
-| 盲化 RPR、多方授权、算法公告工具 | 是 |
+| 盲化 RPR、算法公告工具 | 是 |
+| `mpa-v1` 配置文件下的多方授权（`evaluate_multi_party_authorization`，spec/profiles/multi-party） | 在 `main` 上，未包含在任何已发布版本中。已发布版本只有结构检查（`verify_multi_party_authorization`），它不验证任何签名 |
 | 规范错误码（所有 SDK 共享的 38 个）+ `detect_wire_format` | 是 |
 | OpenTelemetry / OTLP 导出器（可选的 `[otlp]` extra） | 是 |
 | 准入：受信任的委托人和 `strict-v1` 配置 | 是（2.10.0） |

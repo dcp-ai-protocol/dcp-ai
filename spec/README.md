@@ -64,5 +64,6 @@ The specification is being organized into a **Core** (minimum interoperable prot
 | [profiles/a2a/](profiles/a2a/) | Agent discovery, handshake, session management |
 | [profiles/governance/](profiles/governance/) | Risk tiers, jurisdiction, revocation, key recovery |
 | [profiles/admission/](profiles/admission/) | Admission: trusted principals and the strict-v1 profile (in the SDKs on `main`; published in npm SDK 2.2.0, with other ecosystems released separately) |
+| [profiles/multi-party/](profiles/multi-party/) | Multi-party authorization: the `mpa-v1` profile (in the SDKs on `main`, not in a published version) |
 
 The existing specs (DCP-01 through DCP-09, BUNDLE, VERIFICATION, DCP-AI v2.0) remain authoritative. The core and profile documents provide editorial context and clarify the separation of concerns. See the [ROADMAP](../ROADMAP.md) for the planned evolution.

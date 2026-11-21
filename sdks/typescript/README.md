@@ -345,6 +345,30 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `evaluateAdmissionV2` evaluates a verifier result you already have (no cryptography, no I/O); `revocationSubjects` lists what a revocation source must answer for.
 - Guide: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Spec and codes: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
+### Multi-Party Authorization: the `mpa-v1` Profile
+
+A multi-party authorization record decides nothing on its own: its `required_parties` is not signed and each role is written by the party that signs it. Under the opt-in `mpa-v1` profile, `authorized` is true only when distinct parties your policy lists for the target signed, with both signature components and keys your trust set lists for them, exactly the operation, target and parameters you are about to carry out, for this verifier and inside the validity window, and they meet your threshold and required roles.
+
+```typescript
+// Fragment, not a complete program: policySetJson and trustSetJson come from operator configuration, record from the request, registry as in the V2 Quick Start.
+import { createMultiPartyPolicyStore, createPrincipalTrustStore, evaluateMultiPartyAuthorization } from '@dcp-ai/sdk';
+
+const policy = createMultiPartyPolicyStore(policySetJson); // MultiPartyConfigError on a bad policy set
+const trust = createPrincipalTrustStore(trustSetJson);
+const result = await evaluateMultiPartyAuthorization(record, registry, {
+  policy,
+  trust,
+  expected: { operation: 'revoke_agent', target: 'agent:acme-bot', parameters: { reason: 'key_compromise' } },
+});
+// result.structure, result.verification, result.authorized, result.parties_counted,
+// result.required_parties, result.request_id, result.errors [{ code, message }]
+```
+
+- The policy set and the trust set come from your configuration, never from the record or a request. `required_parties` and the roles written in the record do not decide.
+- The evaluation keeps no state: if the operation is not idempotent, consume `request_id` and execute atomically.
+- `createMultiPartyRequest`, `createPartyAuthorization` and `buildMultiPartyAuthorization` build and sign a record; `checkMultiPartyAuthorizationStructure` checks its shape only and verifies no signature.
+- In the source on `main`, not in a published version. Spec and codes: [`spec/profiles/multi-party`](../../spec/profiles/multi-party/README.md).
+
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
 ### Delegation Chains (DCP-09 §3.5)

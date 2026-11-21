@@ -5,7 +5,7 @@
 
 # dcp-ai — SDK Python
 
-> Tradução informativa da [versão em inglês](../../../../sdks/python/README.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../sdks/python/README.md), atualizada em 18/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 SDK oficial em Python para o Digital Citizenship Protocol (DCP v2.0). Modelos Pydantic v2, assinaturas híbridas pós-quânticas (Ed25519 + ML-DSA-65, além de SLH-DSA-192f), a primitiva KEM ML-KEM-768, assinaturas compostas com vinculação `pq_over_classical`, assinatura e verificação de bundles V1 e V2, observabilidade com OpenTelemetry, o comportamento do DCP-04 ao DCP-09 e uma CLI completa.
 
@@ -81,7 +81,8 @@ pip install "dcp-ai[otlp]>=2.11.0,<3"       # OpenTelemetry OTLP exporter
 | Delegação do DCP-09 + cadeias de delegação verificáveis (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + limiar de atenção + espelho do principal | Sim |
 | Utilitários de nonce de sessão, motor de níveis de segurança (`compute_security_tier(intent, policy_decision, mandate_chain_tier)`, spec §14.2), revogação de emergência | Sim |
 | Checkpoints PQ preguiçosos + `PQCheckpointManager` | Sim |
-| RPR ocultado, autorização multipartes, utilitários de avisos sobre algoritmos | Sim |
+| RPR ocultado, utilitários de avisos sobre algoritmos | Sim |
+| Autorização multipartes sob o perfil `mpa-v1` (`evaluate_multi_party_authorization`, spec/profiles/multi-party) | Em `main`, em nenhuma versão publicada. As versões publicadas têm apenas a verificação da estrutura (`verify_multi_party_authorization`), que não verifica nenhuma assinatura |
 | Códigos de erro canônicos (38 compartilhados por todos os SDKs) + `detect_wire_format` | Sim |
 | Exportador OpenTelemetry / OTLP (extra opcional `[otlp]`) | Sim |
 | Admissão: principais confiáveis e o perfil `strict-v1` | Sim (2.10.0) |

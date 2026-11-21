@@ -6,7 +6,7 @@
 
 **Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> Traducción informativa del [README en inglés](../../../../sdks/rust/README.md), actualizada el 09/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
+> Traducción informativa del [README en inglés](../../../../sdks/rust/README.md), actualizada el 18/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
 
 SDK oficial de Rust para el Digital Citizenship Protocol (DCP v2.0). Ofrece tipos basados en Serde, criptografía poscuántica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con vinculación `pq_over_classical`, cadenas de hash duales, observabilidad con OpenTelemetry, comportamiento DCP-04..09 y soporte opcional para WebAssembly.
 
@@ -78,7 +78,8 @@ dcp-ai = { version = "2.14.0", features = ["wasm"] }
 | Cifrado de sesión A2A DCP-04 con AES-256-GCM | _Pospuesto a una versión posterior_ |
 | Funciones auxiliares del nonce de sesión, motor de niveles de seguridad (`compute_security_tier(&intent, Some(&policy_decision))`, especificación §14.2; `compute_security_tier_with_floor` añade el nivel de una cadena de delegación), revocación de emergencia | Sí |
 | Checkpoints PQ diferidos y `PQCheckpointManager` | Sí |
-| RPR cegado, autorización multipartita y funciones auxiliares de avisos sobre algoritmos | Sí |
+| RPR cegado y funciones auxiliares de avisos sobre algoritmos | Sí |
+| Autorización multiparte bajo el perfil `mpa-v1` (`evaluate_multi_party_authorization`, spec/profiles/multi-party) | En `main`, en ninguna versión publicada. Las versiones publicadas solo tienen la comprobación de la estructura (`verify_multi_party_authorization`), que no verifica ninguna firma |
 | Códigos de error canónicos (38 compartidos entre todos los SDK) y `detect_wire_format` | Sí |
 | Exportador OpenTelemetry / OTLP (función opcional `otlp`) | Sí |
 | Admisión: principales de confianza y perfil `strict-v1` | Sí |

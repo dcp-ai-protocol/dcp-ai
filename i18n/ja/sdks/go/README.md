@@ -6,7 +6,7 @@
 
 **Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：09/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：18/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK。Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、複合署名、二重ハッシュチェーン、バンドル検証をサポートします。
 
@@ -78,7 +78,8 @@ go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-a
 | DCP-09 委任と検証可能な委任チェーン（`CreateSubMandate`、`VerifyMandateChain`）、認識しきい値、責任主体のミラー | — | 対応 |
 | セッション nonce の補助関数、緊急失効 | — | 対応 |
 | 遅延 PQ チェックポイントと `PQCheckpointManager` | — | 対応 |
-| ブラインド化 RPR、複数当事者による承認、アルゴリズム勧告の補助関数 | — | 対応 |
+| ブラインド化 RPR、アルゴリズム勧告の補助関数 | — | 対応 |
+| `mpa-v1` のプロファイルによる複数当事者の認可（`EvaluateMultiPartyAuthorization`、spec/profiles/multi-party） | — | `main` にあり、公開済みのバージョンにはありません。公開済みのバージョンにあるのは構造の確認（`VerifyMultiPartyAuthorization`）だけで、署名は 1 つも検証しません |
 | 共通のエラーコード（全 SDK で共有する 38 個）と `DetectWireFormat` | — | 対応 |
 | OpenTelemetry / OTLP エクスポーター（ビルドタグ `otlp`） | — | 対応 |
 | 正規化候補 `dcp-jcs-v2`（入力処理、ルーター、バイト列検証器、生成器） | — | 実験的かつ明示的な選択が必要。規範ではない |

@@ -86,9 +86,22 @@ from dcp_ai.v2.blinded_rpr import (
     verify_blinded_rpr,
 )
 from dcp_ai.v2.multi_party_auth import (
+    MPA_V1,
+    MPA_V1_MAX_AUTHORIZATIONS,
+    MPA_V1_MAX_VALIDITY_SECONDS,
     MultiPartyAuthorization,
+    MultiPartyConfigError,
+    MultiPartyOperationRule,
     MultiPartyPolicy,
+    MultiPartyPolicyStore,
+    MultiPartySubject,
     PartyAuthorization,
+    build_multi_party_authorization,
+    check_multi_party_authorization_structure,
+    create_multi_party_policy_store,
+    create_multi_party_request,
+    create_party_authorization,
+    evaluate_multi_party_authorization,
     verify_multi_party_authorization,
 )
 from dcp_ai.v2.algorithm_advisory import (
@@ -312,10 +325,23 @@ __all__ = [
     "generate_pii_salt",
     "is_blinded_rpr",
     "verify_blinded_rpr",
-    # Phase 2: Multi-party M-of-N auth
+    # Multi-party authorization: the structural check and the opt-in mpa-v1 profile (spec/profiles/multi-party)
+    "MPA_V1",
+    "MPA_V1_MAX_AUTHORIZATIONS",
+    "MPA_V1_MAX_VALIDITY_SECONDS",
     "MultiPartyAuthorization",
+    "MultiPartyConfigError",
+    "MultiPartyOperationRule",
     "MultiPartyPolicy",
+    "MultiPartyPolicyStore",
+    "MultiPartySubject",
     "PartyAuthorization",
+    "build_multi_party_authorization",
+    "check_multi_party_authorization_structure",
+    "create_multi_party_policy_store",
+    "create_multi_party_request",
+    "create_party_authorization",
+    "evaluate_multi_party_authorization",
     "verify_multi_party_authorization",
     # Phase 2: Algorithm advisory
     "AlgorithmAdvisory",

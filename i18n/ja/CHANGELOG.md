@@ -4,7 +4,7 @@
 
 # 変更履歴
 
-> [英語版](../../CHANGELOG.md)の参考訳です（09/11/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
+> [英語版](../../CHANGELOG.md)の参考訳です（18/11/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
 
 **公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。2026 年 10 月 28 日の 6 つの修正リリースは[専用のセクション](#2026-10-28-sha3-patch-releases)にあります。05/11/2026 の五つのリリースは[独自のセクション](#2026-11-05-auditable-releases)にあります。09/11/2026 の六つのリリースは[独自のセクション](#2026-11-09-six-releases)にあります。
 
@@ -111,6 +111,19 @@
 <a id="security"></a>
 
 ### セキュリティ
+
+- **複数当事者による認可：判断するのはオプトインの `mpa-v1` のプロファイルで、公開済みの関数は構造だけを確認します**（`main` のソースコード、未公開。バージョンの変更はありません）。
+  複数当事者による認可のレコードは、それだけでは何も決めません。その `required_parties` は署名されておらず、それぞれの役割は署名する当事者自身が書き、操作の対象についてどの当事者が発言できるのかを示すものは何もありません。
+  Python、Go、Rust の SDK が `verify_multi_party_authorization` / `VerifyMultiPartyAuthorization` として公開している関数は、レコードの形を確認するだけで、署名を 1 つも検証しません。その結果は認可ではありません。
+  これらは非推奨になり、同じパラメーターと同じ結果を持つ `check_multi_party_authorization_structure` / `CheckMultiPartyAuthorizationStructure` が代わりになります。
+  判断するのは、新しい [`mpa-v1` のプロファイル](../../spec/profiles/multi-party/README.md)です。
+  `evaluateMultiPartyAuthorization`（TypeScript）、`evaluate_multi_party_authorization`（Python、Rust）、`EvaluateMultiPartyAuthorization`（Go）が `authorized: true` を返すのは、オペレーターのポリシーがその対象について挙げる別々の当事者が、オペレーターのプリンシパルの信頼セットにある鍵で、両方の署名の構成要素について、実行者がこれから実行しようとしている操作、対象、パラメーターそのものに、この検証器に向けて、有効期間の中で署名しており、オペレーターのしきい値と必須の役割を満たす場合だけです。
+  対象、オーディエンス、有効期間は、`operation_payload` の中の署名された `request` のブロックに入ります。レコードのスキーマ、署名されるバイト列、`DCP-AI.v2.MultiPartyAuth` のコンテキスト、`dcp-jcs-v1` は変わりません。
+  スキーマが 2 つ新しく加わり（`multi_party_request.schema.json` と `multi_party_policy_set.schema.json`）、4 つの SDK が実行するケースは `tests/interop/v2/multi_party_vectors.json` にあります。
+  `@dcp-ai/sdk` は複数当事者の関数をエクスポートするようになりました。このモジュールはソースにありましたがエクスポートされておらず、そのテストは置き換えられます。
+  `request` のブロックなしで署名されたレコードは、このプロファイルのもとで認可されることは決してありません。レガシーモードはなく、当事者は署名し直します。
+  評価は状態を持たないため、操作が冪等でない実行者は、`request_id` の消費と実行をアトミックに行います。
+  リファレンスのサーバーの `POST /v2/multi-party/authorize` は、このプロファイルを適用しません。
 
 - **Go SDK の OpenTelemetry Go v1.47.0。ソースには Go 1.26 が必要になりました**（`main` のソースのみで、公開済みの
   どのバージョンにも含まれません。バージョン番号は変わりません）。`go.opentelemetry.io/otel`、`otel/metric`、

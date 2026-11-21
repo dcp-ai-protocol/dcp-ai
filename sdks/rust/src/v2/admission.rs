@@ -128,6 +128,15 @@ struct TrustedKey {
     expires_at: Option<i64>,
 }
 
+/// Whether a trusted key can count at a given instant ([`PrincipalTrustStore::key_state`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TrustedKeyState {
+    Usable,
+    Revoked,
+    Expired,
+    NotYetValid,
+}
+
 /// A validated principal trust set (schemas/v2/principal_trust_set.schema.json,
 /// spec/profiles/admission § 2.2). Load it with [`PrincipalTrustStore::from_json`].
 #[derive(Debug, Clone)]
@@ -852,6 +861,23 @@ impl PrincipalTrustStore {
     /// `now`. Shared with admit_delegated_bundle_v2, for each component of a mandate chain's root.
     pub(crate) fn key_error(&self, human_id: &str, kid: &str, alg: &str, public_key_b64: &str, now: i64) -> Option<(&'static str, &'static str)> {
         key_rejection(self.principals.get(human_id).and_then(|keys| keys.get(kid)), alg, public_key_b64, now)
+    }
+
+    /// The key the principal `human_id` has under `kid`: its algorithm, its bytes, and whether it can count at
+    /// `now` (the first that applies, in the order of T2). None when the store has no such key. For the profiles
+    /// that take a party's keys from the trust set instead of from the artifact (spec/profiles/multi-party).
+    pub(crate) fn key_state(&self, human_id: &str, kid: &str, now: i64) -> Option<(&str, &[u8], TrustedKeyState)> {
+        let key = self.principals.get(human_id)?.get(kid)?;
+        let state = if key.status == KeyStatus::Revoked {
+            TrustedKeyState::Revoked
+        } else if key.status == KeyStatus::Expired || key.expires_at.is_some_and(|t| t < now) {
+            TrustedKeyState::Expired
+        } else if key.not_before.is_some_and(|t| t > now) {
+            TrustedKeyState::NotYetValid
+        } else {
+            TrustedKeyState::Usable
+        };
+        Some((key.alg.as_str(), key.bytes.as_slice(), state))
     }
 }
 

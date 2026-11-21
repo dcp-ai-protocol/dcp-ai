@@ -105,6 +105,12 @@ fn civil_iso(t: std::time::SystemTime) -> String {
     )
 }
 
+/// An instant in milliseconds since the Unix epoch, as RFC 3339 in UTC with milliseconds.
+pub(crate) fn rfc3339_from_millis(millis: i64) -> String {
+    let (y, mo, d, h, mi, s) = civil_from_secs(millis.div_euclid(1000));
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z", y, mo, d, h, mi, s, millis.rem_euclid(1000))
+}
+
 fn civil_from_secs(secs: i64) -> (i64, u32, u32, u32, u32, u32) {
     let days = secs.div_euclid(86_400);
     let tod = secs.rem_euclid(86_400) as u32;
