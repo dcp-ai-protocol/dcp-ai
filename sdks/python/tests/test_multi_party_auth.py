@@ -172,6 +172,45 @@ async def test_keeps_no_state(registry):
 
 
 @pytest.mark.asyncio
+async def test_what_the_caller_changes_while_signatures_are_verified_is_not_read(registry):
+    c = _case("signed_another_request")  # alice signs this request; bob, another one
+    record = copy.deepcopy(V["records"][c["record"]])
+    pending = asyncio.ensure_future(_evaluate(c, registry, record))
+    await asyncio.sleep(0)  # the evaluation runs up to the first signature it verifies
+    assert not pending.done()
+    record["authorizations"][1] = copy.deepcopy(record["authorizations"][0])  # alice again, where bob was checked as a party
+    r = await pending
+    assert [r["authorized"], r["verification"], r["parties_counted"], _codes(r)] == [False, "failed", 1, ["MPA_SIGNATURE_INVALID"]]
+    assert [(p["party_id"], p["verified"]) for p in r["parties"]] == [("human:alice", True), ("human:bob", False)]
+
+
+@pytest.mark.asyncio
+async def test_what_is_signed_is_what_was_compared_with_what_the_executor_expects(registry):
+    c = _case("two_of_three")
+    record = copy.deepcopy(V["records"][c["record"]])
+    signed = record["operation_payload"]["parameters"]
+    record["operation_payload"]["parameters"] = {"reason": "administrative"}  # what the executor is about to do; no one signed it
+    pending = asyncio.ensure_future(_evaluate({**c, "expected": {**c["expected"], "parameters": {"reason": "administrative"}}}, registry, record))
+    await asyncio.sleep(0)
+    assert not pending.done()
+    record["operation_payload"]["parameters"] = signed  # back to what the parties signed, once the parameters were compared
+    r = await pending
+    assert [r["authorized"], r["parties_counted"], _codes(r)] == [False, 0, ["MPA_SIGNATURE_INVALID"]]
+
+
+@pytest.mark.asyncio
+async def test_a_record_nested_too_deeply_to_copy_is_refused_as_before(registry):
+    c = _case("two_of_three")
+    record = copy.deepcopy(V["records"][c["record"]])
+    deep: dict = {}
+    record["operation_payload"]["parameters"] = deep
+    for _ in range(100_000):
+        deep["deeper"] = deep = {}
+    r = await _evaluate(c, registry, record)
+    assert [r["authorized"], r["structure"], _codes(r)] == [False, "invalid", ["MPA_NOT_REPRESENTABLE"]]
+
+
+@pytest.mark.asyncio
 async def test_accepts_loaded_stores_as_well_as_their_json(registry):
     c = _case("two_of_three")
     r = await evaluate_multi_party_authorization(

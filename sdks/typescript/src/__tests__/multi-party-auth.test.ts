@@ -148,6 +148,36 @@ describe('multi-party authorization: what the vectors cannot express', () => {
     expect((await evaluate(c)).authorized).toBe(true);
   });
 
+  it('decides on the record it was given: what the caller changes while signatures are verified is not read', async () => {
+    const c = byName('signed_another_request'); // alice signs this request; bob, another one
+    const record = clone(V.records[c.record]);
+    const pending = evaluate(c, registry, record); // runs up to the first signature it verifies
+    record.authorizations[1] = clone(record.authorizations[0]); // alice again, where bob was checked as a party
+    const r = await pending;
+    expect([r.authorized, r.verification, r.parties_counted, codes(r)]).toEqual([false, 'failed', 1, ['MPA_SIGNATURE_INVALID']]);
+    expect(r.parties.map((p) => [p.party_id, p.verified])).toEqual([['human:alice', true], ['human:bob', false]]);
+  });
+
+  it('what is signed is what was compared with what the executor expects', async () => {
+    const c = byName('two_of_three');
+    const record = clone(V.records[c.record]);
+    const signed = record.operation_payload.parameters;
+    record.operation_payload.parameters = { reason: 'administrative' }; // what the executor is about to do; no one signed it
+    const pending = evaluate({ ...c, expected: { ...c.expected, parameters: { reason: 'administrative' } } }, registry, record);
+    record.operation_payload.parameters = signed; // back to what the parties signed, once the parameters were compared
+    const r = await pending;
+    expect([r.authorized, r.parties_counted, codes(r)]).toEqual([false, 0, ['MPA_SIGNATURE_INVALID']]);
+  });
+
+  it('a record nested too deeply to copy is refused as before', async () => {
+    const c = byName('two_of_three');
+    const record = clone(V.records[c.record]);
+    let deep: Record<string, unknown> = (record.operation_payload.parameters = {});
+    for (let i = 0; i < 100_000; i += 1) deep = deep.deeper = {};
+    const r = await evaluate(c, registry, record);
+    expect([r.authorized, r.structure, codes(r)]).toEqual([false, 'invalid', ['MPA_NOT_REPRESENTABLE']]);
+  });
+
   it('accepts loaded stores as well as their JSON, with the same result', async () => {
     const c = byName('two_of_three');
     const r = await evaluateMultiPartyAuthorization(clone(V.records[c.record]), registry, {
@@ -165,6 +195,14 @@ describe('multi-party authorization: what the vectors cannot express', () => {
       const r = await evaluateMultiPartyAuthorization(record, registry, { policy: V.policy_sets.base, trust: V.trust_sets.base, expected: c.expected, now: c.now_ms });
       expect([r.authorized, r.structure, codes(r)]).toEqual([false, 'invalid', ['MPA_SCHEMA_INVALID']]);
     }
+  });
+
+  it('gives a result, not an exception, for a record with a hole among its authorizations', async () => {
+    const c = byName('two_of_three');
+    const record = clone(V.records[c.record]);
+    record.authorizations.length += 1; // a third entry that is not there
+    const r = await evaluate(c, registry, record);
+    expect([r.authorized, r.structure, codes(r)]).toEqual([false, 'invalid', ['MPA_SCHEMA_INVALID']]);
   });
 
   it('does not take a role from the record', async () => {
