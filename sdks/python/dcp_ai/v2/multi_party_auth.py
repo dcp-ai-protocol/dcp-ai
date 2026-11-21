@@ -20,7 +20,9 @@ operator's policy set; their keys come from the operator's principal trust set. 
 in the record stands for either.
 
 Deterministic and offline. It keeps no state: evaluating a request does not consume it
-(single use is the executor's, which must consume request_id and execute atomically).
+(single use is the executor's, which must consume request_id and execute atomically). It
+decides on a copy of the record taken when it is called: the caller's object is not read
+again.
 """
 
 from __future__ import annotations
@@ -213,6 +215,17 @@ def _canonical(value: Any) -> str | None:
         return canonicalize_v2(value)
     except Exception:
         return None
+
+
+def _snapshot(value: Any) -> Any:
+    """`value` with dicts, lists and tuples of its own: the JSON it is, read once. Anything
+    else is kept as it is."""
+    if isinstance(value, dict):
+        return {key: _snapshot(member) for key, member in value.items()}
+    if isinstance(value, (list, tuple)):
+        members = [_snapshot(member) for member in value]
+        return members if isinstance(value, list) else tuple(members)
+    return value
 
 
 def _unknown_field(value: dict[Any, Any], allowed: tuple[str, ...], where: str) -> None:
@@ -626,8 +639,15 @@ async def evaluate_multi_party_authorization(
         # Bounded: an identifier from the record is quoted in it, and escaping can make it long.
         errors.append({"code": code, "message": message if len(message) <= _MAX_MESSAGE else f"{message[: _MAX_MESSAGE - 1]}…"})
 
-    # 1. Structure: the first failure, and nothing else is read.
-    malformed = _structure_code(record)
+    # 1. Structure: the first failure, and nothing else is read. From here on `record` is the
+    # evaluation's own copy: it waits on the signatures, and what the caller does to its
+    # object meanwhile must not count.
+    try:
+        record = _snapshot(record)
+    except RecursionError:  # nested too deeply to copy
+        malformed = _structure_code(record) or "MPA_NOT_REPRESENTABLE"
+    else:
+        malformed = _structure_code(record)
     if malformed is not None:
         result["structure"] = "invalid"
         add(malformed, "the record is not a well-formed mpa-v1 multi-party authorization")

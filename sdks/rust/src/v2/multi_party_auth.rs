@@ -619,7 +619,11 @@ fn structure_code(record: &Value) -> Option<&'static str> {
     if !conforms_to_schema(record) {
         return Some("MPA_SCHEMA_INVALID");
     }
-    let payload = record["operation_payload"].as_object()?;
+    // The schema check leaves an object and an array here. Were it ever not to, the record is malformed: never one
+    // with no structural problem.
+    let (Some(payload), Some(authorizations)) = (record["operation_payload"].as_object(), record["authorizations"].as_array()) else {
+        return Some("MPA_SCHEMA_INVALID");
+    };
     if !payload.contains_key("request") {
         return Some("MPA_REQUEST_MISSING");
     }
@@ -629,7 +633,7 @@ fn structure_code(record: &Value) -> Option<&'static str> {
     if canonicalize_v2(&record["operation_payload"]).is_err() {
         return Some("MPA_NOT_REPRESENTABLE");
     }
-    (record["authorizations"].as_array().map_or(0, Vec::len) > MPA_V1_MAX_AUTHORIZATIONS).then_some("MPA_TOO_MANY_AUTHORIZATIONS")
+    (authorizations.len() > MPA_V1_MAX_AUTHORIZATIONS).then_some("MPA_TOO_MANY_AUTHORIZATIONS")
 }
 
 /// Why a trusted key cannot count at `now`, the first that applies, or None.

@@ -13,7 +13,8 @@
  * their keys come from the operator's principal trust set. Nothing in the record stands for either.
  *
  * Deterministic and offline. It keeps no state: evaluating a request does not consume it (single use is the
- * executor's, which must consume request_id and execute atomically).
+ * executor's, which must consume request_id and execute atomically). It decides on a copy of the record taken when
+ * it is called: the caller's object is not read again.
  */
 
 import { randomBytes } from 'crypto';
@@ -110,6 +111,23 @@ function canonical(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * `value` with arrays and objects of its own: the JSON it is, read once. Anything else is kept as it is. Plain loops,
+ * one frame a level, so that it reaches at least as deep as canonicalization does; a hole stays a hole, so that an
+ * array is never made larger than it was.
+ */
+function snapshot(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const copy = new Array<unknown>(value.length);
+    for (let i = 0; i < copy.length; i += 1) if (i in value) copy[i] = snapshot(value[i]);
+    return copy;
+  }
+  if (!isObject(value)) return value;
+  const copy: Record<string, unknown> = Object.create(null); // no prototype: "__proto__" is a member like any other
+  for (const key of Object.keys(value)) copy[key] = snapshot(value[key]);
+  return copy;
 }
 
 // ── Operator policy (§ 2.3) ──
@@ -431,6 +449,7 @@ function conformsToSchema(record: unknown): record is MultiPartyAuthorization {
   if (record.type !== 'multi_party_authorization' || !OPERATIONS.includes(record.operation as string) || !isObject(record.operation_payload)) return false;
   if (!isInteger(record.required_parties) || record.required_parties < 2) return false;
   if (!Array.isArray(record.authorizations) || record.authorizations.length === 0) return false;
+  if (record.authorizations.includes(undefined)) return false; // a hole: every() below would skip it
   return record.authorizations.every((a) => {
     if (!isObject(a) || !hasOnly(a, ['party_id', 'role', 'composite_sig']) || !hasAll(a, ['party_id', 'role', 'composite_sig'])) return false;
     const sig = a.composite_sig;
@@ -523,8 +542,15 @@ export async function evaluateMultiPartyAuthorization(
   const add = (code: MultiPartyCode, message: string) =>
     result.errors.push({ code, message: message.length <= MAX_MESSAGE ? message : `${message.slice(0, MAX_MESSAGE - 1)}…` });
 
-  // 1. Structure: the first failure, and nothing else is read.
-  const malformed = structureCode(record);
+  // 1. Structure: the first failure, and nothing else is read. From here on `record` is the evaluation's own copy:
+  // it waits on the signatures, and what the caller does to its object meanwhile must not count.
+  let malformed: MultiPartyCode | undefined;
+  try {
+    record = snapshot(record);
+  } catch {
+    malformed = structureCode(record) ?? 'MPA_NOT_REPRESENTABLE'; // nested too deeply to copy
+  }
+  malformed ??= structureCode(record);
   if (malformed) {
     result.structure = 'invalid';
     add(malformed, 'the record is not a well-formed mpa-v1 multi-party authorization');
