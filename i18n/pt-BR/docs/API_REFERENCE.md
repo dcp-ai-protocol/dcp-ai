@@ -4,7 +4,7 @@
 
 # Referência da API do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 18/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Referência do SDK TypeScript `@dcp-ai/sdk` como está em `main` (versão do pacote 2.4.0, protocolo DCP v2.0).
 
@@ -889,6 +889,34 @@ Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evalu
 - Uma entrada que não são bytes é um `TypeError` em TypeScript e Python.
 - O [mapa de cobertura](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) traz o contrato de cada
   função.
+
+<a id="multi-party-authorization-the-mpa-v1-profile"></a>
+
+### Autorização multipartes: o perfil `mpa-v1`
+
+Definida em [`spec/profiles/multi-party`](../../../spec/profiles/multi-party/README.md). Opt-in; está nos SDKs em `main` e em nenhuma versão publicada.
+
+| Função | Descrição |
+|----------|-------------|
+| `createMultiPartyPolicyStore(policySet)` | Valida o conjunto de políticas do operador e retorna um armazenamento; lança `MultiPartyConfigError` (`code`) |
+| `evaluateMultiPartyAuthorization(record, registry, { policy, trust, expected, now? })` | Decide se o registro autoriza `expected` (`operation`, `target`, `parameters`): estrutura, vínculo com a requisição, partes, as duas assinaturas de cada parte com as chaves de `trust`, limiar e papéis obrigatórios |
+| `createMultiPartyRequest({ target, audience, parameters?, validitySeconds, issuedAt?, requestId? })` | Constrói o `operation_payload` do perfil, com o bloco `request` que cada parte assina |
+| `createPartyAuthorization(registry, operation, operationPayload, partyId, role, keys)` | A assinatura composta de uma parte sobre a operação e o seu payload |
+| `buildMultiPartyAuthorization(operation, operationPayload, authorizations, requiredParties?)` | Reúne as autorizações em um registro. `required_parties` não é assinado e nenhuma avaliação o lê |
+| `checkMultiPartyAuthorizationStructure(record, policy?)` | Apenas a forma: número de autorizações, papéis e presença de um `composite_sig`. Não verifica nenhuma assinatura e não autoriza nada |
+
+O resultado: `profile`, `structure`, `verification`, `authorized`, `operation`, `target`, `request_id`, `expires_at`, `parties`, `parties_counted`, `required_parties`, `policy_set_version`, `trust_set_version`, `errors: [{ code, message }]`.
+
+- `policy` e `trust` (um armazenamento de `createPrincipalTrustStore`, ou o JSON de qualquer um dos dois) vêm da
+  configuração do operador, nunca do registro nem de uma requisição. O limiar e o papel de cada parte são os do
+  operador.
+- Um registro recusado é um resultado com `authorized: false`, nunca um erro. Um `policy`, um `trust` ou um
+  `expected` inválidos lançam `MultiPartyConfigError` ou `AdmissionConfigError` antes de o registro ser lido.
+- A avaliação não guarda estado: avaliar duas vezes a mesma requisição autoriza duas vezes. Um executor cuja operação
+  não é idempotente consome `request_id` e executa de forma atômica
+  ([especificação, § 7](../../../spec/profiles/multi-party/README.md#7-guarantees-and-limits)).
+
+Python: `create_multi_party_policy_store`, `evaluate_multi_party_authorization` (async), `create_multi_party_request`, `create_party_authorization` (async), `build_multi_party_authorization`, `check_multi_party_authorization_structure`; Go: `NewMultiPartyPolicyStore`, `EvaluateMultiPartyAuthorization`, `NewMultiPartyRequest`, `CreatePartyAuthorization`, `BuildMultiPartyAuthorization`, `CheckMultiPartyAuthorizationStructure`; Rust (`dcp_ai::v2::multi_party_auth`): `MultiPartyPolicyStore::from_json`, `evaluate_multi_party_authorization`, `create_multi_party_request`, `create_party_authorization`, `build_multi_party_authorization`, `check_multi_party_authorization_structure`. Em Python, Go e Rust a verificação da estrutura foi publicada como `verify_multi_party_authorization` / `VerifyMultiPartyAuthorization`; esse nome está obsoleto, dá o mesmo resultado e não verifica nenhuma assinatura. O WASM não exporta essas funções.
 
 ### `DEFAULT_VERIFIER_POLICY`
 

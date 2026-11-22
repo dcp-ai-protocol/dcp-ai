@@ -866,6 +866,31 @@ Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evalu
 - The [coverage map](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) lists the contract of each
   function.
 
+### Multi-party authorization: the `mpa-v1` profile
+
+Defined in [`spec/profiles/multi-party`](../spec/profiles/multi-party/README.md). Opt-in; in the SDKs on `main` and in no published version.
+
+| Function | Description |
+|----------|-------------|
+| `createMultiPartyPolicyStore(policySet)` | Validates the operator's policy set and returns a store; throws `MultiPartyConfigError` (`code`) |
+| `evaluateMultiPartyAuthorization(record, registry, { policy, trust, expected, now? })` | Decides whether the record authorizes `expected` (`operation`, `target`, `parameters`): structure, binding to the request, parties, both signatures of each party under the keys of `trust`, threshold and required roles |
+| `createMultiPartyRequest({ target, audience, parameters?, validitySeconds, issuedAt?, requestId? })` | Builds the `operation_payload` of the profile, with the `request` block every party signs |
+| `createPartyAuthorization(registry, operation, operationPayload, partyId, role, keys)` | One party's composite signature over the operation and its payload |
+| `buildMultiPartyAuthorization(operation, operationPayload, authorizations, requiredParties?)` | Puts the authorizations in one record. `required_parties` is not signed and no evaluation reads it |
+| `checkMultiPartyAuthorizationStructure(record, policy?)` | The shape only: number of authorizations, roles and presence of a `composite_sig`. It verifies no signature and authorizes nothing |
+
+The result: `profile`, `structure`, `verification`, `authorized`, `operation`, `target`, `request_id`, `expires_at`, `parties`, `parties_counted`, `required_parties`, `policy_set_version`, `trust_set_version`, `errors: [{ code, message }]`.
+
+- `policy` and `trust` (a store from `createPrincipalTrustStore`, or the JSON of either) come from the operator's
+  configuration, never from the record or from a request. The threshold and each party's role are the operator's.
+- A record that is refused is a result with `authorized: false`, never an error. An invalid `policy`, `trust` or
+  `expected` throws `MultiPartyConfigError` or `AdmissionConfigError` before the record is read.
+- The evaluation keeps no state: evaluating the same request twice authorizes twice. An executor whose operation is
+  not idempotent consumes `request_id` and executes atomically
+  ([spec § 7](../spec/profiles/multi-party/README.md#7-guarantees-and-limits)).
+
+Python: `create_multi_party_policy_store`, `evaluate_multi_party_authorization` (async), `create_multi_party_request`, `create_party_authorization` (async), `build_multi_party_authorization`, `check_multi_party_authorization_structure`; Go: `NewMultiPartyPolicyStore`, `EvaluateMultiPartyAuthorization`, `NewMultiPartyRequest`, `CreatePartyAuthorization`, `BuildMultiPartyAuthorization`, `CheckMultiPartyAuthorizationStructure`; Rust (`dcp_ai::v2::multi_party_auth`): `MultiPartyPolicyStore::from_json`, `evaluate_multi_party_authorization`, `create_multi_party_request`, `create_party_authorization`, `build_multi_party_authorization`, `check_multi_party_authorization_structure`. In Python, Go and Rust the structure check was published as `verify_multi_party_authorization` / `VerifyMultiPartyAuthorization`; that name is deprecated, gives the same result and verifies no signature. WASM does not export these functions.
+
 ### `DEFAULT_VERIFIER_POLICY`
 
 The default verifier policy:

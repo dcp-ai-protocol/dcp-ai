@@ -8,7 +8,7 @@
 
 **Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> Traducción informativa del [README en inglés](../../../../sdks/go/README.md), actualizada el 09/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
+> Traducción informativa del [README en inglés](../../../../sdks/go/README.md), actualizada el 18/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
 
 SDK oficial de Go para el Digital Citizenship Protocol (DCP) v1.0 y v2.0. Admite Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, firmas compuestas, cadenas de hash duales y verificación de bundles.
 
@@ -80,7 +80,8 @@ go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-a
 | Delegación DCP-09 y cadenas de delegación verificables (`CreateSubMandate`, `VerifyMandateChain`), umbral de consciencia y espejo del principal | — | Sí |
 | Funciones auxiliares del nonce de sesión, revocación de emergencia | — | Sí |
 | Checkpoints PQ diferidos y `PQCheckpointManager` | — | Sí |
-| RPR cegado, autorización multipartita y funciones auxiliares de avisos sobre algoritmos | — | Sí |
+| RPR cegado y funciones auxiliares de avisos sobre algoritmos | — | Sí |
+| Autorización multiparte bajo el perfil `mpa-v1` (`EvaluateMultiPartyAuthorization`, spec/profiles/multi-party) | — | En `main`, en ninguna versión publicada. Las versiones publicadas solo tienen la comprobación de la estructura (`VerifyMultiPartyAuthorization`), que no verifica ninguna firma |
 | Códigos de error canónicos (38 compartidos entre todos los SDK) y `DetectWireFormat` | — | Sí |
 | Exportador OpenTelemetry / OTLP (etiqueta de compilación `otlp`) | — | Sí |
 | Candidato de canonicalización `dcp-jcs-v2` (ingreso, router, verificador de bytes, productores) | — | Experimental y de activación explícita; no normativo |

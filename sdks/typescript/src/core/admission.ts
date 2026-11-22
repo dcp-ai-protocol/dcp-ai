@@ -116,7 +116,7 @@ export interface TrustedKey {
  * A read-only view of a private Map: a loaded trust set stays as it was validated. Not a Map
  * subclass, so Map.prototype.set.call cannot reach the entries either.
  */
-class FrozenMap<K, V> implements ReadonlyMap<K, V> {
+export class FrozenMap<K, V> implements ReadonlyMap<K, V> {
   readonly #map: Map<K, V>;
   constructor(entries: Iterable<readonly [K, V]>) {
     this.#map = new Map(entries);

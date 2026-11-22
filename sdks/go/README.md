@@ -70,7 +70,8 @@ go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-a
 | DCP-09 delegation + verifiable delegation chains (`CreateSubMandate`, `VerifyMandateChain`) + awareness threshold + principal mirror | — | Yes |
 | Session nonce helpers, emergency revocation | — | Yes |
 | Lazy PQ checkpoints + `PQCheckpointManager` | — | Yes |
-| Blinded RPR, multi-party authorization, algorithm advisory helpers | — | Yes |
+| Blinded RPR, algorithm advisory helpers | — | Yes |
+| Multi-party authorization under the `mpa-v1` profile (`EvaluateMultiPartyAuthorization`, spec/profiles/multi-party) | — | On `main`, not in a published version. Published versions have only the structure check (`VerifyMultiPartyAuthorization`), which verifies no signature |
 | Canonical error codes (38 shared across all SDKs) + `DetectWireFormat` | — | Yes |
 | OpenTelemetry / OTLP exporter (build tag `otlp`) | — | Yes |
 | Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | — | Experimental and opt-in; not normative |

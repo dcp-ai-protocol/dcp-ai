@@ -70,7 +70,8 @@ dcp-ai = { version = "2.14.0", features = ["wasm"] }
 | DCP-04 A2A AES-256-GCM session encryption | _Deferred to a follow-up release_ |
 | Session nonce helpers, security tier engine (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2; `compute_security_tier_with_floor` adds a delegation chain's tier), emergency revocation | Yes |
 | Lazy PQ checkpoints + `PQCheckpointManager` | Yes |
-| Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
+| Blinded RPR, algorithm advisory helpers | Yes |
+| Multi-party authorization under the `mpa-v1` profile (`evaluate_multi_party_authorization`, spec/profiles/multi-party) | On `main`, not in a published version. Published versions have only the structure check (`verify_multi_party_authorization`), which verifies no signature |
 | Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
 | OpenTelemetry / OTLP exporter (optional `otlp` feature) | Yes |
 | Admission: trusted principals and the `strict-v1` profile | Yes |

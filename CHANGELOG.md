@@ -92,6 +92,28 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Multi-party authorization: the opt-in `mpa-v1` profile decides; the published functions check structure only**
+  (source on `main`, not in a published version; no version bump). A multi-party authorization record decides nothing
+  on its own: its `required_parties` is not signed, each role is written by the party that signs it, and nothing in it
+  says which parties may speak for the object of the operation. The functions the Python, Go and Rust SDKs publish as
+  `verify_multi_party_authorization` / `VerifyMultiPartyAuthorization` check the shape of a record and verify no
+  signature: their result is not an authorization. They are deprecated in favour of
+  `check_multi_party_authorization_structure` / `CheckMultiPartyAuthorizationStructure`, with the same parameters and
+  the same result. The new [`mpa-v1` profile](spec/profiles/multi-party/README.md) decides:
+  `evaluateMultiPartyAuthorization` (TypeScript), `evaluate_multi_party_authorization` (Python, Rust) and
+  `EvaluateMultiPartyAuthorization` (Go) give `authorized: true` only when distinct parties that the operator's policy
+  lists for the target signed, with both signature components and keys of the operator's principal trust set, exactly
+  the operation, target and parameters the executor is about to carry out, for this verifier and inside the validity
+  window, and they meet the operator's threshold and required roles. The target, the audience and the validity window
+  travel in a signed `request` block inside `operation_payload`; the record's schema, the signed bytes, the
+  `DCP-AI.v2.MultiPartyAuth` context and `dcp-jcs-v1` do not change. Two schemas are new
+  (`multi_party_request.schema.json` and `multi_party_policy_set.schema.json`), and
+  `tests/interop/v2/multi_party_vectors.json` holds the cases the four SDKs run. `@dcp-ai/sdk` now exports the
+  multi-party functions; the module was in the source but not exported, and its tests are replaced. A record signed
+  without the `request` block is never authorized under the profile: there is no legacy mode, and the parties sign
+  again. The evaluation keeps no state, so an executor whose operation is not idempotent consumes `request_id` and
+  executes atomically. The reference server's `POST /v2/multi-party/authorize` does not apply the profile.
+
 - **OpenTelemetry Go v1.47.0 in the Go SDK; the source now needs Go 1.26** (source on `main`, not in a published
   version; no version bump). `go.opentelemetry.io/otel`, `otel/metric`, `otel/sdk`, `otel/sdk/metric` and `otel/trace`
   move from v1.46.0 to v1.47.0, which fixes [GHSA-q7gw-24fr-5p69](https://github.com/advisories/GHSA-q7gw-24fr-5p69)

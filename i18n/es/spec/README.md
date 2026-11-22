@@ -5,7 +5,7 @@
 
 # Especificaciones — DCP-AI normativo
 
-> Traducción informativa de [la versión en inglés](../../../spec/README.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../spec/README.md), actualizada el 18/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Especificaciones normativas del Digital Citizenship Protocol for AI Agents. La fuente de verdad de los formatos es el JSON Schema de `schemas/v1/` y `schemas/v2/`; estos documentos definen el alcance, los artefactos y cómo validarlos. [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) enumera las erratas que alinean los nombres, los contextos de firma y los ejemplos de DCP-05, DCP-08 y DCP-09 con ese formato, y las cuatro capas (representable, válido según el esquema, verificado, conforme) que se juzgan por separado.
 
@@ -80,5 +80,6 @@ La especificación se está organizando en un **núcleo** (protocolo mínimo int
 | [profiles/a2a/](../../../spec/profiles/a2a/) | Descubrimiento de agentes, handshake, gestión de sesiones |
 | [profiles/governance/](../../../spec/profiles/governance/) | Niveles de riesgo, jurisdicción, revocación, recuperación de claves |
 | [profiles/admission/](../../../spec/profiles/admission/) | Admisión: principales de confianza y el perfil strict-v1 (en los SDK de `main`; publicado en npm SDK 2.2.0, con publicaciones independientes en los demás ecosistemas) |
+| [profiles/multi-party/](../../../spec/profiles/multi-party/) | Autorización multiparte: el perfil `mpa-v1` (en los SDK de `main`, en ninguna versión publicada) |
 
 Las especificaciones existentes (de DCP-01 a DCP-09, BUNDLE, VERIFICATION, DCP-AI v2.0) siguen siendo la referencia. Los documentos del núcleo y de los perfiles aportan contexto editorial y aclaran la separación de responsabilidades. Véase el [ROADMAP](../../../ROADMAP.md) para la evolución prevista.

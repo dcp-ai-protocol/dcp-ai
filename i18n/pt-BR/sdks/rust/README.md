@@ -6,7 +6,7 @@
 
 **Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> Tradução informativa do [README em inglês](../../../../sdks/rust/README.md), atualizada em 09/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](../../../../sdks/rust/README.md), atualizada em 18/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Rust para o Digital Citizenship Protocol (DCP v2.0). Oferece tipos baseados em Serde, criptografia pós-quântica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), assinaturas compostas com vinculação `pq_over_classical`, cadeias de hash duplas, observabilidade com OpenTelemetry, comportamento DCP-04..09 e suporte opcional a WebAssembly.
 
@@ -78,7 +78,8 @@ dcp-ai = { version = "2.14.0", features = ["wasm"] }
 | Criptografia de sessão A2A DCP-04 com AES-256-GCM | _Adiada para uma versão posterior_ |
 | Funções auxiliares de nonce de sessão, mecanismo de níveis de segurança (`compute_security_tier(&intent, Some(&policy_decision))`, especificação §14.2; `compute_security_tier_with_floor` acrescenta o nível de uma cadeia de delegação), revogação de emergência | Sim |
 | Checkpoints PQ adiados e `PQCheckpointManager` | Sim |
-| RPR ocultado, autorização multipartes e funções auxiliares de avisos sobre algoritmos | Sim |
+| RPR ocultado e funções auxiliares de avisos sobre algoritmos | Sim |
+| Autorização multipartes sob o perfil `mpa-v1` (`evaluate_multi_party_authorization`, spec/profiles/multi-party) | Em `main`, em nenhuma versão publicada. As versões publicadas têm apenas a verificação da estrutura (`verify_multi_party_authorization`), que não verifica nenhuma assinatura |
 | Códigos de erro canônicos (38 compartilhados entre todos os SDKs) e `detect_wire_format` | Sim |
 | Exportador OpenTelemetry / OTLP (funcionalidade opcional `otlp`) | Sim |
 | Admissão: principais confiáveis e perfil `strict-v1` | Sim |

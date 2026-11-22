@@ -5,7 +5,7 @@
 
 # 仕様 — DCP-AI の規範
 
-> [英語版](../../../spec/README.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../spec/README.md)の参考訳です（18/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol for AI Agents の規範的な仕様です。形式の正となるのは `schemas/v1/` と `schemas/v2/` の JSON Schema で、これらの文書は範囲、アーティファクト、検証の仕方を定義します。[V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) は、DCP-05、DCP-08、DCP-09 の名前、署名のコンテキスト、例をその形式に合わせる正誤と、別々に判断される 4 つの層（表現可能、スキーマ上有効、検証済み、適合）を示します。
 
@@ -80,5 +80,6 @@ Digital Citizenship Protocol for AI Agents の規範的な仕様です。形式�
 | [profiles/a2a/](../../../spec/profiles/a2a/) | エージェントの発見、ハンドシェイク、セッションの管理 |
 | [profiles/governance/](../../../spec/profiles/governance/) | リスクティア、管轄区域、失効、鍵の回復 |
 | [profiles/admission/](../../../spec/profiles/admission/) | アドミッション：信頼するプリンシパルと strict-v1 のプロファイル（`main` の SDK にあり、npm SDK 2.2.0 で公開済み。他の環境の公開は別） |
+| [profiles/multi-party/](../../../spec/profiles/multi-party/) | 複数当事者による認可：`mpa-v1` のプロファイル（`main` の SDK にあり、公開済みのバージョンにはありません） |
 
 既存の仕様（DCP-01 から DCP-09、BUNDLE、VERIFICATION、DCP-AI v2.0）が引き続き基準です。コアとプロファイルの文書は、編集上の文脈を与え、関心事の分離を明確にします。予定している発展については [ROADMAP](../../../ROADMAP.md) を参照してください。
