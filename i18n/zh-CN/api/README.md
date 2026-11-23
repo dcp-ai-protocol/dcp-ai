@@ -4,7 +4,7 @@
 
 # API — OpenAPI 与 Protocol Buffers
 
-> 本文是[英文版](../../../api/README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../api/README.md)的参考译文，更新于 20/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 DCP API 的正式定义：用于 HTTP/REST 的 OpenAPI 3.1 规范，以及用于 gRPC 的 Protocol Buffers。可以用这些定义生成任何语言的客户端。
 
@@ -102,7 +102,7 @@ DCP API 的正式定义：用于 HTTP/REST 的 OpenAPI 3.1 规范，以及用于
 | 方法 | 路径 | 说明 |
 |--------|------|-------------|
 | `POST /v2/emergency-revoke` | 紧急撤销（紧急按钮） | 有速率限制，并验证原像 |
-| `POST /v2/multi-party/authorize` | M-of-N 多方授权 | 请求：`{ authorization }` |
+| `POST /v2/multi-party/authorize` | 多方授权（`mpa-v1` 配置文件） | 需要运营方令牌；只有设置了 `DCP_MULTI_PARTY_POLICY_FILE` 才存在。请求：`{ authorization, expected }` |
 
 <a id="v2-advisory--governance"></a>
 <a id="v2-advisory-governance"></a>

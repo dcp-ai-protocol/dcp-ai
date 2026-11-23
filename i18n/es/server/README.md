@@ -4,7 +4,7 @@
 
 # Pasarela de referencia de DCP
 
-> Traducción informativa de [la versión en inglés](../../../server/README.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../server/README.md), actualizada el 20/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Servicio HTTP de verificación que implementa V1, V2 y la fase 3 (PQ primero) del Digital Citizenship Protocol. **Almacenamiento en memoria**: no necesita ninguna base de datos externa, y nada sobrevive a un reinicio (véase [Persistencia](#persistence)). Pensado para que lo ejecute cualquier tercero; el protocolo no exige un servidor central.
 
@@ -67,7 +67,7 @@ Puerto por defecto: `3000`. Se cambia con `PORT=4000 node server/index.js`. Defi
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/v2/multi-party/authorize` | Autorización multiparte M de N, con las firmas comprobadas contra las claves registradas de las partes |
+| POST | `/v2/multi-party/authorize` | Autorización multiparte bajo el [perfil `mpa-v1`](../../../spec/profiles/multi-party/README.md), decidida por el conjunto de políticas del operador. Solo con `DCP_MULTI_PARTY_POLICY_FILE`: sin ella la ruta no existe (404). Requiere el token del operador |
 | POST | `/v2/governance/register` | Registra el conjunto de claves de gobernanza (**operador**) |
 | GET | `/.well-known/governance-keys.json` | Claves de gobernanza publicadas |
 
@@ -112,6 +112,7 @@ bloqueados.
 | `DCP_TRUSTED_PRINCIPALS_FILE` | — | Conjunto de confianza para `POST /v2/admit` (`schemas/v2/principal_trust_set.schema.json`), leído en cada admisión y recargado cuando cambia su contenido. Un archivo no válido detiene el servidor al arrancar y rechaza la admisión (503) si se estropea después. Cualquier variable de admisión definida con un valor vacío detiene el servidor |
 | `DCP_ADMISSION_PROFILE_FILE` | — | Perfil strict-v1 (`schemas/v2/admission_profile.schema.json`). Necesita las dos variables que lo rodean; una contradicción detiene el servidor |
 | `DCP_REVOCATION_LIST_URL` | — | Lista de denegación completa en el formato `/.well-known/dcp-revocations.json` del servicio de revocación, para strict-v1: `https` (`http` simple solo hacia un host de loopback), sin redirecciones, 16 MiB como máximo. `DCP_REVOCATION_LIST_AUTHORIZATION` define una cabecera `Authorization`; `DCP_REVOCATION_TIMEOUT_MS` (por defecto 5000) limita la petición |
+| `DCP_MULTI_PARTY_POLICY_FILE` | — | Conjunto de políticas para `POST /v2/multi-party/authorize` (`schemas/v2/multi_party_policy_set.schema.json`): para cada objetivo, sus partes con sus roles, y el umbral y los roles que necesita cada operación. Se lee una vez al arrancar. Necesita `DCP_TRUSTED_PRINCIPALS_FILE`, que contiene las claves de las partes (y que además activa `POST /v2/admit`), y un `OPERATOR_TOKEN` de al menos 32 caracteres b64token de RFC 6750, que lleva cada petición al endpoint. Un archivo que no se carga, o la variable sin el conjunto de confianza o sin ese token, detiene el servidor. Sin ella el endpoint no existe y `features.multi_party_auth` es `false` |
 | `MAX_KEYS_PER_AGENT` | `64` | Claves que un agente puede registrar a lo largo de su vida; las rotaciones siguientes reciben 409. Súbelo para agentes que rotan a menudo (cada clave retirada cuesta una lápida de unos 100 bytes) |
 
 `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`,
@@ -145,12 +146,18 @@ compuesta obligatorias, antigüedad de clave de 365 días), y `GET /v2/policy` l
 - La **rotación de claves** recibe un `KeyRotationRecord` tal como lo construye `createKeyRotation` en `@dcp-ai/sdk`: la
   clave nueva firma `{old_kid, new_kid, timestamp}` con `DCP-AI.v2.KeyRotation` (prueba de posesión) y la antigua la
   refrenda. La clave antigua debe estar activa (no revocada, no caducada); después se marca como revocada.
-- **Autorización multiparte**: cada parte firma `{operation, operation_payload, party_id, role}` con
-  `DCP-AI.v2.MultiPartyAuth` (`createPartyAuthorization` en `sdks/typescript/src/core/multi-party-auth.ts`, que
-  `@dcp-ai/sdk` 2.2.0 no exporta). Una parte es una identidad registrada mediante `/v2/passport/register`, y sus kids de
-  firma deben ser claves activas (no revocadas, no caducadas) registradas a nombre de su `party_id`. Cada parte cuenta
-  una sola vez para `required_parties`, firme por los roles que firme. Los roles los afirma quien firma; no se buscan en
-  ningún sitio.
+- **Autorización multiparte**: sigue el [perfil `mpa-v1`](../../../spec/profiles/multi-party/README.md) y existe solo
+  cuando el operador define `DCP_MULTI_PARTY_POLICY_FILE`. Solo responde al token del operador
+  (`Authorization: Bearer <OPERATOR_TOKEN>`; si no, 401, antes de leer el cuerpo): quien llama es el ejecutor del
+  propio operador, y las respuestas nombran sus objetivos, partes, roles, umbrales y claves de confianza. El cuerpo
+  lleva el registro y lo que quien llama está a
+  punto de hacer: `{ "authorization": …, "expected": { "operation", "target", "parameters" } }`. Las partes de cada
+  objetivo, sus roles, el umbral, la audiencia y las claves de las partes (los principales de confianza) son del
+  operador: un rol o un `required_parties` escritos en el registro no deciden nada, y una identidad registrada mediante
+  `/v2/passport/register` no es una parte. La respuesta es el resultado de la evaluación del perfil: 200 solo cuando
+  `authorized` es verdadero, 403 con el mismo resultado y sus códigos en otro caso, y 400 cuando `expected` falta o no
+  es utilizable. El servidor no ejecuta nada y no guarda estado: la misma petición recibe siempre la misma respuesta,
+  así que quien llama, si su operación no es idempotente, consume `request_id` y ejecuta de forma atómica.
 - Los **endpoints de operador** solo están protegidos por `OPERATOR_TOKEN`. La `composite_sig` de los avisos se
   comprueba solo estructuralmente: `@dcp-ai/sdk` todavía no tiene etiqueta de contexto para `AlgorithmAdvisory`, así que
   el operador responde por los avisos.

@@ -49,7 +49,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/v2/multi-party/authorize` | M-of-N multi-party authorization, signatures checked against registered party keys |
+| POST | `/v2/multi-party/authorize` | Multi-party authorization under the [`mpa-v1` profile](../spec/profiles/multi-party/README.md), decided by the operator's policy set. Only with `DCP_MULTI_PARTY_POLICY_FILE`: otherwise the route does not exist (404). Operator token required |
 | POST | `/v2/governance/register` | Register governance key set (**operator**) |
 | GET | `/.well-known/governance-keys.json` | Published governance keys |
 
@@ -87,6 +87,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | `DCP_TRUSTED_PRINCIPALS_FILE` | — | Trust set for `POST /v2/admit` (`schemas/v2/principal_trust_set.schema.json`), read on every admission and loaded again when its content changes. An invalid file stops the server at startup and refuses admission (503) if it breaks later. Any admission variable set to an empty value stops the server |
 | `DCP_ADMISSION_PROFILE_FILE` | — | strict-v1 profile (`schemas/v2/admission_profile.schema.json`). Needs the two variables around it; a contradiction stops the server |
 | `DCP_REVOCATION_LIST_URL` | — | Complete deny list in the revocation service's `/.well-known/dcp-revocations.json` format, for strict-v1: `https` (plain `http` only to a loopback host), no redirects, at most 16 MiB. `DCP_REVOCATION_LIST_AUTHORIZATION` sets an `Authorization` header; `DCP_REVOCATION_TIMEOUT_MS` (default 5000) bounds the request |
+| `DCP_MULTI_PARTY_POLICY_FILE` | — | Policy set for `POST /v2/multi-party/authorize` (`schemas/v2/multi_party_policy_set.schema.json`): for each target, its parties with their roles, and the threshold and roles each operation needs. Read once at startup. Needs `DCP_TRUSTED_PRINCIPALS_FILE`, which holds the keys of the parties (and also turns on `POST /v2/admit`), and an `OPERATOR_TOKEN` of at least 32 RFC 6750 b64token characters, which every request to the endpoint carries. A file that does not load, or the variable without the trust set or without such a token, stops the server. Without it the endpoint does not exist and `features.multi_party_auth` is `false` |
 | `MAX_KEYS_PER_AGENT` | `64` | Keys an agent can register over its lifetime; further rotations get 409. Raise it for agents that rotate often (each retired key costs a ~100-byte tombstone) |
 
 `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`,
@@ -123,14 +124,18 @@ age) applies, and `GET /v2/policy` shows it.
   in `@dcp-ai/sdk`: the new key signs `{old_kid, new_kid, timestamp}` under
   `DCP-AI.v2.KeyRotation` (proof of possession) and the old key countersigns it.
   The old key must be active (not revoked, not expired); afterwards it is marked revoked.
-- **Multi-party authorization**: each party signs
-  `{operation, operation_payload, party_id, role}` under
-  `DCP-AI.v2.MultiPartyAuth` (`createPartyAuthorization` in
-  `sdks/typescript/src/core/multi-party-auth.ts`, not exported by `@dcp-ai/sdk` 2.2.0).
-  A party is an identity registered through `/v2/passport/register`, and its
-  signing kids must be active (not revoked, not expired) keys registered to its `party_id`. Each party
-  counts once toward `required_parties`, whatever roles it signs for. Roles are
-  asserted by the signer, not looked up anywhere.
+- **Multi-party authorization** follows the [`mpa-v1` profile](../spec/profiles/multi-party/README.md) and exists
+  only when the operator sets `DCP_MULTI_PARTY_POLICY_FILE`. It answers only to the operator token
+  (`Authorization: Bearer <OPERATOR_TOKEN>`; otherwise 401, before the body is read): the caller is the operator's
+  own executor, and the answers name the operator's targets, parties, roles, thresholds and trusted keys. The body
+  carries the record and what the caller is about
+  to do: `{ "authorization": …, "expected": { "operation", "target", "parameters" } }`. The parties of each target,
+  their roles, the threshold, the audience and the keys of the parties (the trusted principals) are the operator's: a
+  role or a `required_parties` written in the record decides nothing, and an identity registered through
+  `/v2/passport/register` is not a party. The answer is the evaluation result of the profile: 200 only when
+  `authorized` is true, 403 with the same result and its codes otherwise, 400 when `expected` is missing or not
+  usable. The server executes nothing and keeps no state: the same request gets the same answer every time, so a
+  caller whose operation is not idempotent consumes `request_id` and executes atomically.
 - **Operator endpoints** are guarded by `OPERATOR_TOKEN` only. Advisory
   `composite_sig` is checked structurally: `@dcp-ai/sdk` has no
   `AlgorithmAdvisory` context tag yet, so the operator vouches for advisories.

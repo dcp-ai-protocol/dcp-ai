@@ -24,13 +24,16 @@ export const MIN_DEMO_TOKEN_LENGTH = 32;
  * Reads DCP_DEMO_ENDPOINTS and, when it enables the demo, OPERATOR_TOKEN, from `env`. Returns true (on) or
  * false (off); anything else throws, and no message carries the token.
  */
+/** Whether `token` can lock a route: an RFC 6750 b64token of at least MIN_DEMO_TOKEN_LENGTH characters. */
+export const usableOperatorToken = (token) => typeof token === "string" && B64TOKEN.test(token) && token.length >= MIN_DEMO_TOKEN_LENGTH;
+
 export function demoEnabled(env) {
   const value = env.DCP_DEMO_ENDPOINTS;
   if (value === undefined || value === "off") return false;
   if (value !== DEMO_VALUE) throw new Error(`CONFIG_INVALID_VALUE: DCP_DEMO_ENDPOINTS must be unset, "off" or "${DEMO_VALUE}"`);
   const token = env.OPERATOR_TOKEN;
   if (token === undefined || token === "") throw new Error(`CONFIG_INVALID_VALUE: DCP_DEMO_ENDPOINTS=${DEMO_VALUE} needs OPERATOR_TOKEN`);
-  if (!B64TOKEN.test(token) || token.length < MIN_DEMO_TOKEN_LENGTH) {
+  if (!usableOperatorToken(token)) {
     throw new Error(`CONFIG_INVALID_VALUE: with DCP_DEMO_ENDPOINTS=${DEMO_VALUE}, OPERATOR_TOKEN must be an RFC 6750 b64token of at least ${MIN_DEMO_TOKEN_LENGTH} characters`);
   }
   return true;
