@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 20/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 23/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases). Las cinco publicaciones del 05/11/2026 están en [la suya](#2026-11-05-auditable-releases), y las seis del 09/11/2026, en [la suya](#2026-11-09-six-releases).
 
@@ -112,6 +112,23 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 <a id="security"></a>
 
 ### Seguridad
+
+- **DCP-04 §3 (handshake A2A) y DCP-09 §8 están en revisión: no implementarlos tal como están escritos** (solo
+  especificación y documentación; sin cambios de código, esquemas, valores predeterminados ni versiones). Tal como
+  está especificado, el handshake no autentica a las partes: sus mensajes no van firmados con las claves de los
+  agentes, de modo que nada liga la clave KEM efímera ni los parámetros negociados al bundle que presenta una parte,
+  y un bundle firmado es un artefacto público. Completarlo no establece qué agente está al otro lado, así que la
+  autenticación mutua que la especificación afirma para él no se cumple.
+  [spec/DCP-04.md](../../spec/DCP-04.md#3-handshake-protocol) lo dice en su estado y al comienzo de §3, y el
+  [perfil A2A](../../spec/profiles/a2a/README.md) y [DCP-09](../../spec/DCP-09.md) §8 remiten a ese aviso; las
+  sesiones de §4, el modelo de confianza de §5, la contraparte que se anota en las entradas de auditoría de §6 y la
+  extensión del handshake de DCP-09 §8 heredan la limitación, y hasta que se revise §3 no se puede declarar
+  conformidad con DCP-04 ni con el punto 6 de DCP-09 §11. Ningún SDK implementa el handshake completo, y ningún SDK
+  ni servicio declara conformidad con DCP-04. Las funciones auxiliares de los SDK que construyen `A2A_HELLO` y
+  `A2A_WELCOME` y cifran los mensajes de sesión no cambian: no autentican a la contraparte, y verificar su bundle
+  tampoco lo hace; quien necesite saber quién es su contraparte tiene que establecerlo fuera de este handshake. La
+  documentación de la integración con Google A2A ya no nombra una sesión de DCP-04 como prueba de posesión. La
+  revisión de §3 está pendiente.
 
 - **Autorización multiparte: decide el perfil opt-in `mpa-v1`; las funciones publicadas solo comprueban la estructura**
   (código fuente en `main`, en ninguna versión publicada; sin cambio de versión). Un registro de autorización

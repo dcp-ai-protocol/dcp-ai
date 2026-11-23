@@ -4,12 +4,14 @@
 
 # DCP-04: Comunicación entre agentes
 
-> Traducción informativa de [la especificación en inglés](../../../spec/DCP-04.md), actualizada el 25/10/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/DCP-04.md), actualizada el 23/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 <a id="status"></a>
 
 ## Estado
 Publicada — v2.0 (extensión; las revisiones se gestionan según los comentarios de quienes la adoptan)
+
+**La sección 3 (Protocolo de handshake) está en revisión desde el 18/11/2026 y no es apta para implementarse tal como está escrita:** véase el aviso al comienzo de esa sección.
 
 <a id="abstract"></a>
 
@@ -111,6 +113,22 @@ Las capacidades personalizadas deben (MUST) usar notación de dominio inverso: `
 <a id="3-handshake-protocol"></a>
 
 ## 3. Protocolo de handshake
+
+> **En revisión desde el 18/11/2026 (aviso normativo). No implementar esta sección tal como está escrita.** El
+> handshake que sigue no autentica a las partes. Sus mensajes no van firmados con las claves de los agentes, de modo
+> que nada liga la clave KEM efímera, ni los algoritmos, el nivel de seguridad y las capacidades que se negocian, al
+> bundle que presenta una parte. Un bundle firmado es un artefacto público, que se sirve en el `bundle_endpoint`
+> (§2.2): presentarlo no prueba que se controlen sus claves. Por tanto, completar este handshake no establece qué
+> agente está al otro lado. La autenticación mutua que se afirma en el resumen, §1, §1.1 y §3.1 no se cumple en él;
+> la vinculación de §3.5 solo cubre los identificadores que cada lado declara; la confianza de §5.1 descansa en la
+> verificación de bundles, que no es autenticación; y no hay protección frente a las amenazas de intermediario
+> (man-in-the-middle) y de suplantación de §1.2.
+>
+> Hasta que se publique una revisión de esta sección, no hay que tratar como autenticada una sesión establecida de
+> este modo. Hasta entonces no se puede declarar conformidad con DCP-04 (§9): su primer requisito es esta sección.
+> Las sesiones de §4, el modelo de confianza de §5, la contraparte que se anota en las entradas de auditoría de §6 y
+> la extensión del handshake de DCP-09 §8 descansan en este handshake y heredan la limitación. Ningún SDK de `main`
+> implementa el handshake completo: véanse las notas de implementación al final de este documento.
 
 <a id="31-overview"></a>
 

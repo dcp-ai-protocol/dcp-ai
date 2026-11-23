@@ -3,6 +3,8 @@
 ## Status
 Published — v2.0 (extension; revisions tracked via adopter feedback)
 
+**Section 3 (Handshake Protocol) has been under revision since 18/11/2026 and is not suitable for implementation as written:** see the notice at the start of that section.
+
 ## Abstract
 This specification defines how DCP-certified agents discover each other, establish mutually-authenticated and post-quantum-secured communication channels, and exchange messages with full audit trail integration.
 
@@ -85,6 +87,21 @@ Capabilities are strings from a registry. Standard capabilities include:
 Custom capabilities MUST use reverse-domain notation: `com.acme.custom_capability`.
 
 ## 3. Handshake Protocol
+
+> **Under revision since 18/11/2026 (normative notice). Do not implement this section as written.** The handshake
+> below does not authenticate the parties. Its messages are not signed with the agents' keys, so nothing ties the
+> ephemeral KEM key, or the algorithms, security tier and capabilities being negotiated, to the bundle a party
+> presents. A signed bundle is a public artifact, served at the `bundle_endpoint` (§2.2): presenting one does not
+> prove control of its keys. Completing this handshake therefore does not establish which agent is at the other end.
+> The mutual authentication stated in the Abstract, §1, §1.1 and §3.1 does not hold for it; the binding of §3.5
+> covers only the identifiers each side claims; the trust of §5.1 rests on bundle verification, which is not
+> authentication; and there is no protection against the man-in-the-middle and impersonation threats of §1.2.
+>
+> Until a revision of this section is published, do not treat a session established this way as authenticated.
+> DCP-04 conformance (§9) cannot be claimed until then: its first requirement is this section. The sessions of §4,
+> the trust model of §5, the counterparty recorded in the audit entries of §6 and the handshake extension of DCP-09
+> §8 rest on this handshake and inherit the limitation. No SDK on `main` implements the complete handshake: see the
+> implementation notes at the end of this document.
 
 ### 3.1 Overview
 

@@ -5,6 +5,8 @@ Published — v2.0 (extension; revisions tracked via adopter feedback)
 
 > **Errata (25/10/2026, normative):** errata E5, E6, E7 and E8 of [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) correct the signature contexts, the field that carries a mandate's expiry and the status of the examples. They change no other requirement of this specification.
 
+**Section 8 (A2A Handshake Extension) has been under revision since 18/11/2026 and is not suitable for implementation as written:** see the notice at the start of that section.
+
 ## Abstract
 This specification defines the protocol for human-to-agent delegation of authority, agent awareness thresholds, advisory declarations, principal mirrors, and dual-layer interaction records. It provides mechanisms for a human principal to formally delegate specific authority to an AI agent, for agents to declare their understanding of delegated context, and for interactions to be recorded at both technical and human-readable layers. DCP-09 also extends the DCP-04 A2A handshake to include delegation mandate verification, ensuring that agents acting on behalf of principals can prove their authority to counterparties.
 
@@ -795,6 +797,12 @@ Each interaction record includes a compliance section that tracks:
 This provides a per-interaction compliance audit that feeds into the broader obligation tracking system (DCP-08).
 
 ## 8. A2A Handshake Extension
+
+> **Under revision since 18/11/2026 (normative notice). Do not implement this section as written.** It extends the
+> handshake of [DCP-04](DCP-04.md#3-handshake-protocol) §3, which does not authenticate the parties as written: see the notice
+> at the start of that section. A `delegation` field received in such a handshake does not show that the peer is
+> the delegate agent its mandate names. Conformance with item 6 of §11 cannot be claimed until that section is
+> revised.
 
 ### 8.1 Purpose
 

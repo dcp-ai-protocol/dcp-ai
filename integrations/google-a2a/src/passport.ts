@@ -165,7 +165,7 @@ function keyError(slot: unknown, allowed: ReadonlySet<string>, keys: KeyEntry[],
  * `name`, `provider` or `skills` belong to the passport's agent. A passport is public and anyone
  * can copy it into their own card. Before delegating a task, use only `result.passport`, not the
  * card's unsigned fields, and demand proof of possession from the endpoint (the SDK's
- * `generateRegistrationPoP` / `verifyRegistrationPoP`, or a DCP-04 A2A session); A2A 1.0's
+ * `generateRegistrationPoP` / `verifyRegistrationPoP`); A2A 1.0's
  * `AgentCard.signatures` (JWS over the card) binds the rest of the card. Anything malformed
  * fails closed.
  */
