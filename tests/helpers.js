@@ -24,8 +24,9 @@ export async function startService(script, env = {}) {
 
 /**
  * startService with its limits explicit (the harness's own test uses short ones). Another process
- * may take the port between the probe and the service's own listen: only that, the service exiting
- * with EADDRINUSE before it is ready, is retried on a new port, at most `attempts` times in all and
+ * may hold the port the OS offers (freePort rejects with EADDRINUSE, and nothing is launched on it)
+ * or take it between the probe and the service's own listen (the service exits with EADDRINUSE
+ * before it is ready): only that is retried on a new port, at most `attempts` times in all and
  * never once `deadlineMs` (monotonic) is spent. Any other exit, a spawn error or the deadline
  * rejects, and only after the process is gone: past the deadline it gets SIGTERM, then SIGKILL after
  * a short grace. Its stderr is passed through as before, and its first Error line is in the error.
@@ -34,9 +35,16 @@ export async function startServiceWithin(script, env, { attempts, deadlineMs }) 
   const deadline = performance.now() + deadlineMs;
   let lost; // the last attempt that lost its port
   for (let attempt = 1; attempt <= attempts; attempt++) {
-    const port = await freePort();
+    let port;
+    let outcome;
+    try {
+      port = await freePort();
+    } catch (error) {
+      if (error.code !== "EADDRINUSE") throw error;
+      outcome = { addressInUse: true, error };
+    }
     if (performance.now() >= deadline) break; // never launch with the budget spent
-    const outcome = await launch(script, { ...process.env, PORT: String(port), ...env }, deadline);
+    outcome ??= await launch(script, { ...process.env, PORT: String(port), ...env }, deadline);
     if (outcome.proc) return { base: `http://127.0.0.1:${port}`, proc: outcome.proc };
     if (!outcome.addressInUse) throw outcome.error;
     lost = outcome.error;
@@ -45,15 +53,23 @@ export async function startServiceWithin(script, env, { attempts, deadlineMs }) 
   throw lost ?? new Error(`${script} was not launched: the startup deadline was already spent`);
 }
 
-/** A port the OS reports free now, on the addresses the services listen on (all interfaces). */
+/**
+ * A port the OS reports free now where the services listen (all interfaces) and where the suites
+ * reach them (127.0.0.1). The first probe alone is not enough: macOS allows a listen on all
+ * interfaces on a port another process holds on 127.0.0.1 or 0.0.0.0 only, and that process then
+ * gets what is sent to 127.0.0.1. Rejects with EADDRINUSE when the port the OS offers is held.
+ */
 async function freePort() {
-  const probe = net.createServer();
-  await new Promise((resolve, reject) => {
-    probe.once("error", reject);
-    probe.listen(0, resolve);
-  });
-  const { port } = probe.address();
-  await new Promise((resolve) => probe.close(resolve));
+  let port = 0; // the OS picks it on the first probe
+  for (const host of [undefined, "0.0.0.0", "127.0.0.1"]) {
+    const probe = net.createServer();
+    await new Promise((resolve, reject) => {
+      probe.once("error", reject);
+      probe.listen(port, host, resolve);
+    });
+    ({ port } = probe.address());
+    await new Promise((resolve) => probe.close(resolve));
+  }
   return port;
 }
 

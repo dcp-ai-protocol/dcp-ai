@@ -2,6 +2,7 @@
 // and every rejection comes after the service process is gone.
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -68,6 +69,36 @@ test("a port taken before readiness is retried on a new port, and the service th
   assert.equal(pids().length, 2);
   gone(pids()[0]);
   await answers(service);
+});
+
+// macOS allows a listen on all interfaces on a port another process holds on 127.0.0.1 or 0.0.0.0 only, and that
+// process then gets what the suites send to 127.0.0.1 (Linux refuses the listen). Here the OS offers such a port:
+// the next `times` listens (every one, when omitted), which are the harness's probes, get it.
+const offerHeld = async (t, host, times) => {
+  const other = http.createServer((_req, res) => res.end("another process"));
+  await new Promise((resolve) => other.listen(0, host, resolve));
+  t.after(() => new Promise((resolve) => other.close(resolve)));
+  const { listen } = net.Server.prototype;
+  return t.mock.method(net.Server.prototype, "listen", function (_port, ...rest) {
+    return listen.call(this, other.address().port, ...rest);
+  }, { times });
+};
+
+for (const host of ["127.0.0.1", "0.0.0.0"]) {
+  test(`a port another process holds on ${host} is not used, and the service answers on a new port`, async (t) => {
+    const offered = await offerHeld(t, host, 1);
+    const { result, pids } = await run(`held-${host}`, {});
+    await answers(await result);
+    assert.equal(offered.mock.calls[0]?.arguments[0], 0, "the harness did not ask the OS for a port");
+    assert.equal(pids().length, 1);
+  });
+}
+
+test("a port that stays held on 127.0.0.1 fails after the attempts, and nothing is launched", async (t) => {
+  await offerHeld(t, "127.0.0.1");
+  const { result, pids } = await run("held-always", {});
+  await assert.rejects(result.then(answers), /EADDRINUSE.*port taken on attempt 3 of 3/); // answers() stops one started
+  assert.equal(pids().length, 0);
 });
 
 test("readiness split across stdout chunks is still seen", async () => {
