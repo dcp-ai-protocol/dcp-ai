@@ -28,6 +28,8 @@ See [DCP-04](../../DCP-04.md) Section 2.
 
 The four-message handshake (A2A_HELLO, A2A_WELCOME, A2A_CONFIRM, A2A_ESTABLISHED) that establishes a mutually-authenticated, post-quantum-secured session using hybrid KEM (X25519 + ML-KEM-768).
 
+**Under revision since 18/11/2026.** As written, this handshake does not authenticate the parties and is not suitable for implementation: see the notice at the start of [DCP-04](../../DCP-04.md#3-handshake-protocol) Section 3.
+
 See [DCP-04](../../DCP-04.md) Section 3.
 
 ### Session Management

@@ -5,7 +5,7 @@
 
 # DCP-09: Delegación y representación
 
-> Traducción informativa de [la especificación en inglés](../../../spec/DCP-09.md), actualizada el 07/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/DCP-09.md), actualizada el 23/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 <a id="status"></a>
 
@@ -13,6 +13,8 @@
 Publicada — v2.0 (extensión; las revisiones se gestionan según los comentarios de quienes la adoptan)
 
 > **Erratas (25/10/2026, normativas):** las erratas E5, E6, E7 y E8 de [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) corrigen los contextos de firma, el campo que lleva la caducidad de un mandato y el carácter de los ejemplos. No cambian ningún otro requisito de esta especificación.
+
+**La sección 8 (Extensión del handshake A2A) está en revisión desde el 18/11/2026 y no es apta para implementarse tal como está escrita:** véase el aviso al comienzo de esa sección.
 
 <a id="abstract"></a>
 
@@ -885,6 +887,12 @@ Esto proporciona una auditoría de cumplimiento por interacción que alimenta el
 <a id="8-a2a-handshake-extension"></a>
 
 ## 8. Extensión del handshake A2A
+
+> **En revisión desde el 18/11/2026 (aviso normativo). No implementar esta sección tal como está escrita.** Extiende
+> el handshake de [DCP-04](../../../spec/DCP-04.md#3-handshake-protocol) §3, que tal como está escrito no autentica a las
+> partes: véase el aviso al comienzo de esa sección. Un campo `delegation` recibido en ese handshake no demuestra
+> que la otra parte sea el agente delegado que nombra su mandato. Hasta que se revisen DCP-04 §3 y esta sección no
+> se puede declarar conformidad con DCP-09 (§11): su punto 6 es esta sección.
 
 <a id="81-purpose"></a>
 

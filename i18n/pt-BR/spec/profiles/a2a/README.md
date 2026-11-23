@@ -4,7 +4,7 @@
 
 # Perfil A2A (comunicação entre agentes)
 
-> Tradução informativa da [especificação em inglês](../../../../../spec/profiles/a2a/README.md), atualizada em 25/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../../../spec/profiles/a2a/README.md), atualizada em 23/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Estado:** Publicado — v2.0  
 **Escopo:** Descoberta de agentes, estabelecimento de sessões, vinculações de transporte e troca de mensagens  
@@ -41,6 +41,8 @@ Veja o [DCP-04](../../../../../spec/DCP-04.md), seção 2.
 ### Protocolo de handshake
 
 O handshake de quatro mensagens (A2A_HELLO, A2A_WELCOME, A2A_CONFIRM, A2A_ESTABLISHED) que estabelece uma sessão com autenticação mútua e protegida de forma pós-quântica por meio de um KEM híbrido (X25519 + ML-KEM-768).
+
+**Em revisão desde 18/11/2026.** Tal como está escrito, este handshake não autentica as partes e não é adequado para implementação: veja o aviso no início da seção 3 do [DCP-04](../../../../../spec/DCP-04.md#3-handshake-protocol).
 
 Veja o [DCP-04](../../../../../spec/DCP-04.md), seção 3.
 

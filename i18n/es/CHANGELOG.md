@@ -156,6 +156,23 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   antes de que se lea el resto: uno sin clave pública recibía 400, y uno con errores de esquema o de firma recibía
   esos errores. `lib/verify.js`, la CLI y los SDK no cambian.
 
+- **DCP-04 §3 (handshake A2A) y DCP-09 §8 están en revisión: no implementarlos tal como están escritos** (solo
+  especificación y documentación; no cambia el comportamiento de ningún código, ni esquemas, valores predeterminados
+  o versiones). Tal como está especificado, el handshake no autentica a las partes: sus mensajes no van firmados con
+  las claves de los agentes, de modo que nada liga la clave KEM efímera ni los parámetros negociados al bundle que
+  presenta una parte, y un bundle firmado es un artefacto público. Completarlo no establece qué agente está al otro
+  lado, así que la autenticación mutua que la especificación afirma para él no se cumple.
+  [spec/DCP-04.md](../../spec/DCP-04.md#3-handshake-protocol) lo dice en su estado y al comienzo de §3, y el
+  [perfil A2A](../../spec/profiles/a2a/README.md) y [DCP-09](../../spec/DCP-09.md) §8 remiten a ese aviso; las
+  sesiones de §4, el modelo de confianza de §5, la contraparte que se anota en las entradas de auditoría de §6 y la
+  extensión del handshake de DCP-09 §8 heredan la limitación, y hasta que se revisen las dos secciones no se puede
+  declarar conformidad con DCP-04 ni con DCP-09 (el punto 6 de su §11 es esa extensión). Ningún SDK implementa el
+  handshake completo, y ningún SDK ni servicio declara conformidad con DCP-04. Las funciones auxiliares de los SDK
+  que construyen `A2A_HELLO` y `A2A_WELCOME` y cifran los mensajes de sesión no cambian: no autentican a la
+  contraparte, y verificar su bundle tampoco lo hace; quien necesite saber quién es su contraparte tiene que
+  establecerlo fuera de este handshake. La documentación de la integración con Google A2A ya no nombra una sesión de
+  DCP-04 como prueba de posesión. La revisión de §3 está pendiente.
+
 - **Autorización multiparte: decide el perfil opt-in `mpa-v1`; las funciones publicadas solo comprueban la estructura**
   (código fuente en `main`, en ninguna versión publicada; sin cambio de versión). Un registro de autorización
   multiparte no decide nada por sí solo: su `required_parties` no está firmado, cada rol lo escribe la parte que lo

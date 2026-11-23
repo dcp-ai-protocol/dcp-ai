@@ -73,7 +73,7 @@ belong to the passport's agent. To make it an identity check:
   verification fails: for an anchored check, require `verified && anchored`.
 - Use only `result.passport`, never the card's unsigned fields, as the agent's identity.
 - Before delegating a task, demand proof of possession from the endpoint: the SDK's
-  `generateRegistrationPoP` / `verifyRegistrationPoP`, or a DCP-04 A2A session.
+  `generateRegistrationPoP` / `verifyRegistrationPoP`.
   `verifyRegistrationPoP` only checks the signature over the challenge it is given: your own protocol must issue a
   fresh, unpredictable nonce from the verifier, enforce its expiry and single use, and bind it to the kid, the agent
   and the endpoint. Do not trust a PoP that the endpoint sends on its own or reuses. A2A 1.0's

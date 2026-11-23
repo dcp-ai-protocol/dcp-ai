@@ -5,7 +5,7 @@
 
 # DCP-AI ↔ A2A（Agent-to-Agent）协议桥接
 
-> 本文是[英文版](../../../../integrations/google-a2a/README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../integrations/google-a2a/README.md)的参考译文，更新于 23/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 把已签名的 DCP Agent Passport 放进 A2A 的 Agent Card 中携带，使 A2A 使用方能够在委派任务之前离线验证护照的哈希和自签名。
 护照指明了一个责任委托人；该桥接不验证该委托人的 RPR，也不建立准入。它还把 A2A 任务映射为 DCP 意图和审计条目。
@@ -75,8 +75,7 @@ SLH-DSA-192f，每个位置都固定为其算法），并且能在 AgentPassport
   `expectedAgentId`。两个签名密钥都必须在其中，且受信任的条目本身也必须为 `active` 且未过期（你对密钥的记录优先于护照中的
   副本）；此时结果会显示 `anchored: true`。`anchored` 只表示传入了 `trustedKeys`，即使验证失败也是如此：要进行锚定检查，请要求 `verified && anchored`。
 - 只把 `result.passport` 当作智能体的身份，绝不要使用卡片中未签名的字段。
-- 在委派任务之前，要求端点提供持有证明：SDK 的 `generateRegistrationPoP` / `verifyRegistrationPoP`，或 DCP-04 的 A2A
-  会话。
+- 在委派任务之前，要求端点提供持有证明：SDK 的 `generateRegistrationPoP` / `verifyRegistrationPoP`。
   `verifyRegistrationPoP` 只检查对其所收到挑战的签名：你自己的协议必须由验证方签发新的、不可预测的 nonce，强制其过期和
   一次性使用，并把它绑定到 kid、智能体和端点。不要信任端点主动发送或重复使用的 PoP。A2A 1.0 的 `AgentCard.signatures`
   （对卡片的 JWS）是该协议自己绑定卡片其余部分的方式；该桥接没有实现它。

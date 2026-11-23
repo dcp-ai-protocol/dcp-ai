@@ -156,6 +156,23 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
   pública recebia 400, e um com erros de schema ou de assinatura recebia esses erros. `lib/verify.js`, a CLI e os
   SDKs não mudam.
 
+- **DCP-04 §3 (handshake A2A) e DCP-09 §8 estão em revisão: não implementá-los tal como estão escritos** (apenas
+  especificação e documentação; sem mudança no comportamento de nenhum código, nem em esquemas, valores padrão ou
+  versões). Tal como especificado, o handshake não autentica as partes: suas mensagens não são assinadas com as
+  chaves dos agentes, de modo que nada vincula a chave KEM efêmera nem os parâmetros negociados ao bundle que uma
+  parte apresenta, e um bundle assinado é um artefato público. Concluí-lo não estabelece qual agente está do outro
+  lado, portanto a autenticação mútua que a especificação afirma para ele não se sustenta.
+  [spec/DCP-04.md](../../spec/DCP-04.md#3-handshake-protocol) diz isso no seu status e no início de §3, e o
+  [perfil A2A](../../spec/profiles/a2a/README.md) e o [DCP-09](../../spec/DCP-09.md) §8 remetem a esse aviso; as
+  sessões de §4, o modelo de confiança de §5, a contraparte registrada nas entradas de auditoria de §6 e a extensão
+  do handshake do DCP-09 §8 herdam a limitação, e até que as duas seções sejam revisadas não é possível declarar
+  conformidade com o DCP-04 nem com o DCP-09 (o item 6 do seu §11 é essa extensão). Nenhum SDK implementa o
+  handshake completo, e nenhum SDK ou serviço declara conformidade com o DCP-04. As funções auxiliares dos SDKs que
+  constroem `A2A_HELLO` e `A2A_WELCOME` e cifram as mensagens de sessão não mudam: não autenticam a contraparte, e
+  verificar o bundle dela também não; quem precisa saber quem é a sua contraparte tem de estabelecê-lo fora deste
+  handshake. A documentação da integração com o Google A2A não nomeia mais uma sessão do DCP-04 como prova de posse.
+  A revisão de §3 está pendente.
+
 - **Autorização multipartes: quem decide é o perfil opt-in `mpa-v1`; as funções publicadas verificam apenas a estrutura**
   (código-fonte em `main`, em nenhuma versão publicada; sem mudança de versão). Um registro de autorização multipartes
   não decide nada sozinho: o seu `required_parties` não é assinado, cada papel é escrito pela parte que o assina, e
