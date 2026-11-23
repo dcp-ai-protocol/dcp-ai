@@ -5,7 +5,7 @@
 
 # Docker — infraestructura de DCP
 
-> Traducción informativa de [la versión en inglés](../../../docker/README.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docker/README.md), actualizada el 18/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Configuración de Docker Compose para desplegar todos los servicios de DCP como contenedores. Incluye verificación, anclaje, registro de transparencia y revocación.
 
@@ -97,7 +97,7 @@ Cada servicio se configura mediante variables de entorno en `docker-compose.yml`
 |----------|---------|-------------|
 | `PORT` | `3000` | Puerto HTTP |
 | `VERIFIER_MODE` | `hybrid_required` | Modo de verificación V2 |
-| `ALLOW_V1_BUNDLES` | `true` | Acepta bundles en formato V1 |
+| `ALLOW_V1_BUNDLES` | `true` | `false` rechaza todos los bundles V1. `true` acepta uno solo donde `VERIFIER_MODE` aceptaría un bundle solo clásico: no con `hybrid_required` ni con `pq_only` |
 | `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`, `PQ_CHECKPOINT_INTERVAL`, `ADVISORY_POLL_INTERVAL_MS` | definidas en la imagen y aquí | **El servidor todavía no las lee.** Se aplica su política integrada (vinculación de sesión y compuesta obligatorias, antigüedad de clave de 365 días); `GET /v2/policy` la muestra |
 
 En una imagen construida con estas fuentes, como la que `docker-compose.yml` construye desde tu checkout, los endpoints demo de DCP-05 a DCP-09 de la pasarela están apagados salvo que el servidor reciba `DCP_DEMO_ENDPOINTS=dcp-05-09`, que `docker-compose.yml` no pasa; activados, necesitan el token del operador y siguen sin verificar firmas. Una imagen construida con fuentes sin este cambio los tiene activos sin token ([docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
@@ -222,6 +222,8 @@ gossip ni preparación para producción.
 <a id="full-example-verify-a-bundle"></a>
 
 ## Ejemplo completo — verificar un bundle
+
+El paso 2 envía un fixture V1. Con `VERIFIER_MODE=hybrid_required`, que es lo que define `docker-compose.yml`, la pasarela le responde `"verified": false`: un bundle V1 no tiene firma poscuántica, así que solo pasa donde pasaría un bundle solo clásico. Para verlo verificado, define `VERIFIER_MODE=classical_only` en el servicio `verification`, o envía en su lugar el vector V2 `signed_bundle` de `tests/interop/v2/bundle_vectors.json`.
 
 ```bash
 # Run from the repo root: the example files are under tests/.

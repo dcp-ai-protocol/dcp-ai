@@ -5,7 +5,7 @@
 
 # Docker — DCP 基础设施
 
-> 本文是[英文版](../../../docker/README.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docker/README.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 用于把所有 DCP 服务部署为容器的 Docker Compose 配置。包括验证、锚定、透明日志和撤销。
 
@@ -96,7 +96,7 @@ curl http://localhost:3000/.well-known/dcp-capabilities.json
 |----------|---------|-------------|
 | `PORT` | `3000` | HTTP 端口 |
 | `VERIFIER_MODE` | `hybrid_required` | V2 验证模式 |
-| `ALLOW_V1_BUNDLES` | `true` | 接受 V1 格式的 bundle |
+| `ALLOW_V1_BUNDLES` | `true` | `false` 拒绝所有 V1 bundle。`true` 也只有在 `VERIFIER_MODE` 会接受仅经典签名 bundle 的情况下才接受 V1 bundle：在 `hybrid_required` 和 `pq_only` 下不接受 |
 | `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS`、`PQ_CHECKPOINT_INTERVAL`、`ADVISORY_POLL_INTERVAL_MS` | 在镜像中和此处设置 | **服务器目前还不会读取。** 适用的是其内置策略（要求会话绑定和复合绑定，密钥年龄阈值为 365 天）；可以通过 `GET /v2/policy` 查看 |
 
 在用这些源代码构建的镜像中（`docker-compose.yml` 从你的检出构建），除非服务器收到 `DCP_DEMO_ENDPOINTS=dcp-05-09`，网关的 DCP-05 至 DCP-09 演示端点保持关闭，而 `docker-compose.yml` 不会传递它；启用后，它们需要运营方令牌，并且仍然不验证签名。用不含此变更的源代码构建的镜像中，它们处于开启状态且不需要令牌（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
@@ -215,6 +215,8 @@ docker compose -f docker/docker-compose.yml build
 <a id="full-example-verify-a-bundle"></a>
 
 ## 完整示例 — 验证一个 bundle
+
+第 2 步发送的是一个 V1 测试夹具。在 `docker-compose.yml` 设置的 `VERIFIER_MODE=hybrid_required` 下，网关对它的回答是 `"verified": false`：V1 bundle 没有后量子签名，因此只有在仅经典签名的 bundle 能通过的情况下才能通过。要看到它通过验证，请为 `verification` 服务设置 `VERIFIER_MODE=classical_only`，或者改为发送 `tests/interop/v2/bundle_vectors.json` 中的 V2 向量 `signed_bundle`。
 
 ```bash
 # Run from the repo root: the example files are under tests/.

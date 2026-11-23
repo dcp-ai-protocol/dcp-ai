@@ -80,7 +80,7 @@ Each service is configured via environment variables in `docker-compose.yml`:
 |----------|---------|-------------|
 | `PORT` | `3000` | HTTP port |
 | `VERIFIER_MODE` | `hybrid_required` | V2 verification mode |
-| `ALLOW_V1_BUNDLES` | `true` | Accept V1 format bundles |
+| `ALLOW_V1_BUNDLES` | `true` | `false` rejects every V1 bundle. `true` accepts one only where `VERIFIER_MODE` would accept a classical-only bundle: not under `hybrid_required` or `pq_only` |
 | `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`, `PQ_CHECKPOINT_INTERVAL`, `ADVISORY_POLL_INTERVAL_MS` | set in the image and here | **Not read by the server yet.** Its built-in policy applies (session and composite binding required, 365-day key age); `GET /v2/policy` shows it |
 
 In an image built from these sources, as `docker-compose.yml` builds from your checkout, the gateway's DCP-05 to DCP-09 demo endpoints are off unless the server gets `DCP_DEMO_ENDPOINTS=dcp-05-09`, which `docker-compose.yml` does not pass; enabled, they need the operator token and still verify no signature. An image built from sources without this change has them on without a token ([docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
@@ -195,6 +195,8 @@ A passing check only means the process answers HTTP; it is not evidence of persi
 gossip or readiness for production.
 
 ## Full Example — Verify a Bundle
+
+Step 2 posts a V1 fixture. With `VERIFIER_MODE=hybrid_required`, which `docker-compose.yml` sets, the gateway answers `"verified": false` for it: a V1 bundle has no post-quantum signature, so it passes only where a classical-only bundle would. To see it verify, set `VERIFIER_MODE=classical_only` for the `verification` service, or post the V2 vector `signed_bundle` of `tests/interop/v2/bundle_vectors.json` instead.
 
 ```bash
 # Run from the repo root: the example files are under tests/.

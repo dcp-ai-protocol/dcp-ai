@@ -54,7 +54,7 @@ Example:
 { "verified": false, "errors": ["SIGNATURE INVALID", "Hint: Check that the public key ..."] }
 ```
 
-The reference server (`server/`) implements this as `POST /verify`. Its response always carries `dcp_version` and `errors`; for V2 it adds `warnings`, `verifier_policy_hash` and `resolved_tier`. Request bodies are JSON.
+The reference server (`server/`) implements this as `POST /verify`. Its answer to a bundle it has examined (200) always carries `dcp_version`, `errors` and `warnings`; for V2 it adds `verifier_policy_hash` and `resolved_tier`. A 400, for a body it cannot read as a request, carries `verified: false` and `errors` only. It takes a V1 bundle only where its policy would take a classical-only bundle (`ALLOW_V1_BUNDLES` below), and for a V1 bundle sent without `public_key_b64` it warns that the signature was checked against the key the bundle itself declares. Request bodies are JSON.
 
 ### POST /anchor (optional)
 
@@ -147,7 +147,7 @@ To keep memory bounded, the identity, key and revocation registries refuse work 
 Two parts of the gateway behave differently:
 
 - **DCP-05–09 record stores evict.** These are the stores for lifecycle, vitality, testaments, succession, disputes, jurisprudence, objections, rights, obligations, violations, mandates, advisory declarations, mirrors, interactions and awareness thresholds. Each keeps at most 10,000 entries, and 10,000 per agent in its per-agent lists, and evicts the oldest (FIFO): an evicted record is gone, without an error.
-- **Audit chains have no limit of their own** (`POST /v2/audit/append`). Only the request limits apply to them.
+- **Audit events are counted, not kept** (`POST /v2/audit/append`). The gateway checks each event, including the registered agent's signature, and keeps one counter per registered agent.
 
 The limits count per client IP. Behind a proxy that appends the client IP to `X-Forwarded-For`, set `TRUST_PROXY=true`; otherwise every client shares the proxy's address.
 
@@ -156,7 +156,7 @@ The limits count per client IP. Behind a proxy that appends the client IP to `X-
 - `PORT` — HTTP port (default `3000`)
 - `OPERATOR_TOKEN` — bearer token for the admin endpoints (policy, advisories, governance) and for registering new `agent_id`s; unset keeps them locked
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
-- `ALLOW_V1_BUNDLES` — `false` rejects V1 bundles
+- `ALLOW_V1_BUNDLES` — `false` rejects every V1 bundle; `true` (the default) accepts one only where the policy would accept a classical-only bundle, so not under `hybrid_required` or `pq_only`
 - `DCP_DEMO_ENDPOINTS` — `off` (the default) or `dcp-05-09`, which enables the [DCP-05–09 demo endpoints](#dcp-0509-service-endpoints) and needs an `OPERATOR_TOKEN` of at least 32 RFC 6750 b64token characters; any other value stops the server
 - `TRUST_PROXY`, `REGISTRATIONS_PER_HOUR`, `MAX_REGISTERED_KEYS`, `MAX_KEYS_PER_AGENT` — see above
 - `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE`, `DCP_REVOCATION_LIST_URL`, `DCP_REVOCATION_LIST_AUTHORIZATION`, `DCP_REVOCATION_TIMEOUT_MS` — admission for `POST /v2/admit`, see [ADMISSION.md](ADMISSION.md)

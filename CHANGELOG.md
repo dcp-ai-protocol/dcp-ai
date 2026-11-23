@@ -92,6 +92,46 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Reference server: `POST /v2/audit/append` checks the event and its signature, and keeps no events** (source on
+  `main`, not in a published version; no version bump). The endpoint took any JSON as an audit event from anyone, one
+  without `agent_id` included, and kept every body in memory with no limit, so requests alone could exhaust the
+  gateway's memory. An event is now accepted only if it is a V2 audit entry (`schemas/v2/audit_entry.schema.json`) of
+  a registered agent and `signature` is a composite signature over it under `DCP-AI.v2.AuditEvent` by the agent's
+  active keys, both of them when the agent registered a post-quantum key, also once the registry no longer holds that
+  key's entry. Accepted events are counted, not kept: `chain_length` is the number of requests accepted for the agent,
+  so an event sent again counts again, and `prev_hash` is still not compared. A 400 for a body that does not fit its
+  schema lists at most 50 problems, on this route and on the others that check one. **Acceptance change:** an
+  unsigned event, or one that is not schema-valid, got 201 and now gets 403 or 400.
+
+- **Verification server and revocation service: a registered emergency revocation token is replaced only with its
+  secret or by the operator** (source on `main`, not in a published version; no version bump). Re-registering an
+  agent with a newer passport, signed by its active keys, also replaced its emergency revocation token. The token is
+  what the principal uses when those keys are compromised, so the keys alone no longer replace it: a re-registration
+  whose passport carries a different token is refused with 403 unless the request also carries
+  `current_revocation_secret`, the secret of the registered token, or the operator token. A passport with the same
+  token, or without one, re-registers as before and keeps the registered token. The revocation service also refuses a
+  token that is not a string: it took an array holding one, and then answered 500 to that agent's emergency
+  revocation. **Acceptance change:** on `POST /v2/passport/register` (gateway) and `POST /v2/register` (revocation
+  service), a token replacement signed only by the agent's keys got 201 and now gets 403. No change to the SDKs, the
+  passport schema or the wire format.
+
+- **Reference server: `POST /verify` applies the verifier policy to V1 bundles** (source on `main`, not in a
+  published version; no version bump). For a V1 bundle (one Ed25519 signature, no post-quantum one) the server read
+  only `allow_v1_bundles`, so it answered `verified: true` whatever mode its policy required. It now takes a V1 bundle
+  only where VERIFICATION.md V2-10 would accept a classical-only bundle, the rule the Express, OpenClaw and FastAPI
+  integrations already apply: `allow_v1_bundles` is true, the policy still accepts `ed25519`, and the stricter of the
+  policy mode for the V1 passport's `risk_tier` and the mode of the security tier of the V1 intent and policy decision
+  is `classical_only` or `hybrid_preferred`. The answer to a V1 bundle now carries `warnings`: without
+  `public_key_b64` in the request, it says that the signature was checked against the key the bundle itself declares.
+  `POST /v2/advisory/auto-apply` now switches the whole policy to `pq_only` when an advisory leaves it no classical
+  algorithm. It changed the default mode only, so the risk tiers kept the mode they had: a V1 bundle went on
+  verifying where that mode took it, and a hybrid V2 bundle was refused. **Acceptance change:** under the default
+  `hybrid_required`, which `docker/docker-compose.yml` also sets, V1 bundles that verified before are answered
+  `verified: false`; `VERIFIER_MODE=classical_only` or `hybrid_preferred` still takes those of a routine or standard
+  intent. Where the policy refuses V1 bundles, a body that is not a V2 bundle gets that refusal (200,
+  `verified: false`) before the rest of it is read: one without a public key got 400, and one with schema or
+  signature errors got those errors. `lib/verify.js`, the CLI and the SDKs do not change.
+
 - **Multi-party authorization: the opt-in `mpa-v1` profile decides; the published functions check structure only**
   (source on `main`, not in a published version; no version bump). A multi-party authorization record decides nothing
   on its own: its `required_parties` is not signed, each role is written by the party that signs it, and nothing in it

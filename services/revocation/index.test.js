@@ -63,14 +63,17 @@ test("registration is proven by the passport signature and cannot be hijacked", 
   const planted = { ...charlie.passport, emergency_revocation_token: `sha256:${"1".repeat(64)}` };
   assert.equal((await post("/v2/register", { signed_passport: await signPassport(planted, oneKey) })).status, 403);
 
-  // Charlie's own keys can replace the token with a newer passport.
+  // Charlie replaces the token with a newer passport and the secret of the registered one.
   const secret = crypto.randomBytes(32).toString("hex");
   const renewed = {
     ...charlie.passport,
     created_at: later(charlie.passport.created_at),
     emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
   };
-  assert.equal((await post("/v2/register", { signed_passport: await signPassport(renewed, charlie.keys) })).status, 201);
+  const signedRenewed = await signPassport(renewed, charlie.keys);
+  const withSecret = (current_revocation_secret) => post("/v2/register", { signed_passport: signedRenewed, current_revocation_secret });
+  assert.equal((await withSecret(secret)).status, 403); // the new token's secret is not the registered one's
+  assert.equal((await withSecret(charlie.revocationSecret)).status, 201);
 
   // Signed passports are public: replaying the old one must not bring the old token back.
   assert.equal((await register(charlie)).status, 409);
@@ -82,6 +85,45 @@ test("registration is proven by the passport signature and cannot be hijacked", 
   delete noToken.emergency_revocation_token;
   assert.equal((await post("/v2/register", { signed_passport: await signPassport(noToken, charlie.keys) })).status, 201);
   assert.equal((await post("/v2/emergency-revoke", { agent_id: "agent:charlie-1", revocation_secret: secret })).status, 200);
+});
+
+test("replacing an emergency revocation token takes its secret or the operator, not the agent's keys alone", async () => {
+  // Its own service: emergency revocations are limited to five per client and minute.
+  const service = await startService(SERVICE, { OPERATOR_TOKEN });
+  const to = (path, body, headers) => postTo(service.base, path, body, headers);
+  try {
+    const victor = await newAgent("agent:victor-01");
+    const whiskey = await newAgent("agent:whiskey-1");
+    for (const agent of [victor, whiskey]) {
+      assert.equal((await to("/v2/register", { signed_passport: agent.signedPassport }, asOperator)).status, 201);
+    }
+    const secret = "22".repeat(32);
+    const withNewToken = (agent) => signPassport({
+      ...agent.passport,
+      created_at: later(agent.passport.created_at),
+      emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
+    }, agent.keys);
+
+    // The keys are what a compromise gives away, and the token exists for that case: a passport
+    // they sign does not replace it, and the principal's secret still revokes the agent.
+    assert.equal((await to("/v2/register", { signed_passport: await withNewToken(victor) })).status, 403);
+    const principal = { agent_id: "agent:victor-01", revocation_secret: victor.revocationSecret };
+    assert.equal((await to("/v2/emergency-revoke", principal)).status, 200);
+
+    // The operator can replace it, for a principal who has lost the secret.
+    assert.equal((await to("/v2/register", { signed_passport: await withNewToken(whiskey) }, asOperator)).status, 201);
+    assert.equal((await to("/v2/emergency-revoke", { agent_id: "agent:whiskey-1", revocation_secret: secret })).status, 200);
+  } finally {
+    service.proc.kill();
+  }
+});
+
+test("an emergency revocation token that is not a string is refused", async () => {
+  const yankee = await newAgent("agent:yankee-01");
+  // An array whose only item reads like a token: a pattern alone would take it.
+  const passport = { ...yankee.passport, emergency_revocation_token: [yankee.passport.emergency_revocation_token] };
+  const answer = await registerSigned(await signPassport(passport, yankee.keys));
+  assert.deepEqual([answer.status, answer.body.error], [400, "emergency_revocation_token must be sha256:<64 hex chars>"]);
 });
 
 test("revocations must be signed by the agent's registered keys", async () => {
@@ -308,18 +350,21 @@ test("the state file is compacted at start, and re-registrations append only wha
   const env = { OPERATOR_TOKEN, REVOCATION_STATE_PATH: file };
   const victor = await newAgent("agent:victor-rv");
   let passport = victor.passport;
-  let secret;
+  let secret = victor.revocationSecret;
   let service = await startService(SERVICE, env);
   try {
     assert.equal((await postTo(service.base, "/v2/register", { signed_passport: victor.signedPassport }, asOperator)).status, 201);
     for (let i = 0; i < 3; i++) {
+      // Each new token is authorized by the secret of the one it replaces.
+      const current_revocation_secret = secret;
       secret = crypto.randomBytes(32).toString("hex");
       passport = {
         ...passport,
         created_at: later(passport.created_at),
         emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
       };
-      assert.equal((await postTo(service.base, "/v2/register", { signed_passport: await signPassport(passport, victor.keys) })).status, 201);
+      const renewal = { signed_passport: await signPassport(passport, victor.keys), current_revocation_secret };
+      assert.equal((await postTo(service.base, "/v2/register", renewal)).status, 201);
     }
     // One line for the agent (its keys included), then one small line per re-registration.
     assert.equal(lines(), 4);

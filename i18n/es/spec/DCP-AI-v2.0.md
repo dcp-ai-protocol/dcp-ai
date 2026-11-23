@@ -4,7 +4,7 @@
 
 # Especificación normativa de DCP-AI v2.0
 
-> Traducción informativa de [la especificación en inglés](../../../spec/DCP-AI-v2.0.md), actualizada el 07/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/DCP-AI-v2.0.md), actualizada el 23/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 **Estado:** Final  
 **Versión:** 2.0.0  
@@ -746,8 +746,9 @@ Los verificadores V2 deben (MUST) admitir V1 indefinidamente. La migración es g
   implementa.
 - **§17, compatibilidad con versiones anteriores.** La tabla describe resultados, no un único punto de entrada.
   `verifySignedBundleV2` de los SDK solo verifica bundles V2. `allow_v1_bundles` lo leen el servidor de referencia y el
-  perfil de admisión; el `verifySignedBundle` raíz (`lib/verify.js`) envía los bundles V1 a las comprobaciones V1 sin
-  leerlo.
+  perfil de admisión; el `POST /verify` del servidor de referencia acepta un bundle V1 solo donde su política aceptaría
+  también un bundle solo clásico (VERIFICATION.md V2-10), así que el PASS de la tabla necesita un modo que lo haga; el
+  `verifySignedBundle` raíz (`lib/verify.js`) envía los bundles V1 a las comprobaciones V1 sin leerlo.
 - **§18, proceso.** Desde las versiones del 05/11/2026 (`@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2, Go v2.13.0 y Rust `dcp-ai` 2.13.0), `verifySignedBundleV2` y sus equivalentes en todos los SDK ejecutan por sí mismos la
   validación con JSON Schema (paso 2); las versiones anteriores no, y `lib/verify.js` y el servidor también
   la hacen antes de llamar al SDK. No usa la caché de verificación que exporta el SDK de TypeScript (paso 13), y el
