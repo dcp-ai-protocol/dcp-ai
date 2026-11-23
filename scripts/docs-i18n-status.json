@@ -1745,23 +1745,23 @@
       }
     },
     "spec/DCP-04.md": {
-      "source_sha256": "416ed9544c50fe1fb20643b16e7f6c046d576f4931013b2eb3764264b06515fd",
+      "source_sha256": "afadb11096122c5bc1e55781de5f884de007a31935107d6c84a22805d4af3179",
       "translations": {
         "es": {
-          "source_sha256": "416ed9544c50fe1fb20643b16e7f6c046d576f4931013b2eb3764264b06515fd",
-          "sha256": "75ff304d157d9a8faca619fc12ab176a560db1a361de6470ffec323571ca524a"
+          "source_sha256": "afadb11096122c5bc1e55781de5f884de007a31935107d6c84a22805d4af3179",
+          "sha256": "e2008e4b44d5b56d94649617f8f0c3e9631c561d4932c5c8df16e6b37fca50e8"
         },
         "pt-BR": {
-          "source_sha256": "416ed9544c50fe1fb20643b16e7f6c046d576f4931013b2eb3764264b06515fd",
-          "sha256": "79b40a3b1f52dce6bce37a3798e7cc144624b6cb2f5865f601ca8fc941d30414"
+          "source_sha256": "afadb11096122c5bc1e55781de5f884de007a31935107d6c84a22805d4af3179",
+          "sha256": "8a9d0290daa1b08e67b8ce292064046764be608b6b540837ddd3516862c843a9"
         },
         "ja": {
-          "source_sha256": "416ed9544c50fe1fb20643b16e7f6c046d576f4931013b2eb3764264b06515fd",
-          "sha256": "4751d9e04fb16b0bf151e906aafb0a28cca41166d6ca864ee995c9da5ffc32a6"
+          "source_sha256": "afadb11096122c5bc1e55781de5f884de007a31935107d6c84a22805d4af3179",
+          "sha256": "9cd3d5bfa847a604e01030246a7a5bd6ac73ef454168feb61ea6fada8957dd1e"
         },
         "zh-CN": {
-          "source_sha256": "416ed9544c50fe1fb20643b16e7f6c046d576f4931013b2eb3764264b06515fd",
-          "sha256": "23080665ebeae7251b1011d774f8c9d76ff07e5b9eaeff66cebcf85cd2d781e4"
+          "source_sha256": "afadb11096122c5bc1e55781de5f884de007a31935107d6c84a22805d4af3179",
+          "sha256": "ed9fa79f4423077547711b594ce69690d678558620238980167848654267adfc"
         }
       }
     },
@@ -1850,23 +1850,23 @@
       }
     },
     "spec/DCP-09.md": {
-      "source_sha256": "b3bfbf64c8ef6dd3e5c541af4f101deb88334100a37859e3cfacf26832315d1c",
+      "source_sha256": "4011eb31c0579f62d129698da91e19d8279cea100c959510a1a9ca0ae963ea16",
       "translations": {
         "es": {
-          "source_sha256": "b3bfbf64c8ef6dd3e5c541af4f101deb88334100a37859e3cfacf26832315d1c",
-          "sha256": "2078cbed2bb459d615e557e77b2647c618badc8c1bb02bed251bce390da8833c"
+          "source_sha256": "4011eb31c0579f62d129698da91e19d8279cea100c959510a1a9ca0ae963ea16",
+          "sha256": "47f0c0ad9c1de7e73ff0527f333a68cd5302a69a3d1ae10302eefcb4bb512c80"
         },
         "pt-BR": {
-          "source_sha256": "b3bfbf64c8ef6dd3e5c541af4f101deb88334100a37859e3cfacf26832315d1c",
-          "sha256": "79c3295556b1ab1bbbd79baa41a49860acdd7a90fbbc5970c096c0e68b61aaac"
+          "source_sha256": "4011eb31c0579f62d129698da91e19d8279cea100c959510a1a9ca0ae963ea16",
+          "sha256": "b905ad4392365f578063c64a9e046e2ac8f6edd68ddb3438bf6d743602ccfa1e"
         },
         "ja": {
-          "source_sha256": "b3bfbf64c8ef6dd3e5c541af4f101deb88334100a37859e3cfacf26832315d1c",
-          "sha256": "ba2b9376df6e0effdde4a4e41481ba3f82ad8c049a45cdc7d1a38d526c0b1d96"
+          "source_sha256": "4011eb31c0579f62d129698da91e19d8279cea100c959510a1a9ca0ae963ea16",
+          "sha256": "3acbccd1b4888762d01d46b9fec551a97dd445eb145130eba0530a4193e8f2a6"
         },
         "zh-CN": {
-          "source_sha256": "b3bfbf64c8ef6dd3e5c541af4f101deb88334100a37859e3cfacf26832315d1c",
-          "sha256": "3f728fb9161770335d804769d1477cb585ac408ef6bddd0a1b3c9a661cf5aeec"
+          "source_sha256": "4011eb31c0579f62d129698da91e19d8279cea100c959510a1a9ca0ae963ea16",
+          "sha256": "4054ed30b08af642d94e73f94c5438f118529a69911c7520a2aaa4b0798cf8e9"
         }
       }
     },
@@ -1892,23 +1892,23 @@
       }
     },
     "CHANGELOG.md": {
-      "source_sha256": "e79723c540e326583743b2b37743a1d439ac06f1d8dc11cbd1368e9838c2728e",
+      "source_sha256": "86dcf6147522d4285556547ea4dc806f88cc8c0bd82c1b332113e6367a812a2d",
       "translations": {
         "es": {
-          "source_sha256": "e79723c540e326583743b2b37743a1d439ac06f1d8dc11cbd1368e9838c2728e",
-          "sha256": "6a9351e4cac39b26449bc12b3bbf26455f92a009e0fd173216e0c85c3e40cb48"
+          "source_sha256": "86dcf6147522d4285556547ea4dc806f88cc8c0bd82c1b332113e6367a812a2d",
+          "sha256": "713d7c9614f9bc6d32d4533dd7162047ac0045f79da5df75ea03d66069ee3e62"
         },
         "pt-BR": {
-          "source_sha256": "e79723c540e326583743b2b37743a1d439ac06f1d8dc11cbd1368e9838c2728e",
-          "sha256": "b5628a95237aff769c9db6b45f58085b6b47df8508fed946e0f224804aaa6f22"
+          "source_sha256": "86dcf6147522d4285556547ea4dc806f88cc8c0bd82c1b332113e6367a812a2d",
+          "sha256": "12e9cb8af718e5b209a69777be749197699f74af19bc346c1e1c8ad38845c0ce"
         },
         "ja": {
-          "source_sha256": "e79723c540e326583743b2b37743a1d439ac06f1d8dc11cbd1368e9838c2728e",
-          "sha256": "7449ead6e8fa615b5ce9ddb11354ad39bfcb11de67eba1b4efb96bc6b62fe15f"
+          "source_sha256": "86dcf6147522d4285556547ea4dc806f88cc8c0bd82c1b332113e6367a812a2d",
+          "sha256": "e5191ed0989976f59eec3153c5aee8b409f6067176c92ff38573b9cb5c350cda"
         },
         "zh-CN": {
-          "source_sha256": "e79723c540e326583743b2b37743a1d439ac06f1d8dc11cbd1368e9838c2728e",
-          "sha256": "207ae8b06f9b05c6a9e40751f581f33780c2b45db572757343401d9b3d61ce95"
+          "source_sha256": "86dcf6147522d4285556547ea4dc806f88cc8c0bd82c1b332113e6367a812a2d",
+          "sha256": "b2c4b0f27f975b55905a3ed668b78a403983c50259ab001f29b71b2b87d150cb"
         }
       }
     },

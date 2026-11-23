@@ -891,8 +891,8 @@ Esto proporciona una auditoría de cumplimiento por interacción que alimenta el
 > **En revisión desde el 18/11/2026 (aviso normativo). No implementar esta sección tal como está escrita.** Extiende
 > el handshake de [DCP-04](../../../spec/DCP-04.md#3-handshake-protocol) §3, que tal como está escrito no autentica a las
 > partes: véase el aviso al comienzo de esa sección. Un campo `delegation` recibido en ese handshake no demuestra
-> que la otra parte sea el agente delegado que nombra su mandato. Hasta que se revise esa sección no se puede
-> declarar conformidad con el punto 6 de §11.
+> que la otra parte sea el agente delegado que nombra su mandato. Hasta que se revisen DCP-04 §3 y esta sección no
+> se puede declarar conformidad con DCP-09 (§11): su punto 6 es esta sección.
 
 <a id="81-purpose"></a>
 

@@ -127,8 +127,9 @@ Las capacidades personalizadas deben (MUST) usar notación de dominio inverso: `
 > Hasta que se publique una revisión de esta sección, no hay que tratar como autenticada una sesión establecida de
 > este modo. Hasta entonces no se puede declarar conformidad con DCP-04 (§9): su primer requisito es esta sección.
 > Las sesiones de §4, el modelo de confianza de §5, la contraparte que se anota en las entradas de auditoría de §6 y
-> la extensión del handshake de DCP-09 §8 descansan en este handshake y heredan la limitación. Ningún SDK de `main`
-> implementa el handshake completo: véanse las notas de implementación al final de este documento.
+> la extensión del handshake de DCP-09 §8 descansan en este handshake y heredan la limitación.
+
+Ningún SDK de `main` implementa el handshake completo: véanse las notas de implementación al final de este documento.
 
 <a id="31-overview"></a>
 

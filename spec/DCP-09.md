@@ -801,8 +801,8 @@ This provides a per-interaction compliance audit that feeds into the broader obl
 > **Under revision since 18/11/2026 (normative notice). Do not implement this section as written.** It extends the
 > handshake of [DCP-04](DCP-04.md#3-handshake-protocol) §3, which does not authenticate the parties as written: see the notice
 > at the start of that section. A `delegation` field received in such a handshake does not show that the peer is
-> the delegate agent its mandate names. Conformance with item 6 of §11 cannot be claimed until that section is
-> revised.
+> the delegate agent its mandate names. DCP-09 conformance (§11) cannot be claimed until DCP-04 §3 and this section
+> are revised: its item 6 is this section.
 
 ### 8.1 Purpose
 

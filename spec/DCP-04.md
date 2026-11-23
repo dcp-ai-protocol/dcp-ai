@@ -100,8 +100,9 @@ Custom capabilities MUST use reverse-domain notation: `com.acme.custom_capabilit
 > Until a revision of this section is published, do not treat a session established this way as authenticated.
 > DCP-04 conformance (§9) cannot be claimed until then: its first requirement is this section. The sessions of §4,
 > the trust model of §5, the counterparty recorded in the audit entries of §6 and the handshake extension of DCP-09
-> §8 rest on this handshake and inherit the limitation. No SDK on `main` implements the complete handshake: see the
-> implementation notes at the end of this document.
+> §8 rest on this handshake and inherit the limitation.
+
+No SDK on `main` implements the complete handshake: see the implementation notes at the end of this document.
 
 ### 3.1 Overview
 
