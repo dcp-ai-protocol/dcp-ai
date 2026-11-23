@@ -92,6 +92,22 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **DCP-04 §3 (A2A handshake) and DCP-09 §8 are under revision: do not implement them as written** (specification and
+  documentation only; no change to the behaviour of any code, to schemas, defaults or versions). As specified, the
+  handshake does not authenticate the parties: its messages are not signed with the agents' keys, so nothing ties the
+  ephemeral KEM key or the negotiated parameters to the bundle a party presents, and a signed bundle is a public
+  artifact. Completing it does not establish which agent is at the other end, so the mutual authentication the
+  specification states for it does not hold. [spec/DCP-04.md](spec/DCP-04.md#3-handshake-protocol) says so in its
+  status and at the start of §3, and the [A2A profile](spec/profiles/a2a/README.md) and [DCP-09](spec/DCP-09.md) §8
+  point to that notice; the sessions of §4, the trust model of §5, the counterparty recorded in the audit entries of
+  §6 and the handshake extension of DCP-09 §8 inherit the limitation, and neither DCP-04 nor DCP-09 conformance (item
+  6 of its §11 is that extension) can be claimed until both sections are revised. No SDK implements the complete
+  handshake, and no SDK or service claims DCP-04 conformance. The SDK helpers that build `A2A_HELLO` and
+  `A2A_WELCOME` and encrypt session messages are unchanged: they do not authenticate the counterparty, and verifying
+  its bundle does not either; a caller that needs to know its peer must establish that outside this handshake. The
+  documentation of the Google A2A integration no longer names a DCP-04 session as proof of possession. A revision of
+  §3 is pending.
+
 - **Multi-party authorization: the opt-in `mpa-v1` profile decides; the published functions check structure only**
   (source on `main`, not in a published version; no version bump). A multi-party authorization record decides nothing
   on its own: its `required_parties` is not signed, each role is written by the party that signs it, and nothing in it

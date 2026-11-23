@@ -5,7 +5,7 @@
 
 # Ponte DCP-AI ↔ protocolo A2A (Agent-to-Agent)
 
-> Tradução informativa da [versão em inglês](../../../../integrations/google-a2a/README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../integrations/google-a2a/README.md), atualizada em 23/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Leva o Agent Passport assinado do DCP dentro da Agent Card do A2A, para que um consumidor do A2A possa verificar offline
 o hash e a autoassinatura do passaporte antes de delegar uma tarefa. O passaporte nomeia um principal responsável; esta
@@ -85,7 +85,7 @@ transformá-lo em uma checagem de identidade:
   checagem ancorada, exija `verified && anchored`.
 - Use só `result.passport`, nunca os campos não assinados da card, como identidade do agente.
 - Antes de delegar uma tarefa, exija do endpoint uma prova de posse: `generateRegistrationPoP` /
-  `verifyRegistrationPoP` do SDK, ou uma sessão A2A do DCP-04.
+  `verifyRegistrationPoP` do SDK.
   `verifyRegistrationPoP` só checa a assinatura sobre o desafio que recebe: o seu próprio protocolo deve emitir um nonce
   novo e imprevisível a partir do verificador, impor a sua expiração e o seu uso único, e vinculá-lo ao kid, ao agente e
   ao endpoint. Não confie em uma PoP que o endpoint envie por conta própria ou reutilize. O `AgentCard.signatures` do

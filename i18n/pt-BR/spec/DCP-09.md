@@ -5,12 +5,14 @@
 
 # DCP-09: Delegação e representação
 
-> Tradução informativa da [especificação em inglês](../../../spec/DCP-09.md), atualizada em 07/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/DCP-09.md), atualizada em 23/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 ## Status
 Publicada — v2.0 (extensão; as revisões são acompanhadas conforme o retorno de quem a adota)
 
 > **Erratas (25/10/2026, normativas):** as erratas E5, E6, E7 e E8 de [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) corrigem os contextos de assinatura, o campo que carrega a expiração de um mandato e o caráter dos exemplos. Não alteram nenhum outro requisito desta especificação.
+
+**A seção 8 (Extensão do handshake A2A) está em revisão desde 18/11/2026 e não é adequada para implementação tal como está escrita:** veja o aviso no início dessa seção.
 
 <a id="abstract"></a>
 
@@ -875,6 +877,12 @@ Isso oferece uma auditoria de conformidade por interação que alimenta o sistem
 <a id="8-a2a-handshake-extension"></a>
 
 ## 8. Extensão do handshake A2A
+
+> **Em revisão desde 18/11/2026 (aviso normativo). Não implementar esta seção tal como está escrita.** Ela estende o
+> handshake do [DCP-04](../../../spec/DCP-04.md#3-handshake-protocol) §3, que, tal como está escrito, não autentica as partes:
+> veja o aviso no início dessa seção. Um campo `delegation` recebido nesse handshake não demonstra que a outra parte
+> seja o agente delegado que o seu mandato nomeia. Até que o DCP-04 §3 e esta seção sejam revisados não é possível
+> declarar conformidade com o DCP-09 (§11): o seu item 6 é esta seção.
 
 <a id="81-purpose"></a>
 
