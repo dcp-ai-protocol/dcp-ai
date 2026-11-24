@@ -48,7 +48,7 @@ node server/index.js
 |--------|------|-------------|
 | POST | `/v2/passport/register` | 登记自签名的智能体护照；新的 `agent_id` 需要运营方令牌（参见[信任模型](#trust-model)） |
 | POST | `/v2/intent/declare` | 声明已登记智能体的意图，并获得服务器的（未签名的）策略决定；意图的 `composite_sig` 不会被验证 |
-| POST | `/v2/audit/append` | 检查已登记智能体的审计事件并计数。事件必须是 V2 审计条目（`schemas/v2/audit_entry.schema.json`），`signature` 必须是该智能体的有效密钥在 `DCP-AI.v2.AuditEvent` 下对它所作的复合签名。网关不保存审计事件，也不比较 `prev_hash`。从未登记过后量子密钥的代理，只有在模式为 `classical_only` 或 `hybrid_preferred`、且没有已应用的通告撤回该算法时，才能仅用经典密钥签名 |
+| POST | `/v2/audit/append` | 检查已登记智能体的审计事件并计数。事件必须是 V2 审计条目（`schemas/v2/audit_entry.schema.json`），`signature` 必须是该智能体的有效密钥在 `DCP-AI.v2.AuditEvent` 下对它所作的复合签名。网关不保存审计事件，也不比较 `prev_hash`。从未登记过后量子密钥的代理，只有在模式为 `classical_only` 或 `hybrid_preferred`、且没有已应用的通告撤回该算法时，才能仅用经典密钥签名；后量子部分使用了已被应用的通告撤回的算法的签名会被拒绝 |
 | POST | `/v2/audit/compact` | 用 Merkle 摘要压缩审计链 |
 | POST | `/v2/bundle/verify` | 完整的 V2 bundle 验证：schema、清单、Ed25519 + ML-DSA-65 复合签名、会话绑定和审计链（通过 `lib/verify.js` 和 `@dcp-ai/sdk`），依据 `VERIFIER_POLICY`。V1 bundle 返回 400 |
 
@@ -105,7 +105,7 @@ node server/index.js
 | `PORT` | `3000` | HTTP 监听端口 |
 | `OPERATOR_TOKEN` | — | 用于运营方端点和登记新 `agent_id` 的 Bearer 令牌。未设置：两者都保持锁定 |
 | `VERIFIER_MODE` | `hybrid_required` | 启动时的验证模式：`classical_only`、`hybrid_preferred`、`hybrid_required` 或 `pq_only`。无效值会使服务器停止 |
-| `ALLOW_V1_BUNDLES` | `true` | 设为 `false` 时 `POST /verify` 拒绝所有 V1 bundle。为 `true` 时，也只有在会接受仅经典签名 bundle 的情况下才接受 V1 bundle：护照 `risk_tier` 对应的模式经意图的安全层级提升后，必须是 `classical_only` 或 `hybrid_preferred`。因此默认的 `hybrid_required` 会拒绝 V1 bundle，`pq_only` 总是拒绝。此外，策略还必须仍然接受 `ed25519`：撤回它的通告一旦通过 `POST /v2/advisory/auto-apply` 应用，V1 bundle 就不再被接受；若不再剩下任何经典算法，策略会变为 `pq_only` |
+| `ALLOW_V1_BUNDLES` | `true` | 设为 `false` 时 `POST /verify` 拒绝所有 V1 bundle。为 `true` 时，也只有在会接受仅经典签名 bundle 的情况下才接受 V1 bundle：护照 `risk_tier` 对应的模式经意图的安全层级提升后，必须是 `classical_only` 或 `hybrid_preferred`。因此默认的 `hybrid_required` 会拒绝 V1 bundle，`pq_only` 总是拒绝。此外，策略还必须仍然接受 `ed25519`：撤回它的通告一旦通过 `POST /v2/advisory/auto-apply` 应用，V1 bundle 就不再被接受；若不再剩下任何经典算法而仍有后量子算法，策略会变为 `pq_only` |
 | `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` 启用 DCP-05 至 DCP-09 演示端点，此时它们需要运营方令牌（至少 32 个字符）；除未设置、`off` 或 `dcp-05-09` 之外的任何值都会让服务器停止 |
 | `TRUST_PROXY` | — | 仅在会把客户端 IP 追加到 `X-Forwarded-For` 的代理（Fly、nginx）之后设为 `true`。此时限流以其最后一跳为准；否则以套接字地址为准，因为客户端可以伪造该请求头 |
 | `REGISTRATIONS_PER_HOUR` | `20` | 每个客户端每小时的 `POST /v2/passport/register` 调用次数；超出的会得到 429 |

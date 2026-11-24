@@ -96,17 +96,18 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   on `main`, not in a published version; no version bump). **Acceptance changes.** `POST /v2/audit/append` and
   `POST /v2/passport/register` take a signature with no post-quantum half only while the verifier mode is
   `classical_only` or `hybrid_preferred` and no applied advisory has withdrawn its algorithm: after an advisory that
-  revoked `ed25519`, an agent with one Ed25519 key went on appending audit events. `POST /v2/advisory/auto-apply`
+  revoked `ed25519`, an agent with one Ed25519 key went on appending audit events. A signature whose post-quantum half
+  uses an algorithm an applied advisory has withdrawn is refused on both routes. `POST /v2/advisory/auto-apply`
   answers `policy_modified: true` and records the change when it puts the mode back to `pq_only` after the operator
-  had set another by hand. A body that is the JSON value `null`, a number, a string or a boolean gets 400 instead of
-  500, on the server and on the anchor, transparency-log and revocation services, and a V1 bundle whose key has
-  another size or is not base64 gets `verified: false` instead of 500. **Documentation.** The server README says what
-  `POST /v2/multi-party/authorize` does not read (no verifier policy, advisory or mode), that its trusted principals
-  file also turns on `POST /v2/admit` without a token, and that its caller holds the operator token; the operator
-  guide lists `DCP_MULTI_PARTY_POLICY_FILE` and says that an advisory changes nothing until it is applied; the OpenAPI
-  document lists 413 and 429 for the route and a `pq` that may be null. **Tests.** The suites cover what the reviews
-  found untested in the route, among it a number outside the range of the profile (400 when stated, 403 in a record),
-  and the test harness tries the next port the system offers without spending an attempt of the service.
+  had set another by hand. A body that is the JSON value `null` gets 400 instead of 500, on the server and on the
+  anchor, transparency-log and revocation services, and a V1 bundle whose key has another size or is not base64 gets
+  `verified: false` instead of 500. **Documentation.** The server README says what `POST /v2/multi-party/authorize`
+  does not read (no verifier policy, advisory or mode), that its trusted principals file also turns on
+  `POST /v2/admit` without a token, and that its caller holds the operator token; the operator guide lists
+  `DCP_MULTI_PARTY_POLICY_FILE` and says that an advisory changes nothing until it is applied; the OpenAPI document
+  lists 413 and 429 for the route and a `pq` that may be null. **Tests.** The suites cover what the reviews found
+  untested in the route, among it a number outside the range of the profile (400 when stated, 403 in a record), and
+  the test harness tries the next port the system offers without spending an attempt of the service.
 
 - **`mpa-v1`: every number in the signed payload is an integer from -(2^53 - 1) to 2^53 - 1** (source on `main`, not
   in a published version; no version bump). The profile compares `parameters` through `dcp-jcs-v1`, and the SDKs did

@@ -191,16 +191,22 @@ test("an advisory that withdraws Ed25519 reaches audit/append, and every forced 
     const passport = { ...tango.passport, keys: tango.passport.keys.filter((key) => key.kid === tango.keys.classical.kid) };
     assert.equal((await registerNew(url, await signPassport(passport, classicalOnly))).status, 201);
     let n = 0;
-    const append = async () => {
+    const append = async (agent_id = "agent:tango-001", keys = classicalOnly) => {
       const audit_event = {
         dcp_version: "2.0", audit_id: `audit:${String(++n).padStart(4, "0")}`, session_nonce: "ab".repeat(32), prev_hash: "GENESIS",
-        hash_alg: "sha256", timestamp: "2026-11-18T00:00:00Z", agent_id: "agent:tango-001", human_id: "human:test-owner",
+        hash_alg: "sha256", timestamp: "2026-11-18T00:00:00Z", agent_id, human_id: "human:test-owner",
         intent_id: "intent:0001", intent_hash: `sha256:${"0".repeat(64)}`, policy_decision: "approved", outcome: "sent",
         evidence: { tool: null, result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
       };
-      return postTo(url, "/v2/audit/append", { audit_event, signature: await sign(DCP_CONTEXTS.AuditEvent, audit_event, classicalOnly) });
+      return postTo(url, "/v2/audit/append", { audit_event, signature: await sign(DCP_CONTEXTS.AuditEvent, audit_event, keys) });
     };
     assert.equal((await append()).status, 201);
+    // Where a classical signature alone is taken, an agent that registered a post-quantum key still needs it for every
+    // event: its Ed25519 key alone would be a downgrade.
+    const uniform = await newAgent("agent:uniform-02");
+    assert.equal((await registerNew(url, uniform.signedPassport)).status, 201);
+    assert.equal((await append("agent:uniform-02", { classical: uniform.keys.classical })).status, 403);
+    assert.equal((await append("agent:uniform-02", uniform.keys)).status, 201);
 
     const advisory = {
       type: "algorithm_advisory", advisory_id: "DCP-ADV-0003", severity: "critical", affected_algorithms: ["ed25519"], action: "revoke",
@@ -226,8 +232,83 @@ test("an advisory that withdraws Ed25519 reaches audit/append, and every forced 
     // again, and says so: it is a change of policy like the first.
     assert.equal((await postTo(url, "/v2/policy/mode", { mode: "classical_only" }, asOperator)).status, 200);
     assert.equal((await append()).status, 403); // the mode alone does not bring Ed25519 back
+    // Nor does it let a new agent in with an Ed25519 key alone, which this mode took before the advisory.
+    const victor = await newAgent("agent:victor-02");
+    const alone = { ...victor.passport, keys: victor.passport.keys.filter((key) => key.kid === victor.keys.classical.kid) };
+    assert.equal((await registerNew(url, await signPassport(alone, { classical: victor.keys.classical }))).status, 403);
+    // An agent with both keys goes on as before: its post-quantum signature is what counts now.
+    assert.equal((await append("agent:uniform-02", uniform.keys)).status, 201);
     const forced = await autoApply();
     assert.deepEqual([forced.policy_modified, (await policy()).mode, (await policy()).policy_history_length], [true, "pq_only", recorded + 3]);
+  } finally {
+    proc.kill();
+  }
+});
+
+test("a signature with no post-quantum half is taken only where the mode takes one", async () => {
+  const classicalOnlyAgent = async (id) => {
+    const agent = await newAgent(id);
+    const keys = { classical: agent.keys.classical };
+    const passport = { ...agent.passport, keys: agent.passport.keys.filter((key) => key.kid === agent.keys.classical.kid) };
+    return { id, keys, signedPassport: await signPassport(passport, keys) };
+  };
+  const event = (agent_id) => ({
+    dcp_version: "2.0", audit_id: "audit:0001", session_nonce: "ab".repeat(32), prev_hash: "GENESIS", hash_alg: "sha256",
+    timestamp: "2026-11-18T00:00:00Z", agent_id, human_id: "human:test-owner", intent_id: "intent:0001",
+    intent_hash: `sha256:${"0".repeat(64)}`, policy_decision: "approved", outcome: "sent",
+    evidence: { tool: null, result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+  });
+  // hybrid_required, the default: such an agent is not registered.
+  const whiskey = await classicalOnlyAgent("agent:whiskey-02");
+  assert.equal((await registerNew(base, whiskey.signedPassport)).status, 403);
+  // hybrid_preferred takes it, to register and to append.
+  const { base: url, proc } = await startService(SERVER, { VERIFIER_MODE: "hybrid_preferred", OPERATOR_TOKEN });
+  try {
+    const xray = await classicalOnlyAgent("agent:xray-0002");
+    assert.equal((await registerNew(url, xray.signedPassport)).status, 201);
+    const audit_event = event(xray.id);
+    const appended = await postTo(url, "/v2/audit/append", { audit_event, signature: await sign(DCP_CONTEXTS.AuditEvent, audit_event, xray.keys) });
+    assert.deepEqual([appended.status, appended.body.chain_length], [201, 1]);
+    // The operator raises the mode: the same agent no longer appends with its one key.
+    assert.equal((await postTo(url, "/v2/policy/mode", { mode: "hybrid_required" }, asOperator)).status, 200);
+    assert.equal((await postTo(url, "/v2/audit/append", { audit_event, signature: await sign(DCP_CONTEXTS.AuditEvent, audit_event, xray.keys) })).status, 403);
+  } finally {
+    proc.kill();
+  }
+});
+
+test("an advisory that withdraws a post-quantum algorithm reaches the signatures that use it", async () => {
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN });
+  try {
+    const zulu = await newAgent("agent:zulu-0002");
+    assert.equal((await registerNew(url, zulu.signedPassport)).status, 201);
+    let n = 0;
+    const append = async () => {
+      const audit_event = {
+        dcp_version: "2.0", audit_id: `audit:${String(++n).padStart(4, "0")}`, session_nonce: "ab".repeat(32), prev_hash: "GENESIS",
+        hash_alg: "sha256", timestamp: "2026-11-18T00:00:00Z", agent_id: "agent:zulu-0002", human_id: "human:test-owner",
+        intent_id: "intent:0001", intent_hash: `sha256:${"0".repeat(64)}`, policy_decision: "approved", outcome: "sent",
+        evidence: { tool: null, result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+      };
+      return postTo(url, "/v2/audit/append", { audit_event, signature: await sign(DCP_CONTEXTS.AuditEvent, audit_event, zulu.keys) });
+    };
+    assert.equal((await append()).status, 201);
+    const advisory = {
+      type: "algorithm_advisory", advisory_id: "DCP-ADV-0004", severity: "critical", affected_algorithms: ["ml-dsa-65"], action: "revoke",
+      replacement_algorithms: [], effective_date: "2026-01-01T00:00:00Z", grace_period_days: 0, description: "test advisory",
+      issued_at: "2026-01-01T00:00:00Z", issuer: "governance:test",
+      composite_sig: { classical: { alg: "ed25519", kid: "0".repeat(32), sig_b64: "A".repeat(88) }, pq: null, binding: "classical_only" },
+    };
+    assert.equal((await postTo(url, "/v2/advisory/publish", { advisory }, asOperator)).status, 201);
+    // Published and not applied, it changes nothing.
+    assert.equal((await append()).status, 201);
+    const applied = await postTo(url, "/v2/advisory/auto-apply", {}, asOperator);
+    assert.deepEqual([applied.status, applied.body.removed_pq], [200, ["ml-dsa-65"]]);
+    // The hybrid signature the gateway took a moment ago has an ML-DSA-65 half: the policy no longer takes that
+    // algorithm, to append or to register.
+    assert.equal((await append()).status, 403);
+    const other = await newAgent("agent:zulu-0003");
+    assert.equal((await registerNew(url, other.signedPassport)).status, 403);
   } finally {
     proc.kill();
   }

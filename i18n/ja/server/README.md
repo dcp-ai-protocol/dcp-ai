@@ -48,7 +48,7 @@ node server/index.js
 |--------|------|-------------|
 | POST | `/v2/passport/register` | 自己署名のエージェントのパスポートを登録する。新しい `agent_id` にはオペレーターのトークンが必要（[信頼モデル](#trust-model)を参照） |
 | POST | `/v2/intent/declare` | 登録済みのエージェントの意図を宣言し、サーバーの（署名のない）ポリシー判断を受け取る。意図の `composite_sig` は検証されません |
-| POST | `/v2/audit/append` | 登録済みのエージェントの監査イベントを確認し、数える。イベントは V2 の監査エントリ（`schemas/v2/audit_entry.schema.json`）で、`signature` はそれに対する `DCP-AI.v2.AuditEvent` のもとでの、エージェントの有効な鍵による複合署名でなければならない。ゲートウェイは監査イベントを保存せず、`prev_hash` も比較しない。ポスト量子鍵を一度も登録していないエージェントが古典鍵だけで署名できるのは、モードが `classical_only` か `hybrid_preferred` で、適用済みの勧告がそのアルゴリズムを取り下げていない間だけ |
+| POST | `/v2/audit/append` | 登録済みのエージェントの監査イベントを確認し、数える。イベントは V2 の監査エントリ（`schemas/v2/audit_entry.schema.json`）で、`signature` はそれに対する `DCP-AI.v2.AuditEvent` のもとでの、エージェントの有効な鍵による複合署名でなければならない。ゲートウェイは監査イベントを保存せず、`prev_hash` も比較しない。ポスト量子鍵を一度も登録していないエージェントが古典鍵だけで署名できるのは、モードが `classical_only` か `hybrid_preferred` で、適用済みの勧告がそのアルゴリズムを取り下げていない間だけ。ポスト量子の半分が、適用済みの勧告で取り下げられたアルゴリズムを使う署名は拒否される |
 | POST | `/v2/audit/compact` | マークルの要約で監査チェーンを圧縮する |
 | POST | `/v2/bundle/verify` | V2 のバンドルの完全な検証：スキーマ、マニフェスト、Ed25519 + ML-DSA-65 の複合署名、セッションの結び付け、監査チェーン（`lib/verify.js` と `@dcp-ai/sdk` による）を `VERIFIER_POLICY` に照らして確認。V1 のバンドルには 400 |
 
@@ -105,7 +105,7 @@ node server/index.js
 | `PORT` | `3000` | 待ち受ける HTTP のポート |
 | `OPERATOR_TOKEN` | — | オペレーターのエンドポイントと、新しい `agent_id` の登録のための Bearer トークン。未設定なら両方ともロックされます |
 | `VERIFIER_MODE` | `hybrid_required` | 起動時の検証モード：`classical_only`、`hybrid_preferred`、`hybrid_required`、`pq_only` のいずれか。無効な値ではサーバーが停止します |
-| `ALLOW_V1_BUNDLES` | `true` | `false` にすると `POST /verify` が V1 のバンドルをすべて拒否します。`true` の場合も、V1 のバンドルを受け入れるのは古典のみのバンドルを受け入れる場合だけです。パスポートの `risk_tier` に対するモードを意図のセキュリティ階層で引き上げた結果が、`classical_only` または `hybrid_preferred` でなければなりません。そのため既定の `hybrid_required` では V1 のバンドルは拒否され、`pq_only` では常に拒否されます。また、ポリシーが引き続き `ed25519` を受け入れている必要があります。`ed25519` を取り下げる勧告が `POST /v2/advisory/auto-apply` で適用されると、V1 のバンドルは受け付けられなくなり、古典アルゴリズムが 1 つも残らなければポリシーは `pq_only` になります |
+| `ALLOW_V1_BUNDLES` | `true` | `false` にすると `POST /verify` が V1 のバンドルをすべて拒否します。`true` の場合も、V1 のバンドルを受け入れるのは古典のみのバンドルを受け入れる場合だけです。パスポートの `risk_tier` に対するモードを意図のセキュリティ階層で引き上げた結果が、`classical_only` または `hybrid_preferred` でなければなりません。そのため既定の `hybrid_required` では V1 のバンドルは拒否され、`pq_only` では常に拒否されます。また、ポリシーが引き続き `ed25519` を受け入れている必要があります。`ed25519` を取り下げる勧告が `POST /v2/advisory/auto-apply` で適用されると、V1 のバンドルは受け付けられなくなり、古典アルゴリズムが 1 つも残らず、ポスト量子アルゴリズムが残っていれば、ポリシーは `pq_only` になります |
 | `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` で DCP-05 から DCP-09 のデモのエンドポイントが有効になり、オペレーターのトークン（32 文字以上）が必要になります。未設定、`off`、`dcp-05-09` 以外の値ではサーバーが停止します |
 | `TRUST_PROXY` | — | クライアントの IP を `X-Forwarded-For` に付け加えるプロキシ（Fly、nginx）の背後でだけ `true`。そのときレート制限はその最後のホップを基準にし、そうでなければソケットのアドレスを基準にします。クライアントはヘッダーを偽造できるからです |
 | `REGISTRATIONS_PER_HOUR` | `20` | クライアントごと 1 時間あたりの `POST /v2/passport/register` の呼び出し回数。超えると 429 |

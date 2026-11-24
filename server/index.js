@@ -165,6 +165,15 @@ function takesClassicalOnly(alg) {
     !(VERIFIER_POLICY.advisory_rejected_algs || []).includes(alg);
 }
 
+/**
+ * Whether the post-quantum half of a signature, when it has one, uses an algorithm the policy still takes: an
+ * advisory that withdraws ML-DSA-65 reaches the hybrid signatures made with it.
+ */
+function takesPqHalf(sig) {
+  const alg = sig?.pq?.alg;
+  return alg === undefined || (VERIFIER_POLICY.accepted_pq_algs.includes(alg) && !(VERIFIER_POLICY.advisory_rejected_algs || []).includes(alg));
+}
+
 function setVerifierMode(mode) {
   VERIFIER_POLICY.default_mode = mode;
   VERIFIER_POLICY.risk_overrides = { high: mode, medium: mode, low: mode };
@@ -784,7 +793,7 @@ const server = http.createServer(async (req, res) => {
 
     const sig = signed_passport.composite_sig;
     const allowClassicalOnly = takesClassicalOnly(sig?.classical?.alg);
-    if (!(await verifyCompositeSig(DCP_CONTEXTS.AgentPassport, passport, sig, passport.keys, { allowClassicalOnly }))) {
+    if (!takesPqHalf(sig) || !(await verifyCompositeSig(DCP_CONTEXTS.AgentPassport, passport, sig, passport.keys, { allowClassicalOnly }))) {
       return send(res, 403, { error: "Passport signature does not verify against the passport's own keys" });
     }
 
@@ -948,7 +957,7 @@ const server = http.createServer(async (req, res) => {
     // enough only for an agent that never registered a post-quantum one: its entries today do not say that.
     const activeKeys = keysOf(agentId).filter(isActiveKey).map((entry) => entry.key);
     const allowClassicalOnly = !pqAgents.has(agentId) && takesClassicalOnly(signature?.classical?.alg);
-    if (!(await verifyCompositeSig(DCP_CONTEXTS.AuditEvent, audit_event, signature, activeKeys, { allowClassicalOnly }))) {
+    if (!takesPqHalf(signature) || !(await verifyCompositeSig(DCP_CONTEXTS.AuditEvent, audit_event, signature, activeKeys, { allowClassicalOnly }))) {
       return send(res, 403, { error: "signature does not verify against the agent's active registered keys" });
     }
 

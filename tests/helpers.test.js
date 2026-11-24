@@ -113,6 +113,17 @@ test("a port that stays held on 127.0.0.1 fails after the attempts, and nothing 
   assert.equal(pids().length, 0);
 });
 
+test("a probe that fails for another reason is an error at once, not a port to try again", async (t) => {
+  const denied = Object.assign(new Error("listen EACCES: permission denied"), { code: "EACCES" });
+  const listen = t.mock.method(net.Server.prototype, "listen", function () {
+    process.nextTick(() => this.emit("error", denied));
+    return this;
+  });
+  const { result, pids } = await run("denied", {});
+  await assert.rejects(result, /EACCES/);
+  assert.deepEqual([listen.mock.callCount(), pids().length], [1, 0]);
+});
+
 test("readiness split across stdout chunks is still seen", async () => {
   const { result, pids } = await run("split", { SPLIT: "1" });
   await answers(await result);
