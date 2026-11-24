@@ -113,6 +113,35 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **`mpa-v1`: texto bem formado, um limite de aninhamento e os algoritmos próprios do perfil** (código-fonte em
+  `main`, em nenhuma versão publicada; sem mudança de versão). Correções posteriores à revisão independente do perfil,
+  nos quatro SDKs salvo indicação em contrário. Uma string de `operation_payload` com um substituto sem par, ou com
+  bytes que não são UTF-8, não é um dado do perfil: o SDK de Go a lia como U+FFFD, de modo que um executor que
+  declarava `keys/\xff` ficava autorizado por partes que tinham assinado `keys/\uFFFD`, e o SDK de Rust não conseguia
+  ler o registro. Esse registro agora recebe `MPA_NOT_REPRESENTABLE`, e os construtores da requisição e o que o
+  executor declara o recusam com `CONFIG_INVALID_VALUE`. Fora de `operation_payload`, um registro com esse texto em
+  qualquer string não está conforme ao seu esquema (`MPA_SCHEMA_INVALID`), e um conjunto de políticas que o traz não é
+  carregado. `operation_payload` aninha no máximo 32 níveis. Um conjunto de políticas cujo `required_parties` é maior
+  que 16, o máximo de autorizações que cabe em um registro, não é carregado (`CONFIG_MPA_UNSATISFIABLE`). Os
+  algoritmos de uma assinatura híbrida são os do próprio perfil nos quatro SDKs: os de TypeScript e Python os tomavam
+  da política de verificação padrão, um objeto que qualquer código do processo pode mudar. Go: um registro de
+  algoritmos `nil` é um erro em vez de um pânico, e `Now` é lido em milissegundos, como os outros SDKs tomam o
+  relógio. Como parâmetros, o SDK de Go aceita apenas valores JSON, como os outros SDKs: nil, um bool, uma string
+  UTF-8, um número, e um `[]interface{}` ou um `map[string]interface{}` deles. Uma struct, um ponteiro, uma lista ou
+  um mapa tipados, ou um tipo que escreve o próprio JSON, recebem `CONFIG_INVALID_VALUE`: `encoding/json` escreveria
+  U+FFFD no lugar dos bytes que não são UTF-8, e uma tag ou um método do tipo podem ocultar que o fez. Python: um
+  `required_parties` de um registro que nenhum binary64 guarda não é um inteiro do esquema, um nome de membro que não
+  é uma string não é um dado, e uma subclasse do armazenamento de políticas não é um armazenamento carregado.
+  TypeScript: `createPartyAuthorization` só assina dados do perfil, também para uma carga v2.0 sem `request`: um `Map`
+  em uma carga era assinado como `{}`, e uma carga com um membro `undefined`, um inteiro fora do intervalo ou mais de
+  32 níveis agora é recusada com `CONFIG_INVALID_VALUE`; `checkMultiPartyAuthorizationStructure` devolve um resultado
+  para um JSON escrito para fazê-la lançar uma exceção. O [perfil](../../spec/profiles/multi-party/README.md) fixa as
+  regras (§2.2, §2.3, §3 e §4), diz o que um resultado revela do conjunto de políticas e do conjunto de confiança do
+  operador, e acrescenta A4: um adaptador deve devolvê-lo apenas a quem o operador deixa conhecê-lo. Há oito casos
+  novos em `tests/interop/v2/multi_party_vectors.json` (142, e 62 casos de configuração de políticas), entre eles uma
+  assinatura clássica que não verifica sob uma pós-quântica que verifica, uma chave que o operador marca como expirada
+  e uma validade um milissegundo longa demais; a CI verifica que o arquivo coincide com o seu gerador.
+
 - **Servidor e serviços de referência: correções posteriores às revisões do endurecimento e da rota multipartes**
   (código-fonte em `main`, em nenhuma versão publicada; sem mudança de versão). **Mudanças de aceitação.**
   `POST /v2/audit/append` e `POST /v2/passport/register` só aceitam uma assinatura sem metade pós-quântica enquanto o

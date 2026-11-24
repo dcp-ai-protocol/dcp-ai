@@ -26,6 +26,7 @@
 package v2
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -35,6 +36,7 @@ import (
 	"math"
 	"regexp"
 	"slices"
+	"strconv"
 	"time"
 	"unicode/utf8"
 )
@@ -176,6 +178,9 @@ func NewMultiPartyPolicyStore(policySetJSON []byte) (*MultiPartyPolicyStore, err
 	if err != nil || !ok {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the policy set must be a JSON object")
 	}
+	if !mpaWellFormedText(policySetJSON) { // read as U+FFFD, a target or a party would be another one
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the policy set must be well-formed text: UTF-8, with no unpaired surrogate")
+	}
 	if err := mpaUnknownField(set, []string{"policy_set_version", "profile", "audience", "max_validity_seconds", "subjects"}, "policy set"); err != nil {
 		return nil, err
 	}
@@ -288,6 +293,9 @@ func NewMultiPartyPolicyStore(policySetJSON []byte) (*MultiPartyPolicyStore, err
 					eligible = append(eligible, role)
 				}
 			}
+			if required > MPAV1MaxAuthorizations {
+				return nil, mpaConfigError("CONFIG_MPA_UNSATISFIABLE", "%s: %.0f parties are required and a record holds at most %d authorizations", at, required, MPAV1MaxAuthorizations)
+			}
 			if required > float64(len(eligible)) { // compared as read: a huge threshold is unreachable, not out of range
 				return nil, mpaConfigError("CONFIG_MPA_UNSATISFIABLE", "%s: %.0f parties are required and %d have an allowed role", at, required, len(eligible))
 			}
@@ -311,7 +319,9 @@ type MultiPartyRequestInput struct {
 	Target string
 	// Audience is the verifier that may act on the authorization.
 	Audience string
-	// Parameters of the operation; nil is the empty object.
+	// Parameters of the operation; nil is the empty object. They are JSON as Go
+	// spells it: nil, a bool, a string of UTF-8, a number, and a []interface{}
+	// or a map[string]interface{} of those.
 	Parameters map[string]interface{}
 	// ValiditySeconds is how long the request is valid (1 to 86400; the operator may allow less).
 	ValiditySeconds int
@@ -327,10 +337,10 @@ const mpaInstant = "2006-01-02T15:04:05.000Z"
 // {request, parameters}. It returns a *MultiPartyConfigError for a request the
 // profile would refuse.
 func NewMultiPartyRequest(in MultiPartyRequestInput) (map[string]interface{}, error) {
-	if _, ok := mpaString(in.Target, mpaMaxIdentifier); !ok {
+	if !mpaText(in.Target, mpaMaxIdentifier) {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Target must be a string of 1 to 256 characters")
 	}
-	if _, ok := mpaString(in.Audience, mpaMaxIdentifier); !ok {
+	if !mpaText(in.Audience, mpaMaxIdentifier) {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Audience must be a string of 1 to 256 characters")
 	}
 	if in.ValiditySeconds < 1 || in.ValiditySeconds > MPAV1MaxValiditySeconds {
@@ -344,15 +354,15 @@ func NewMultiPartyRequest(in MultiPartyRequestInput) (map[string]interface{}, er
 		}
 		id = "mpa:" + hex.EncodeToString(random)
 	}
-	if _, ok := mpaString(id, mpaMaxRequestID); !ok {
+	if !mpaText(id, mpaMaxRequestID) {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "RequestID must be a string of 1 to 128 characters")
 	}
 	parameters := in.Parameters
 	if parameters == nil {
 		parameters = map[string]interface{}{}
 	}
-	if _, err := mpaCanonical(parameters); err != nil {
-		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Parameters must be JSON data with integers within %s", mpaRange)
+	if _, err := mpaCanonical(parameters, mpaMaxDepth-1); err != nil {
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Parameters must be %s", mpaData)
 	}
 	issued := in.IssuedAt
 	if issued.IsZero() {
@@ -379,9 +389,16 @@ const mpaLargestInteger = 1<<53 - 1
 
 const mpaRange = "-(2^53 - 1) to 2^53 - 1"
 
-// mpaProfileData reports whether a value read by decodeJSONValue holds, at
-// every depth, only numbers the profile compares: integers within mpaRange.
-func mpaProfileData(v interface{}) bool {
+// mpaMaxDepth is how deep operation_payload may nest (§ 2.2): it is the first
+// level and parameters the second.
+const mpaMaxDepth = 32
+
+const mpaData = "JSON data: well-formed text, integers within " + mpaRange + ", nested no deeper than the profile allows"
+
+// mpaProfileData reports whether a value read by decodeJSONValue nests at most
+// levels deep and holds only numbers the profile compares: integers within
+// mpaRange.
+func mpaProfileData(v interface{}, levels int) bool {
 	switch val := v.(type) {
 	case json.Number:
 		if n, err := val.Int64(); err == nil {
@@ -390,14 +407,20 @@ func mpaProfileData(v interface{}) bool {
 		f, err := val.Float64() // "1e2" and "1.0" are integers of the profile; a text past int64 is not
 		return err == nil && f == math.Trunc(f) && math.Abs(f) <= mpaLargestInteger
 	case []interface{}:
+		if levels < 1 {
+			return false
+		}
 		for _, member := range val {
-			if !mpaProfileData(member) {
+			if !mpaProfileData(member, levels-1) {
 				return false
 			}
 		}
 	case map[string]interface{}:
+		if levels < 1 {
+			return false
+		}
 		for _, member := range val {
-			if !mpaProfileData(member) {
+			if !mpaProfileData(member, levels-1) {
 				return false
 			}
 		}
@@ -405,10 +428,97 @@ func mpaProfileData(v interface{}) bool {
 	return true
 }
 
-// mpaCanonical is CanonicalizeV2 for a value the caller built, refused when it
-// holds a number outside mpaRange: an int64, a uint64 or a float64 past it is
-// read from its exact digits, before any rounding.
-func mpaCanonical(v interface{}) (string, error) {
+// mpaWellFormedText reports whether the strings of a JSON text, already read
+// by a decoder, are text every SDK reads alike: UTF-8, with no escape of a
+// surrogate that is not half of a pair. encoding/json reads both as U+FFFD, so
+// they are looked for in the text itself.
+func mpaWellFormedText(text []byte) bool {
+	if !utf8.Valid(text) {
+		return false
+	}
+	unit := func(at int) (uint64, bool) { // the code unit of an escape \uXXXX starting at text[at]
+		if at+6 > len(text) || text[at] != '\\' || text[at+1] != 'u' {
+			return 0, false
+		}
+		n, err := strconv.ParseUint(string(text[at+2:at+6]), 16, 16)
+		return n, err == nil
+	}
+	for i := 0; i < len(text); i++ {
+		if text[i] != '\\' { // in JSON a backslash is only ever inside a string
+			continue
+		}
+		u, isUnit := unit(i)
+		if !isUnit {
+			i++ // a two-character escape
+			continue
+		}
+		switch {
+		case u >= 0xD800 && u <= 0xDBFF:
+			low, ok := unit(i + 6)
+			if !ok || low < 0xDC00 || low > 0xDFFF {
+				return false
+			}
+			i += 6
+		case u >= 0xDC00 && u <= 0xDFFF:
+			return false
+		}
+		i += 5
+	}
+	return true
+}
+
+// The algorithms of a hybrid signature of the profile (§ 4): its own, not the
+// ones of a verifier policy.
+var (
+	mpaClassicalAlgs = []string{"ed25519"}
+	mpaPQAlgs        = []string{"ml-dsa-65", "slh-dsa-192f"}
+)
+
+// mpaPlain reports whether a caller's value is JSON as Go spells it, nesting at
+// most levels deep: nil, a bool, a string of UTF-8, a number of the language or
+// a json.Number, and a []interface{} or a map[string]interface{} of those. It
+// is what the other SDKs take. Any other value would get its JSON from
+// encoding/json, where a tag or a method of the type decides what is written
+// and bytes that are not UTF-8 become U+FFFD with nothing left to tell.
+func mpaPlain(v interface{}, levels int) bool {
+	switch val := v.(type) {
+	case nil, bool, json.Number,
+		int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		return true
+	case string:
+		return utf8.ValidString(val)
+	case []interface{}:
+		if levels < 1 { // also a slice that holds itself
+			return false
+		}
+		for _, member := range val {
+			if !mpaPlain(member, levels-1) {
+				return false
+			}
+		}
+		return true
+	case map[string]interface{}:
+		if levels < 1 { // also a map that holds itself
+			return false
+		}
+		for name, member := range val {
+			if !utf8.ValidString(name) || !mpaPlain(member, levels-1) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// mpaCanonical is CanonicalizeV2 for a value the caller built, nesting at most
+// levels deep. It is refused when it is not mpaPlain or holds a number outside
+// mpaRange (an int64, a uint64 or a float64 past it is read from its exact
+// digits, before any rounding).
+func mpaCanonical(v interface{}, levels int) (string, error) {
+	if !mpaPlain(v, levels) {
+		return "", fmt.Errorf("not %s", mpaData)
+	}
 	data, err := json.Marshal(v)
 	if err != nil {
 		return "", err
@@ -417,10 +527,17 @@ func mpaCanonical(v interface{}) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !mpaProfileData(decoded) {
-		return "", fmt.Errorf("a number outside %s", mpaRange)
+	if !mpaProfileData(decoded, levels) {
+		return "", fmt.Errorf("not %s", mpaData)
 	}
 	return CanonicalizeV2(v)
+}
+
+// mpaText is mpaString for what a caller states: a Go string may hold bytes
+// that are not UTF-8, and those are not text.
+func mpaText(s string, max int) bool {
+	_, ok := mpaString(s, max)
+	return ok && utf8.ValidString(s)
 }
 
 func mpaSignedBytes(operation, operationPayload, partyID, role interface{}) ([]byte, error) {
@@ -431,6 +548,9 @@ func mpaSignedBytes(operation, operationPayload, partyID, role interface{}) ([]b
 // CreatePartyAuthorization is one party's authorization: its composite signature
 // over {operation, operation_payload, party_id, role}.
 func CreatePartyAuthorization(registry *AlgorithmRegistry, operation string, operationPayload map[string]interface{}, partyID, role string, classicalKey, pqKey CompositeKeyInfo) (map[string]interface{}, error) {
+	if registry == nil {
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the registry must not be nil")
+	}
 	signed, err := mpaSignedBytes(operation, operationPayload, partyID, role)
 	if err != nil {
 		return nil, err
@@ -473,7 +593,9 @@ func BuildMultiPartyAuthorization(operation string, operationPayload map[string]
 type MultiPartyExpected struct {
 	Operation string
 	Target    string
-	// Parameters of the operation; nil is the empty object.
+	// Parameters of the operation; nil is the empty object. They are JSON as Go
+	// spells it: nil, a bool, a string of UTF-8, a number, and a []interface{}
+	// or a map[string]interface{} of those.
 	Parameters map[string]interface{}
 }
 
@@ -609,6 +731,16 @@ func mpaStructure(recordJSON []byte) (map[string]interface{}, string) {
 	if !ok {
 		return nil, "MPA_SCHEMA_INVALID"
 	}
+	// The decoder has already put U+FFFD where the text was not well formed: read the record's own bytes. Outside
+	// operation_payload such text is no party_id of the schema; inside it, it is not data of the profile (below).
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(recordJSON, &members); err != nil {
+		return nil, "MPA_SCHEMA_INVALID"
+	}
+	rawPayload := members["operation_payload"]
+	if !mpaWellFormedText(bytes.Replace(recordJSON, rawPayload, []byte("{}"), 1)) {
+		return nil, "MPA_SCHEMA_INVALID"
+	}
 	payload := record["operation_payload"].(map[string]interface{})
 	if _, has := payload["request"]; !has {
 		return nil, "MPA_REQUEST_MISSING"
@@ -616,7 +748,10 @@ func mpaStructure(recordJSON []byte) (map[string]interface{}, string) {
 	if !mpaConformsToRequest(payload) {
 		return nil, "MPA_REQUEST_INVALID"
 	}
-	if !mpaProfileData(payload) {
+	if !mpaWellFormedText(rawPayload) {
+		return nil, "MPA_NOT_REPRESENTABLE"
+	}
+	if !mpaProfileData(payload, mpaMaxDepth) {
 		return nil, "MPA_NOT_REPRESENTABLE"
 	}
 	if _, err := CanonicalizeV2(payload); err != nil {
@@ -656,6 +791,9 @@ func mpaKeyCode(key trustedKey, found bool, alg string, now time.Time) string {
 // mistake, not a verdict on the record.
 func EvaluateMultiPartyAuthorization(registry *AlgorithmRegistry, recordJSON []byte, opts MultiPartyOptions) (*MultiPartyEvaluation, error) {
 	policy, trust := opts.Policy, opts.Trust
+	if registry == nil {
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the registry must not be nil")
+	}
 	if policy == nil || !policy.loaded {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the policy store must come from NewMultiPartyPolicyStore")
 	}
@@ -666,20 +804,21 @@ func EvaluateMultiPartyAuthorization(registry *AlgorithmRegistry, recordJSON []b
 	if !slices.Contains(mpaOperations, expected.Operation) {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Expected.Operation %s is not an operation", printable(expected.Operation))
 	}
-	if _, ok := mpaString(expected.Target, mpaMaxIdentifier); !ok {
+	if !mpaText(expected.Target, mpaMaxIdentifier) {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Expected.Target must be a string of 1 to 256 characters")
 	}
 	if expected.Parameters == nil {
 		expected.Parameters = map[string]interface{}{}
 	}
-	expectedParameters, err := mpaCanonical(expected.Parameters)
+	expectedParameters, err := mpaCanonical(expected.Parameters, mpaMaxDepth-1)
 	if err != nil {
-		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Expected.Parameters must be JSON data with integers within %s", mpaRange)
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Expected.Parameters must be %s", mpaData)
 	}
 	now := opts.Now
 	if now.IsZero() {
 		now = time.Now()
 	}
+	now = truncateToMillis(now) // as the instants of the record are read, and as the other SDKs take the clock
 
 	result := &MultiPartyEvaluation{
 		Profile:          MPAV1,
@@ -772,7 +911,6 @@ func EvaluateMultiPartyAuthorization(registry *AlgorithmRegistry, recordJSON []b
 	}
 
 	// 4. Verification: every authorization is a hybrid signature, by the party's trusted keys, over this request.
-	algs := DefaultVerifierPolicy()
 	counted := 0
 	for i, a := range authorizations {
 		before := len(result.Errors)
@@ -782,7 +920,7 @@ func EvaluateMultiPartyAuthorization(registry *AlgorithmRegistry, recordJSON []b
 		pq, hasPQ := mpaObject(sig["pq"])
 		classicalAlg, _ := classical["alg"].(string)
 		pqAlg, _ := pq["alg"].(string)
-		if sig["binding"] != "pq_over_classical" || !hasPQ || !slices.Contains(algs.AcceptedClassicalAlgs, classicalAlg) || !slices.Contains(algs.AcceptedPQAlgs, pqAlg) {
+		if sig["binding"] != "pq_over_classical" || !hasPQ || !slices.Contains(mpaClassicalAlgs, classicalAlg) || !slices.Contains(mpaPQAlgs, pqAlg) {
 			result.add("MPA_HYBRID_REQUIRED", "%s: a classical and a post-quantum signature are both required", printable(party.PartyID))
 		} else {
 			trusted := trust.principals[party.PartyID]

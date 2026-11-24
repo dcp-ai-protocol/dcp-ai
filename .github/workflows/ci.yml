@@ -192,6 +192,9 @@ jobs:
           node --test server/index.test.js server/demo-endpoints.test.js services/revocation/index.test.js bin/dcp.test.js
           services/anchor/index.test.js services/transparency-log/index.test.js tests/helpers.test.js
 
+      - name: Multi-party vectors match their generator
+        run: node tests/interop/v2/generate-multi-party-vectors.mjs --check
+
       - name: Check protocol integrity
         run: node bin/dcp.js integrity
 
@@ -739,6 +742,11 @@ jobs:
 
       - name: Test with coverage
         run: go test -coverprofile=coverage.out -covermode=atomic ./...
+
+      # encoding/json writes the bytes it replaces in a string another way under this experiment: the profile must
+      # refuse them whichever encoder the SDK is built with.
+      - name: Multi-party profile with the json v2 encoder
+        run: GOEXPERIMENT=jsonv2 go test ./dcp/v2/ -run MultiParty -count=1
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

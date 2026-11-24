@@ -374,8 +374,8 @@ async def test_with_no_clock_given_the_system_clock_decides(registry):
     assert [stale["authorized"], _codes(stale)] == [False, ["MPA_EXPIRED"]]
 
 
-@pytest.mark.asyncio
-async def test_takes_the_integers_a_binary64_holds_exactly_and_no_other_number(registry):
+async def _setting(registry):
+    """Two parties of one target, the operator's configuration for them, and a signer of any payload."""
     owner, admin = await _party("human:owner"), await _party("human:admin")
     now = 1795003200000  # 2026-11-18T12:00:00Z
     request = {"target": "agent:signed-here", "audience": "verifier:here", "issued_at_ms": now, "validity_seconds": 600}
@@ -392,8 +392,8 @@ async def test_takes_the_integers_a_binary64_holds_exactly_and_no_other_number(r
         "now_ms": now + 1000,
     }
 
-    def expected(parameters):
-        return {"operation": "revoke_agent", "target": "agent:signed-here", "parameters": parameters}
+    def expected(parameters, target="agent:signed-here"):
+        return {"operation": "revoke_agent", "target": target, "parameters": parameters}
 
     async def signed_over(payload):
         """A record whose two parties signed `payload`, whatever it holds: the signer signs what it is given."""
@@ -402,6 +402,17 @@ async def test_takes_the_integers_a_binary64_holds_exactly_and_no_other_number(r
             await create_party_authorization(registry, "revoke_agent", payload, admin["id"], "org_admin", admin["classical"], admin["pq"]),
         ])))
 
+    return request, configuration, expected, signed_over
+
+
+def _not_representable(result) -> bool:
+    return [result["authorized"], result["structure"], result["verification"], _codes(result)] == [
+        False, "invalid", "not_evaluated", ["MPA_NOT_REPRESENTABLE"]]
+
+
+@pytest.mark.asyncio
+async def test_takes_the_integers_a_binary64_holds_exactly_and_no_other_number(registry):
+    request, configuration, expected, signed_over = await _setting(registry)
     largest_integer = 2**53 - 1
     # The largest integers of the profile are built, signed, stated and authorized.
     largest = {"ceiling": largest_integer, "floor": -largest_integer}
@@ -427,6 +438,149 @@ async def test_takes_the_integers_a_binary64_holds_exactly_and_no_other_number(r
         refused = await evaluate_multi_party_authorization(over, registry, expected=expected(largest), **configuration)
         assert [refused["authorized"], refused["structure"], refused["verification"], _codes(refused)] == [
             False, "invalid", "not_evaluated", ["MPA_NOT_REPRESENTABLE"]], parameters
+
+
+@pytest.mark.asyncio
+async def test_takes_well_formed_text_only(registry):
+    request, configuration, expected, signed_over = await _setting(registry)
+    # The control: a character outside the BMP is text like any other.
+    paired = {"note": "key \U0001F511"}
+    with_pair = create_multi_party_request(parameters=paired, **request)
+    control = await evaluate_multi_party_authorization(await signed_over(with_pair), registry, expected=expected(paired), **configuration)
+    assert [control["authorized"], _codes(control)] == [True, []]
+
+    plain = create_multi_party_request(parameters={"path": "keys/a"}, **request)
+    for parameters in (
+        {"path": "keys/\ud800"}, {"path": "\udc00keys"}, {"path": "\udc00\ud800"}, {"k\ud83d": 1}, {"paths": ["a", {"deep": "\udfff"}]},
+    ):
+        # An unpaired surrogate is not a request the SDK builds...
+        with pytest.raises(MultiPartyConfigError) as built:
+            create_multi_party_request(parameters=parameters, **request)
+        assert built.value.code == "CONFIG_INVALID_VALUE", ascii(parameters)
+        # ...nor parameters an executor can state...
+        with pytest.raises(MultiPartyConfigError) as stated:
+            await evaluate_multi_party_authorization(await signed_over(plain), registry, expected=expected(parameters), **configuration)
+        assert stated.value.code == "CONFIG_INVALID_VALUE", ascii(parameters)
+        # ...and a record that holds one decides nothing: one SDK reads it as U+FFFD, another cannot read it at all.
+        record = await signed_over(plain)
+        record["operation_payload"]["parameters"] = parameters
+        refused = await evaluate_multi_party_authorization(json.loads(json.dumps(record)), registry, expected=expected({"path": "keys/a"}), **configuration)
+        assert _not_representable(refused), ascii(parameters)
+
+    # A member name is text: a number as a name is not JSON, and would be written out of order.
+    for parameters in ({10: "a", 9: "b"}, {"limits": {1: 2}}):
+        with pytest.raises(MultiPartyConfigError) as built:
+            create_multi_party_request(parameters=parameters, **request)
+        assert built.value.code == "CONFIG_INVALID_VALUE", parameters
+        with pytest.raises(MultiPartyConfigError) as stated:
+            await evaluate_multi_party_authorization(await signed_over(plain), registry, expected=expected(parameters), **configuration)
+        assert stated.value.code == "CONFIG_INVALID_VALUE", parameters
+
+    # The identifiers of the request are text too: not built, not stated, and not a record of the profile.
+    for change in ({"target": "agent:\ud800"}, {"audience": "verifier:\udc00"}, {"request_id": "mpa:\ud800"}):
+        with pytest.raises(MultiPartyConfigError) as built:
+            create_multi_party_request(**{**request, **change})
+        assert built.value.code == "CONFIG_INVALID_VALUE", ascii(change)
+    with pytest.raises(MultiPartyConfigError) as stated:
+        await evaluate_multi_party_authorization(
+            await signed_over(plain), registry, expected=expected({"path": "keys/a"}, target="agent:\ud800"), **configuration)
+    assert stated.value.code == "CONFIG_INVALID_VALUE"
+    record = await signed_over(plain)
+    record["operation_payload"]["request"]["target"] = "agent:\ud800"
+    refused = await evaluate_multi_party_authorization(record, registry, expected=expected({"path": "keys/a"}), **configuration)
+    assert [refused["authorized"], refused["structure"], _codes(refused)] == [False, "invalid", ["MPA_NOT_REPRESENTABLE"]]
+
+    # Outside operation_payload such text is no party_id of the schema: one SDK would read it as U+FFFD, which is
+    # the party of an operator whose policy names one so.
+    elsewhere = await signed_over(plain)
+    elsewhere["authorizations"][1]["party_id"] = "human:\ud800"
+    not_a_record = await evaluate_multi_party_authorization(elsewhere, registry, expected=expected({"path": "keys/a"}), **configuration)
+    assert [not_a_record["authorized"], not_a_record["structure"], _codes(not_a_record)] == [False, "invalid", ["MPA_SCHEMA_INVALID"]]
+    # So is the name of an algorithm: every string of a record is text.
+    named = await signed_over(plain)
+    named["authorizations"][1]["composite_sig"]["classical"]["alg"] = "ed25519\ud800"
+    also_not = await evaluate_multi_party_authorization(named, registry, expected=expected({"path": "keys/a"}), **configuration)
+    assert [also_not["authorized"], also_not["structure"], _codes(also_not)] == [False, "invalid", ["MPA_SCHEMA_INVALID"]]
+    # The operator's policy set is text too.
+    for change in (
+        lambda p: p.__setitem__("policy_set_version", "here.\ud800"),
+        lambda p: p.__setitem__("audience", "verifier:\ud800"),
+        lambda p: p["subjects"][0].__setitem__("target", "agent:\udc00"),
+        lambda p: p["subjects"][0]["parties"][0].__setitem__("party_id", "human:\ud800"),
+    ):
+        changed = copy.deepcopy(configuration["policy"])
+        change(changed)
+        with pytest.raises(MultiPartyConfigError) as unloaded:
+            create_multi_party_policy_store(changed)
+        assert unloaded.value.code == "CONFIG_INVALID_VALUE"
+
+
+@pytest.mark.asyncio
+async def test_bounds_how_deep_the_payload_nests(registry):
+    request, configuration, expected, signed_over = await _setting(registry)
+
+    def nested(levels):
+        value = 1
+        for i in range(levels):
+            value = [value] if i % 2 else {"in": value}
+        return value
+
+    # operation_payload is the first of 32 levels and parameters the second, so a member of it may nest 30 more.
+    deepest = {"limits": nested(30)}
+    at_the_limit = create_multi_party_request(parameters=deepest, **request)
+    within = await evaluate_multi_party_authorization(await signed_over(at_the_limit), registry, expected=expected(deepest), **configuration)
+    assert [within["authorized"], _codes(within)] == [True, []]
+
+    deeper = {"limits": nested(31)}
+    with pytest.raises(MultiPartyConfigError) as built:
+        create_multi_party_request(parameters=deeper, **request)
+    assert built.value.code == "CONFIG_INVALID_VALUE"
+    with pytest.raises(MultiPartyConfigError) as stated:
+        await evaluate_multi_party_authorization(await signed_over(at_the_limit), registry, expected=expected(deeper), **configuration)
+    assert stated.value.code == "CONFIG_INVALID_VALUE"
+    over = await signed_over({"request": at_the_limit["request"], "parameters": deeper})
+    assert _not_representable(await evaluate_multi_party_authorization(over, registry, expected=expected(deepest), **configuration))
+
+
+@pytest.mark.asyncio
+async def test_takes_the_algorithms_of_the_profile_from_the_profile(registry):
+    """Not from DEFAULT_VERIFIER_POLICY, which any code in the process can change."""
+    from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY
+
+    pq, classical = DEFAULT_VERIFIER_POLICY["accepted_pq_algs"], DEFAULT_VERIFIER_POLICY["accepted_classical_algs"]
+    before = list(pq), list(classical)
+    try:
+        pq.append("ed25519")
+        c = _case("two_classical_signatures")
+        assert _codes(await _evaluate(c, registry)) == c["expect"]["codes"]
+        pq.clear()
+        classical.clear()
+        control = await _evaluate(_case("two_of_three"), registry)
+        assert [control["authorized"], _codes(control)] == [True, []]
+    finally:
+        pq[:], classical[:] = before
+
+
+@pytest.mark.asyncio
+async def test_a_required_parties_no_binary64_holds_is_not_an_integer_of_the_schema(registry):
+    """The other SDKs read JSON numbers as binary64, where these digits are no number at all."""
+    c = _case("two_of_three")
+    text = json.dumps(V["records"][c["record"]], separators=(",", ":")).replace('"required_parties":2', '"required_parties":' + "9" * 400)
+    assert "9" * 400 in text
+    r = await _evaluate(c, registry, json.loads(text))
+    assert [r["authorized"], r["structure"], _codes(r)] == [False, "invalid", ["MPA_SCHEMA_INVALID"]]
+
+
+def test_a_subclass_of_the_policy_store_is_not_a_loaded_store():
+    from dcp_ai.v2.multi_party_auth import MultiPartyPolicyStore
+
+    class Mine(MultiPartyPolicyStore):
+        def __init__(self) -> None:  # skips the loader
+            pass
+
+    with pytest.raises(MultiPartyConfigError) as refused:
+        create_multi_party_policy_store(Mine())
+    assert refused.value.code == "CONFIG_INVALID_VALUE"
 
 
 def test_refuses_to_build_a_request_the_profile_would_not_accept():

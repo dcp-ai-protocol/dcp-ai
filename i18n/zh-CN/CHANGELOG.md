@@ -108,6 +108,20 @@
 
 ### 安全
 
+- **`mpa-v1`：格式良好的文本、嵌套上限以及配置文件自己的算法**（`main` 上的源代码，未包含在任何已发布版本中；版本号不变）。
+  这些是对该配置文件进行独立评审之后的修正，除另有说明外适用于四个 SDK。
+  `operation_payload` 中含有不成对代理项或非 UTF-8 字节的字符串不属于该配置文件的数据：Go SDK 把它读作 U+FFFD，因此声明 `keys/\xff` 的执行方会得到对 `keys/\uFFFD` 签名的参与方的授权，而 Rust SDK 则无法读取该记录。
+  这样的记录现在得到 `MPA_NOT_REPRESENTABLE`，构建请求的函数以及执行方声明的内容则以 `CONFIG_INVALID_VALUE` 拒绝。
+  在 `operation_payload` 之外，任何字符串中带有这种文本的记录不符合其模式（`MPA_SCHEMA_INVALID`），带有这种文本的策略集无法加载。
+  `operation_payload` 最多嵌套 32 层。
+  `required_parties` 大于 16（一份记录最多容纳的授权数）的策略集无法加载（`CONFIG_MPA_UNSATISFIABLE`）。
+  混合签名的算法在四个 SDK 中都是配置文件自己的：TypeScript 和 Python SDK 原先从默认验证策略中取这些算法，而该对象可以被进程中的任何代码修改。
+  Go：算法注册表为 `nil` 时返回错误而不是 panic，`Now` 按毫秒读取，与其他 SDK 取时钟的方式一致。Go SDK 与其他 SDK 一样，只接受 JSON 值作为参数：nil、bool、UTF-8 字符串、数字，以及由它们组成的 `[]interface{}` 和 `map[string]interface{}`。结构体、指针、带类型的切片或映射，以及自行写出 JSON 的类型，都会得到 `CONFIG_INVALID_VALUE`：`encoding/json` 会用 U+FFFD 代替不是 UTF-8 的字节，而类型的标签或方法可能掩盖这一点。
+  Python：记录中的 `required_parties` 若是任何 binary64 都无法保存的数值，就不是模式中的整数；不是字符串的成员名不属于数据；策略存储的子类也不是已加载的存储。
+  TypeScript：`createPartyAuthorization` 只对配置文件的数据签名，对没有 `request` 的 v2.0 载荷也是如此：载荷中的 `Map` 原先被当作 `{}` 签名，带有 `undefined` 成员、超出范围的整数或超过 32 层嵌套的载荷现在以 `CONFIG_INVALID_VALUE` 拒绝；对于为使其抛出异常而编写的 JSON，`checkMultiPartyAuthorizationStructure` 也返回结果。
+  [配置文件](../../spec/profiles/multi-party/README.md)规定了这些规则（§2.2、§2.3、§3 和 §4），说明结果会透露运营方策略集和信任集的哪些内容，并新增 A4：适配器必须只把结果返回给运营方允许了解这些内容的调用方。
+  `tests/interop/v2/multi_party_vectors.json` 新增八个用例（共 142 个，策略配置用例 62 个），其中包括：后量子签名可验证而经典签名无法验证、运营方标记为已过期的密钥，以及长出一毫秒的有效期；CI 会检查该文件与其生成器的输出一致。
+
 - **参考服务器和服务：对加固和多方授权路由进行评审之后的修正**（`main` 上的源代码，未包含在任何已发布版本中；版本号不变）。
   **接受行为变更：** `POST /v2/audit/append` 和 `POST /v2/passport/register` 只有在验证器模式为 `classical_only` 或 `hybrid_preferred`、且没有已应用的通告撤回其算法时，才接受不含后量子部分的签名：此前，在吊销 `ed25519` 的通告之后，只有一个 Ed25519 密钥的代理仍能继续追加审计事件。
   在这两个路由上，后量子部分使用了已被应用的通告撤回的算法的签名都会被拒绝。

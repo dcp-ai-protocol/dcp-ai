@@ -92,6 +92,33 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **`mpa-v1`: well-formed text, a nesting limit and the profile's own algorithms** (source on `main`, not in a
+  published version; no version bump). Follow-ups from the independent review of the profile, in the four SDKs unless
+  noted. A string of `operation_payload` with an unpaired surrogate, or with bytes that are not UTF-8, is not data of
+  the profile: the Go SDK read it as U+FFFD, so an executor that stated `keys/\xff` was authorized by parties that had
+  signed `keys/\uFFFD`, and the Rust SDK could not read the record at all. Such a record now gets
+  `MPA_NOT_REPRESENTABLE`, and the request builders and what the executor states refuse it with
+  `CONFIG_INVALID_VALUE`. Outside `operation_payload`, a record with such text in any string does not conform to its
+  schema (`MPA_SCHEMA_INVALID`), and a policy set with it does not load. `operation_payload` nests at most 32 levels
+  deep. A policy set whose `required_parties` is above 16, the most authorizations a record holds, does not load
+  (`CONFIG_MPA_UNSATISFIABLE`). The algorithms of a hybrid signature are the profile's own in the four SDKs: the
+  TypeScript and Python SDKs took them from the default verifier policy, an object any code in the process can change.
+  Go: a nil registry is an error instead of a panic, and `Now` is read in milliseconds, as the other SDKs take the
+  clock. As parameters the Go SDK takes JSON values only, as the other SDKs do: nil, a bool, a string of UTF-8, a
+  number, and a `[]interface{}` or a `map[string]interface{}` of those. A struct, a pointer, a typed slice or map, or
+  a type that writes its own JSON gets `CONFIG_INVALID_VALUE`: `encoding/json` would write U+FFFD for bytes that are
+  not UTF-8, and a tag or a method of the type can hide that it did. Python: a `required_parties` in a record that no
+  binary64 holds is not an integer of the schema, a member name that is not a string is not data, and a subclass of
+  the policy store is not a loaded store. TypeScript: `createPartyAuthorization` signs only data of the profile, also
+  for a v2.0 payload with no `request`: a `Map` in a payload was signed as `{}`, and a payload with an `undefined`
+  member, an integer outside the range or more than 32 levels is now refused with `CONFIG_INVALID_VALUE`;
+  `checkMultiPartyAuthorizationStructure` returns a result for JSON written to make it throw. The
+  [profile](spec/profiles/multi-party/README.md) states the rules (§2.2, §2.3, §3 and §4), says what a result reveals
+  of the operator's policy set and trust set, and adds A4: an adapter must return it only to callers the operator lets
+  learn that. Eight cases are new in `tests/interop/v2/multi_party_vectors.json` (142, and 62 policy configuration
+  cases), among them a classical signature that does not verify under a post-quantum one that does, a key the operator
+  marks expired and a validity one millisecond too long; CI checks that the file matches its generator.
+
 - **Reference server and services: follow-ups from the reviews of the hardening and of the multi-party route** (source
   on `main`, not in a published version; no version bump). **Acceptance changes.** `POST /v2/audit/append` and
   `POST /v2/passport/register` take a signature with no post-quantum half only while the verifier mode is

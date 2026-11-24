@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -491,10 +492,18 @@ func TestMultiPartyWhatTheSDKSignsTheSDKAuthorizes(t *testing.T) {
 	}
 }
 
-func TestMultiPartyTakesTheIntegersABinary64HoldsExactlyAndNoOtherNumber(t *testing.T) {
-	reg := mpaRegistry()
+// mpaSetting is two parties of one target, the operator's stores for them, and a signer of any payload.
+type mpaSetting struct {
+	reg          *v2.AlgorithmRegistry
+	now          time.Time
+	owner, admin mpaTestParty
+	policy       *v2.MultiPartyPolicyStore
+	trust        *v2.PrincipalTrustStore
+}
+
+func newMpaSetting(t *testing.T) mpaSetting {
+	t.Helper()
 	owner, admin := newMpaParty(t, "human:owner"), newMpaParty(t, "human:admin")
-	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
 	policyJSON, _ := json.Marshal(map[string]interface{}{
 		"policy_set_version": "here.1", "profile": "mpa-v1", "audience": "verifier:here", "max_validity_seconds": 600,
 		"subjects": []interface{}{map[string]interface{}{
@@ -512,38 +521,54 @@ func TestMultiPartyTakesTheIntegersABinary64HoldsExactlyAndNoOtherNumber(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := func(parameters map[string]interface{}) (map[string]interface{}, error) {
-		return v2.NewMultiPartyRequest(v2.MultiPartyRequestInput{Target: "agent:signed-here", Audience: "verifier:here", Parameters: parameters, IssuedAt: now, ValiditySeconds: 600})
-	}
-	// A record whose two parties signed payload, whatever it holds: the signer signs what it is given.
-	signedOver := func(payload map[string]interface{}) []byte {
-		t.Helper()
-		var authorizations []map[string]interface{}
-		for _, p := range []struct {
-			party mpaTestParty
-			role  string
-		}{{owner, "owner"}, {admin, "org_admin"}} {
-			a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", payload, p.party.id, p.role, p.party.classical, p.party.pq)
-			if err != nil {
-				t.Fatal(err)
-			}
-			authorizations = append(authorizations, a)
-		}
-		recordJSON, err := json.Marshal(v2.BuildMultiPartyAuthorization("revoke_agent", payload, authorizations, 0))
+	return mpaSetting{reg: mpaRegistry(), now: time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC), owner: owner, admin: admin, policy: policy, trust: trust}
+}
+
+func (s mpaSetting) request(parameters map[string]interface{}) (map[string]interface{}, error) {
+	return v2.NewMultiPartyRequest(v2.MultiPartyRequestInput{Target: "agent:signed-here", Audience: "verifier:here", Parameters: parameters, IssuedAt: s.now, ValiditySeconds: 600})
+}
+
+// signedOver is a record whose two parties signed payload, whatever it holds: the signer signs what it is given.
+func (s mpaSetting) signedOver(t *testing.T, payload map[string]interface{}) []byte {
+	t.Helper()
+	var authorizations []map[string]interface{}
+	for _, p := range []struct {
+		party mpaTestParty
+		role  string
+	}{{s.owner, "owner"}, {s.admin, "org_admin"}} {
+		a, err := v2.CreatePartyAuthorization(s.reg, "revoke_agent", payload, p.party.id, p.role, p.party.classical, p.party.pq)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return recordJSON
+		authorizations = append(authorizations, a)
 	}
-	evaluate := func(record []byte, parameters map[string]interface{}) (*v2.MultiPartyEvaluation, error) {
-		return v2.EvaluateMultiPartyAuthorization(reg, record, v2.MultiPartyOptions{
-			Policy: policy, Trust: trust, Now: now.Add(time.Second),
-			Expected: v2.MultiPartyExpected{Operation: "revoke_agent", Target: "agent:signed-here", Parameters: parameters},
-		})
+	recordJSON, err := json.Marshal(v2.BuildMultiPartyAuthorization("revoke_agent", payload, authorizations, 0))
+	if err != nil {
+		t.Fatal(err)
 	}
-	notRepresentable := func(r *v2.MultiPartyEvaluation, err error) bool {
-		return err == nil && !r.Authorized && r.Structure == "invalid" && r.Verification == "not_evaluated" && reflect.DeepEqual(mpaCodes(r), []string{"MPA_NOT_REPRESENTABLE"})
-	}
+	return recordJSON
+}
+
+func (s mpaSetting) evaluate(record []byte, parameters map[string]interface{}) (*v2.MultiPartyEvaluation, error) {
+	return v2.EvaluateMultiPartyAuthorization(s.reg, record, v2.MultiPartyOptions{
+		Policy: s.policy, Trust: s.trust, Now: s.now.Add(time.Second),
+		Expected: v2.MultiPartyExpected{Operation: "revoke_agent", Target: "agent:signed-here", Parameters: parameters},
+	})
+}
+
+func mpaNotRepresentable(r *v2.MultiPartyEvaluation, err error) bool {
+	return err == nil && !r.Authorized && r.Structure == "invalid" && r.Verification == "not_evaluated" && reflect.DeepEqual(mpaCodes(r), []string{"MPA_NOT_REPRESENTABLE"})
+}
+
+func mpaInvalidValue(err error) bool {
+	var cfg *v2.MultiPartyConfigError
+	return errors.As(err, &cfg) && cfg.Code == "CONFIG_INVALID_VALUE"
+}
+
+func TestMultiPartyTakesTheIntegersABinary64HoldsExactlyAndNoOtherNumber(t *testing.T) {
+	s := newMpaSetting(t)
+	request, evaluate, notRepresentable := s.request, s.evaluate, mpaNotRepresentable
+	signedOver := func(payload map[string]interface{}) []byte { return s.signedOver(t, payload) }
 
 	// The largest integers of the profile are built, signed, stated and authorized.
 	const largest = int64(1)<<53 - 1
@@ -589,6 +614,275 @@ func TestMultiPartyTakesTheIntegersABinary64HoldsExactlyAndNoOtherNumber(t *test
 	}
 	if r, err := evaluate(rewritten, within); !notRepresentable(r, err) {
 		t.Fatalf("a record rewritten to 2^53 + 1: %+v, %v", r, err)
+	}
+}
+
+func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
+	s := newMpaSetting(t)
+	// The control: a character outside the BMP is text like any other, written as it is or as an escaped pair.
+	paired := map[string]interface{}{"note": "key \U0001F511"}
+	withPair, err := s.request(paired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	control := s.signedOver(t, withPair)
+	escaped := bytes.Replace(control, []byte("\U0001F511"), []byte(`\ud83d\udd11`), 1)
+	if bytes.Equal(control, escaped) {
+		t.Fatal("the pair was not escaped")
+	}
+	for name, record := range map[string][]byte{"as it is": control, "as an escaped pair": escaped} {
+		if r, err := s.evaluate(record, paired); err != nil || !r.Authorized || len(r.Errors) != 0 {
+			t.Fatalf("a character outside the BMP, %s: %+v, %v", name, r, err)
+		}
+	}
+	// U+FFFD itself is a character: signed, stated and authorized, also written as its escape, whatever
+	// encoding/json makes of bytes that are not UTF-8.
+	replacement := map[string]interface{}{"path": "keys/\uFFFD"}
+	if _, err := s.request(replacement); err != nil {
+		t.Fatal(err)
+	}
+	signed := s.signedOver(t, map[string]interface{}{"request": withPair["request"], "parameters": replacement})
+	for name, record := range map[string][]byte{"as it is": signed, "as its escape": bytes.Replace(signed, []byte("\uFFFD"), []byte(`\ufffd`), 1)} {
+		if r, err := s.evaluate(record, replacement); err != nil || !r.Authorized {
+			t.Fatalf("U+FFFD, %s: %+v, %v", name, r, err)
+		}
+	}
+
+	plainParameters := map[string]interface{}{"path": "keys/a"}
+	plain, err := s.request(plainParameters)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// What a caller states in Go is a string of bytes. One that is not UTF-8 is not text: encoding/json would write
+	// U+FFFD in its place, and "keys/\xff" would be authorized by parties that signed "keys/\uFFFD".
+	for name, parameters := range map[string]map[string]interface{}{
+		"a byte that is not UTF-8":     {"path": "keys/\xff"},
+		"an overlong encoding":         {"path": "keys/\xc0\xaf"},
+		"a surrogate encoded as UTF-8": {"path": "keys/\xed\xa0\x80"},
+		"in a member name":             {"k\xff": 1},
+		"inside an array":              {"paths": []interface{}{"a", map[string]interface{}{"deep": "\xff"}}},
+	} {
+		if payload, err := s.request(parameters); !mpaInvalidValue(err) || payload != nil {
+			t.Fatalf("%s, built: %v, %v", name, payload, err)
+		}
+		if r, err := s.evaluate(signed, parameters); !mpaInvalidValue(err) || r != nil {
+			t.Fatalf("%s, stated: %+v, %v", name, r, err)
+		}
+	}
+	// What a caller states is JSON as Go spells it, as in the other SDKs: nil, a bool, a string, a number, and a
+	// []interface{} or a map[string]interface{} of those. Any other value would get its JSON from encoding/json, where
+	// a tag or a method of the type decides what is written: a field written as a string inside a string hides the
+	// mark of the bytes that were replaced, and "keys/\xff" in it was authorized by parties that signed "keys/\xfe".
+	type quoted struct {
+		Path string `json:"path,string"`
+	}
+	type named string
+	itself := map[string]interface{}{}
+	itself["again"] = itself
+	around := make([]interface{}, 1)
+	around[0] = around
+	for name, value := range map[string]interface{}{
+		"a struct":                     quoted{Path: "keys/a"},
+		"a struct that hides the mark": quoted{Path: "keys/\xff"},
+		"a pointer":                    &quoted{Path: "keys/a"},
+		"a slice of strings":           []string{"keys/a"},
+		"a map of strings":             map[string]string{"k": "v"},
+		"bytes":                        []byte("keys/a"),
+		"JSON of the caller's writing": json.RawMessage(`"keys/a"`),
+		"a string of another type":     named("keys/a"),
+		"a map that holds itself":      itself,
+		"a slice that holds itself":    around,
+	} {
+		parameters := map[string]interface{}{"scope": value}
+		if payload, err := s.request(parameters); !mpaInvalidValue(err) || payload != nil {
+			t.Fatalf("%s, built: %v, %v", name, payload, err)
+		}
+		if r, err := s.evaluate(signed, parameters); !mpaInvalidValue(err) || r != nil {
+			t.Fatalf("%s, stated: %+v, %v", name, r, err)
+		}
+	}
+	every := map[string]interface{}{
+		"nothing": nil, "bool": true, "text": "keys/a", "number": json.Number("7"),
+		"int": 7, "int8": int8(7), "int16": int16(7), "int32": int32(7), "int64": int64(7),
+		"uint": uint(7), "uint8": uint8(7), "uint16": uint16(7), "uint32": uint32(7), "uint64": uint64(7),
+		"float32": float32(7), "float64": float64(7),
+		"array": []interface{}{map[string]interface{}{"empty": []interface{}{}}},
+	}
+	built, err := s.request(every)
+	if err != nil {
+		t.Fatalf("every kind of JSON value: %v", err)
+	}
+	if r, err := s.evaluate(s.signedOver(t, built), every); err != nil || !r.Authorized {
+		t.Fatalf("every kind of JSON value, signed and stated: %+v, %v", r, err)
+	}
+	for name, in := range map[string]v2.MultiPartyRequestInput{
+		"target":     {Target: "agent:\xff", Audience: "verifier:here", ValiditySeconds: 600},
+		"audience":   {Target: "agent:signed-here", Audience: "verifier:\xff", ValiditySeconds: 600},
+		"request id": {Target: "agent:signed-here", Audience: "verifier:here", ValiditySeconds: 600, RequestID: "mpa:\xff"},
+	} {
+		if payload, err := v2.NewMultiPartyRequest(in); !mpaInvalidValue(err) || payload != nil {
+			t.Fatalf("%s that is not UTF-8, built: %v, %v", name, payload, err)
+		}
+	}
+	if r, err := v2.EvaluateMultiPartyAuthorization(s.reg, s.signedOver(t, plain), v2.MultiPartyOptions{
+		Policy: s.policy, Trust: s.trust, Now: s.now.Add(time.Second),
+		Expected: v2.MultiPartyExpected{Operation: "revoke_agent", Target: "agent:\xff", Parameters: plainParameters},
+	}); !mpaInvalidValue(err) || r != nil {
+		t.Fatalf("a target that is not UTF-8, stated: %+v, %v", r, err)
+	}
+
+	// A record is JSON text. Half a pair as an escape, or bytes that are not UTF-8, inside operation_payload: this
+	// decoder would read U+FFFD, another SDK cannot read it at all, so it is not a record of the profile.
+	record := s.signedOver(t, plain)
+	for name, change := range map[string][2]string{
+		"a high surrogate alone":                    {`"path":"keys/a"`, `"path":"keys/\ud800"`},
+		"a low surrogate alone":                     {`"path":"keys/a"`, `"path":"\udc00keys"`},
+		"a pair the wrong way round":                {`"path":"keys/a"`, `"path":"\udc00\ud800"`},
+		"a high surrogate before another escape":    {`"path":"keys/a"`, `"path":"\ud800\n"`},
+		"a high surrogate before an escaped letter": {`"path":"keys/a"`, `"path":"\ud800\u0041"`},
+		"two high surrogates":                       {`"path":"keys/a"`, `"path":"\ud83d\ud83d"`},
+		"a high surrogate at the end":               {`"path":"keys/a"`, `"path":"keys/\uD83D"`},
+		"in a member name":                          {`"path":"keys/a"`, `"k\ud83d":"keys/a"`},
+		"bytes that are not UTF-8":                  {`"path":"keys/a"`, "\"path\":\"keys/\xff\""},
+		"in the target of the request":              {`"target":"agent:signed-here"`, `"target":"agent:\ud800"`},
+	} {
+		rewritten := bytes.Replace(record, []byte(change[0]), []byte(change[1]), 1)
+		if bytes.Equal(record, rewritten) {
+			t.Fatalf("%s: the record was not rewritten", name)
+		}
+		if r, err := s.evaluate(rewritten, plainParameters); !mpaNotRepresentable(r, err) {
+			t.Fatalf("%s, in a record: %+v, %v", name, r, err)
+		}
+	}
+	// Outside operation_payload such text is no party_id of the schema. Read as U+FFFD it would be the party of an
+	// operator whose policy names one with U+FFFD, and only to this SDK.
+	for name, spelled := range map[string]string{"an unpaired surrogate": `"party_id":"human:\ud800"`, "bytes that are not UTF-8": "\"party_id\":\"human:\xff\""} {
+		elsewhere := bytes.Replace(record, []byte(`"party_id":"human:admin"`), []byte(spelled), 1)
+		if bytes.Equal(record, elsewhere) {
+			t.Fatalf("%s: the record was not rewritten", name)
+		}
+		r, err := s.evaluate(elsewhere, plainParameters)
+		if err != nil || r.Authorized || r.Structure != "invalid" || !reflect.DeepEqual(mpaCodes(r), []string{"MPA_SCHEMA_INVALID"}) {
+			t.Fatalf("%s in a party_id: %+v, %v", name, r, err)
+		}
+	}
+	// The operator's policy set is text too.
+	for name, policy := range map[string]string{
+		"an unpaired surrogate in a target":   `{"policy_set_version":"1","profile":"mpa-v1","audience":"verifier:here","max_validity_seconds":600,"subjects":[{"target":"agent:\ud800","parties":[{"party_id":"human:a","role":"owner"},{"party_id":"human:b","role":"org_admin"}],"operations":{"revoke_agent":{"required_parties":2,"allowed_roles":["owner","org_admin"],"required_roles":["owner"]}}}]}`,
+		"bytes that are not UTF-8 in a party": "{\"policy_set_version\":\"1\",\"profile\":\"mpa-v1\",\"audience\":\"verifier:here\",\"max_validity_seconds\":600,\"subjects\":[{\"target\":\"agent:x\",\"parties\":[{\"party_id\":\"human:a\xff\",\"role\":\"owner\"},{\"party_id\":\"human:b\",\"role\":\"org_admin\"}],\"operations\":{\"revoke_agent\":{\"required_parties\":2,\"allowed_roles\":[\"owner\",\"org_admin\"],\"required_roles\":[\"owner\"]}}}]}",
+	} {
+		if store, err := v2.NewMultiPartyPolicyStore([]byte(policy)); !mpaInvalidValue(err) || store != nil {
+			t.Fatalf("a policy set with %s: %v, %v", name, store, err)
+		}
+	}
+}
+
+func TestMultiPartyBoundsHowDeepThePayloadNests(t *testing.T) {
+	s := newMpaSetting(t)
+	nested := func(levels int) interface{} {
+		var value interface{} = 1
+		for i := 0; i < levels; i++ {
+			if i%2 == 1 {
+				value = []interface{}{value}
+			} else {
+				value = map[string]interface{}{"in": value}
+			}
+		}
+		return value
+	}
+	// operation_payload is the first of 32 levels and parameters the second, so a member of it may nest 30 more.
+	deepest := map[string]interface{}{"limits": nested(30)}
+	atTheLimit, err := s.request(deepest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, err := s.evaluate(s.signedOver(t, atTheLimit), deepest); err != nil || !r.Authorized || len(r.Errors) != 0 {
+		t.Fatalf("32 levels: %+v, %v", r, err)
+	}
+	deeper := map[string]interface{}{"limits": nested(31)}
+	if payload, err := s.request(deeper); !mpaInvalidValue(err) || payload != nil {
+		t.Fatalf("33 levels, built: %v, %v", payload, err)
+	}
+	if r, err := s.evaluate(s.signedOver(t, atTheLimit), deeper); !mpaInvalidValue(err) || r != nil {
+		t.Fatalf("33 levels, stated: %+v, %v", r, err)
+	}
+	over := s.signedOver(t, map[string]interface{}{"request": atTheLimit["request"], "parameters": deeper})
+	if r, err := s.evaluate(over, deepest); !mpaNotRepresentable(r, err) {
+		t.Fatalf("33 levels, in a record: %+v, %v", r, err)
+	}
+}
+
+func TestMultiPartyARequiredPartiesNoBinary64HoldsIsNotAnIntegerOfTheSchema(t *testing.T) {
+	c := mpaCaseNamed(t, "two_of_three")
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, loadMpaVectors().Records[c.Record]); err != nil {
+		t.Fatal(err)
+	}
+	record := compact.Bytes()
+	digits := bytes.Repeat([]byte("9"), 400)
+	rewritten := bytes.Replace(record, []byte(`"required_parties":2`), append([]byte(`"required_parties":`), digits...), 1)
+	if !bytes.Contains(rewritten, digits) {
+		t.Fatal("the record was not rewritten")
+	}
+	r := mpaEvaluate(t, mpaRegistry(), c, rewritten)
+	if r.Authorized || r.Structure != "invalid" || !reflect.DeepEqual(mpaCodes(r), []string{"MPA_SCHEMA_INVALID"}) {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestMultiPartyWithoutARegistryIsAnErrorNotAPanic(t *testing.T) {
+	s := newMpaSetting(t)
+	payload, err := s.request(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := s.signedOver(t, payload)
+	r, err := v2.EvaluateMultiPartyAuthorization(nil, record, v2.MultiPartyOptions{
+		Policy: s.policy, Trust: s.trust, Now: s.now.Add(time.Second),
+		Expected: v2.MultiPartyExpected{Operation: "revoke_agent", Target: "agent:signed-here"},
+	})
+	if !mpaInvalidValue(err) || r != nil {
+		t.Fatalf("evaluated without a registry: %+v, %v", r, err)
+	}
+	if a, err := v2.CreatePartyAuthorization(nil, "revoke_agent", payload, s.owner.id, "owner", s.owner.classical, s.owner.pq); err == nil || a != nil {
+		t.Fatalf("signed without a registry: %v, %v", a, err)
+	}
+}
+
+func TestMultiPartyReadsTheClockInMillisecondsAsTheOtherSDKsDo(t *testing.T) {
+	s := newMpaSetting(t)
+	payload, err := s.request(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := s.signedOver(t, payload)
+	// The owner's classical key expires at an exact millisecond. Half a millisecond later is, in milliseconds, that
+	// same instant, and a key is expired only when its expiry is before now.
+	expiry := s.now.Add(time.Second)
+	keys := s.owner.trusted["keys"].([]interface{})
+	classical := maps.Clone(keys[0].(map[string]interface{}))
+	classical["expires_at"] = expiry.Format("2006-01-02T15:04:05.000Z")
+	trustJSON, _ := json.Marshal(map[string]interface{}{"trust_set_version": "here.2", "principals": []interface{}{
+		map[string]interface{}{"human_id": s.owner.id, "keys": []interface{}{classical, keys[1]}}, s.admin.trusted,
+	}})
+	trust, err := v2.NewPrincipalTrustStore(trustJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := func(now time.Time) *v2.MultiPartyEvaluation {
+		r, err := v2.EvaluateMultiPartyAuthorization(s.reg, record, v2.MultiPartyOptions{
+			Policy: s.policy, Trust: trust, Now: now, Expected: v2.MultiPartyExpected{Operation: "revoke_agent", Target: "agent:signed-here"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	if r := at(expiry.Add(500 * time.Microsecond)); !r.Authorized {
+		t.Fatalf("half a millisecond after the key's expiry: %+v", r)
+	}
+	if r := at(expiry.Add(time.Millisecond)); r.Authorized || !reflect.DeepEqual(mpaCodes(r), []string{"MPA_KEY_EXPIRED"}) {
+		t.Fatalf("a millisecond after the key's expiry: %+v", r)
 	}
 }
 

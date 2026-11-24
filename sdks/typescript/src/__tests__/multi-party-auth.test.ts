@@ -8,13 +8,17 @@ import { describe, expect, it } from 'vitest';
 import {
   AdmissionConfigError,
   AlgorithmRegistry,
+  DCP_CONTEXTS,
+  DEFAULT_VERIFIER_POLICY,
   Ed25519Provider,
   MPA_V1,
   MPA_V1_MAX_AUTHORIZATIONS,
   MlDsa65Provider,
   MultiPartyConfigError,
   buildMultiPartyAuthorization,
+  canonicalizeV2,
   checkMultiPartyAuthorizationStructure,
+  compositeSign,
   createMultiPartyPolicyStore,
   createMultiPartyRequest,
   createPartyAuthorization,
@@ -168,6 +172,8 @@ describe('multi-party authorization: what the vectors cannot express', () => {
       ['with an own symbol', (members) => Object.assign(members, { [Symbol('any')]: true })],
       ['an instance', (members) => Object.assign(new (class Authorization {})(), members)],
       ['with a prototype of its own', (members) => Object.assign(Object.create({ inherited: true }), members)],
+      ['with a prototype of its own that has none', (members) => Object.assign(Object.create(Object.assign(Object.create(null), { inherited: true })), members)],
+      ['an instance of a class that extends null', (members) => Object.assign(Object.create((class extends null {}).prototype), members)],
     ];
     const invalid = (r: MultiPartyEvaluation) => [r.authorized, r.structure, r.verification, codes(r)];
     for (const [what, make] of kinds) {
@@ -194,6 +200,11 @@ describe('multi-party authorization: what the vectors cannot express', () => {
       entries.authorizations[1] = make(entries.authorizations[1]);
       expect(invalid(await evaluate(c, registry, entries)), what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_SCHEMA_INVALID']]);
     }
+    // An object that cannot be read is no record either, and it is not asked a second time.
+    let asked = 0;
+    const unreadable = new Proxy(clone(V.records[c.record]), { ownKeys: () => { asked += 1; throw new Error('not readable'); } });
+    const answer = await evaluate(c, registry, unreadable);
+    expect([invalid(answer), asked]).toEqual([[false, 'invalid', 'not_evaluated', ['MPA_SCHEMA_INVALID']], 1]);
     // A plain object with an accessor is read once, and what it gave then is what is judged.
     let reads = 0;
     const { operation_payload: signed, ...rest } = clone(V.records[c.record]);
@@ -295,6 +306,31 @@ describe('multi-party authorization: what the vectors cannot express', () => {
         }),
       ).rejects.toBeInstanceOf(MultiPartyConfigError);
     }
+  });
+
+  it('takes the algorithms of the profile from the profile, not from a policy object any caller can change', async () => {
+    const c = byName('two_classical_signatures');
+    const { accepted_pq_algs: pq, accepted_classical_algs: classical } = DEFAULT_VERIFIER_POLICY;
+    const before = [[...pq], [...classical]];
+    try {
+      pq.push('ed25519');
+      expect(codes(await evaluate(c))).toEqual(c.expect.codes);
+      pq.length = 0;
+      classical.length = 0;
+      const control = await evaluate(byName('two_of_three'));
+      expect([control.authorized, codes(control)]).toEqual([true, []]);
+    } finally {
+      pq.splice(0, pq.length, ...before[0]);
+      classical.splice(0, classical.length, ...before[1]);
+    }
+  });
+
+  it('a required_parties no binary64 holds is not an integer of the schema', async () => {
+    const c = byName('two_of_three');
+    const text = JSON.stringify(V.records[c.record]).replace('"required_parties":2', `"required_parties":${'9'.repeat(400)}`);
+    expect(text).toContain('9'.repeat(400));
+    const r = await evaluate(c, registry, JSON.parse(text));
+    expect([r.authorized, r.structure, codes(r)]).toEqual([false, 'invalid', ['MPA_SCHEMA_INVALID']]);
   });
 
   it('a policy store cannot be changed after it is loaded', () => {
@@ -423,11 +459,17 @@ describe('multi-party authorization: signing', () => {
       expected: { operation: 'revoke_agent' as const, target: 'agent:signed-here', parameters: parameters as any },
       now: now + 1000,
     });
-    /** A record whose two parties signed `payload`, whatever it holds: the signer signs what it is given. */
-    const signedOver = async (payload: Parameters<typeof createPartyAuthorization>[2]) => buildMultiPartyAuthorization('revoke_agent', payload, [
-      await createPartyAuthorization(registry, 'revoke_agent', payload, owner.id, 'owner', owner.keys),
-      await createPartyAuthorization(registry, 'revoke_agent', payload, admin.id, 'org_admin', admin.keys),
-    ]);
+    /**
+     * A record whose two parties signed `payload`, whatever it holds. Signed below createPartyAuthorization, which
+     * refuses what is not data of the profile: an evaluator still meets records signed by other means.
+     */
+    const signedOver = async (payload: Parameters<typeof createPartyAuthorization>[2]) => {
+      const entry = async (p: typeof owner, role: 'owner' | 'org_admin') => {
+        const signed = new TextEncoder().encode(canonicalizeV2({ operation: 'revoke_agent', operation_payload: payload, party_id: p.id, role }));
+        return { party_id: p.id, role, composite_sig: await compositeSign(registry, DCP_CONTEXTS.MultiPartyAuth, signed, p.keys) };
+      };
+      return buildMultiPartyAuthorization('revoke_agent', payload, [await entry(owner, 'owner'), await entry(admin, 'org_admin')]);
+    };
     const configCode = async (run: () => unknown) => {
       try {
         await run();
@@ -436,8 +478,31 @@ describe('multi-party authorization: signing', () => {
       }
       return 'no error';
     };
-    return { request, options, signedOver, configCode };
+    return { request, options, signedOver, configCode, owner };
   }
+
+  it('a party signs only data of the profile: what its code holds is what the others will read', async () => {
+    const { request, configCode, owner } = await setting();
+    const sign = (payload: Parameters<typeof createPartyAuthorization>[2]) => createPartyAuthorization(registry, 'revoke_agent', payload, owner.id, 'owner', owner.keys);
+    const plain = createMultiPartyRequest({ ...request, parameters: { limits: { daily: 10 } } });
+    expect((await sign(plain)).party_id).toBe(owner.id);
+    expect((await sign({ agent_id: 'agent:acme-bot', reason: 'key_compromise' })).role).toBe('owner'); // a v2.0 payload, with no request
+    const nested = (levels: number) => Array.from({ length: levels }).reduce((value) => [value], 1 as unknown);
+    const notData: Array<[string, Record<string, unknown>]> = [
+      // Canonicalized, a Map is {}: the party would sign an authorization with no limits at all.
+      ['a Map', { limits: new Map([['daily', 10]]) }],
+      ['a Set', { scopes: new Set(['read']) }],
+      ['a Date', { until: new Date(0) }],
+      ['an integer past the range', { amount: 2 ** 53 }],
+      ['a fraction', { ratio: 0.5 }],
+      ['an unpaired surrogate', { path: 'keys/\ud800' }],
+      ['nested too deep', { limits: nested(31) }],
+    ];
+    for (const [what, parameters] of notData) {
+      expect(await configCode(() => sign({ request: plain.request, parameters })), what).toBe('CONFIG_INVALID_VALUE');
+      expect(await configCode(() => sign({ agent_id: 'agent:acme-bot', details: parameters })), `${what}, with no request`).toBe('CONFIG_INVALID_VALUE');
+    }
+  });
 
   it('takes the integers a binary64 holds exactly, from -(2^53 - 1) to 2^53 - 1, and no other number', async () => {
     const { request, options, signedOver, configCode } = await setting();
@@ -501,6 +566,129 @@ describe('multi-party authorization: signing', () => {
     expect([control.authorized, codes(control)]).toEqual([true, []]);
   });
 
+  it('takes well-formed text only: an unpaired surrogate is not a string every SDK reads alike', async () => {
+    const { request, options, signedOver, configCode } = await setting();
+    // The control: a character outside the BMP is a pair, and is text like any other.
+    const paired = { note: 'key \u{1F511}' };
+    const withPair = createMultiPartyRequest({ ...request, parameters: paired });
+    const control = await evaluateMultiPartyAuthorization(clone(await signedOver(withPair)), registry, options(paired));
+    expect([control.authorized, codes(control)]).toEqual([true, []]);
+
+    const plain = createMultiPartyRequest({ ...request, parameters: { path: 'keys/a' } });
+    const unpaired: Array<[string, Record<string, unknown>]> = [
+      ['a high surrogate alone', { path: 'keys/\ud800' }],
+      ['a low surrogate alone', { path: '\udc00keys' }],
+      ['a pair the wrong way round', { path: '\udc00\ud800' }],
+      ['in a member name', { ['k\ud83d']: 1 }],
+      ['inside an array', { paths: ['a', { deep: '\udfff' }] }],
+    ];
+    for (const [what, parameters] of unpaired) {
+      // Not a request the SDK builds...
+      expect(await configCode(() => createMultiPartyRequest({ ...request, parameters })), what).toBe('CONFIG_INVALID_VALUE');
+      // ...nor parameters an executor can state...
+      const record = clone(await signedOver(plain));
+      expect(await configCode(() => evaluateMultiPartyAuthorization(record, registry, options(parameters))), what).toBe('CONFIG_INVALID_VALUE');
+      // ...and a record that holds one decides nothing, whoever signed it: one SDK reads it as U+FFFD, another
+      // cannot read it at all.
+      const over = await signedOver({ request: plain.request, parameters });
+      const refused = await evaluateMultiPartyAuthorization(clone(over), registry, options({ path: 'keys/a' }));
+      expect([refused.authorized, refused.structure, refused.verification, codes(refused)], what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_NOT_REPRESENTABLE']]);
+    }
+    // The identifiers of the request are text too: not built, not stated, and not a record of the profile.
+    for (const input of [{ target: 'agent:\ud800' }, { audience: 'verifier:\udc00' }, { requestId: 'mpa:\ud800' }]) {
+      expect(await configCode(() => createMultiPartyRequest({ ...request, ...input })), Object.keys(input)[0]).toBe('CONFIG_INVALID_VALUE');
+    }
+    const stated = { ...options({ path: 'keys/a' }), expected: { operation: 'revoke_agent' as const, target: 'agent:\ud800', parameters: { path: 'keys/a' } } };
+    expect(await configCode(async () => evaluateMultiPartyAuthorization(clone(await signedOver(plain)), registry, stated))).toBe('CONFIG_INVALID_VALUE');
+    const inRequest = await signedOver({ request: { ...plain.request, target: 'agent:\ud800' }, parameters: { path: 'keys/a' } });
+    const refused = await evaluateMultiPartyAuthorization(clone(inRequest), registry, options({ path: 'keys/a' }));
+    expect([refused.authorized, refused.structure, codes(refused)]).toEqual([false, 'invalid', ['MPA_NOT_REPRESENTABLE']]);
+
+    // Outside operation_payload such text is no party_id of the schema: one SDK would read it as U+FFFD, which is the
+    // party of an operator whose policy names one so.
+    const elsewhere = clone(await signedOver(plain));
+    elsewhere.authorizations[1].party_id = 'human:\ud800';
+    const notARecord = await evaluateMultiPartyAuthorization(clone(elsewhere), registry, options({ path: 'keys/a' }));
+    expect([notARecord.authorized, notARecord.structure, codes(notARecord)]).toEqual([false, 'invalid', ['MPA_SCHEMA_INVALID']]);
+    // So is the name of an algorithm: every string of a record is text.
+    const named = clone(await signedOver(plain));
+    named.authorizations[1].composite_sig.classical.alg = 'ed25519\ud800';
+    const alsoNot = await evaluateMultiPartyAuthorization(clone(named), registry, options({ path: 'keys/a' }));
+    expect([alsoNot.authorized, alsoNot.structure, codes(alsoNot)]).toEqual([false, 'invalid', ['MPA_SCHEMA_INVALID']]);
+    // The operator's policy set is text too.
+    const policy = options({}).policy;
+    for (const change of [
+      (p: typeof policy) => { p.policy_set_version = 'here.\ud800'; },
+      (p: typeof policy) => { p.audience = 'verifier:\ud800'; },
+      (p: typeof policy) => { p.subjects[0].target = 'agent:\udc00'; },
+      (p: typeof policy) => { p.subjects[0].parties[0].party_id = 'human:\ud800'; },
+    ]) {
+      const changed = structuredClone(policy);
+      change(changed);
+      expect(await configCode(() => createMultiPartyPolicyStore(changed))).toBe('CONFIG_INVALID_VALUE');
+    }
+  });
+
+  it('signs the payload it read: a party does not sign what its object says a moment later', async () => {
+    const { request, options, owner } = await setting();
+    const admin = await party('human:admin-2');
+    const first = createMultiPartyRequest({ ...request, parameters: { amount: 1 } });
+    // An object that answers {amount: 1} once and {amount: 2} from then on.
+    let reads = 0;
+    const shifting = Object.defineProperty({ request: first.request }, 'parameters', { enumerable: true, get: () => ({ amount: (reads += 1) === 1 ? 1 : 2 }) });
+    const authorization = await createPartyAuthorization(registry, 'revoke_agent', shifting as never, owner.id, 'owner', owner.keys);
+    expect(reads).toBe(1);
+    const second = await createPartyAuthorization(registry, 'revoke_agent', first, admin.id, 'org_admin', admin.keys);
+    const base = options({ amount: 1 });
+    const settings = {
+      ...base,
+      policy: { ...base.policy, subjects: [{ ...base.policy.subjects[0], parties: [{ party_id: owner.id, role: 'owner' }, { party_id: admin.id, role: 'org_admin' }] }] },
+      trust: { trust_set_version: 'here.2', principals: [owner.trusted, admin.trusted] },
+    };
+    const r = await evaluateMultiPartyAuthorization(clone(buildMultiPartyAuthorization('revoke_agent', first, [authorization, second])), registry, settings);
+    expect([r.authorized, codes(r)]).toEqual([true, []]);
+  });
+
+  it('answers parameters nested too deeply to copy as it answers any other that is not data', async () => {
+    const { request, options, signedOver, configCode } = await setting();
+    const plain = createMultiPartyRequest({ ...request, parameters: {} });
+    const record = clone(await signedOver(plain));
+    // Arrays alone, too: what is copied stops at the depth of the profile whatever the containers are.
+    let arrays: unknown = 1;
+    for (let i = 0; i < 200_000; i += 1) arrays = [arrays];
+    expect(await configCode(() => createMultiPartyRequest({ ...request, parameters: { limits: arrays } }))).toBe('CONFIG_INVALID_VALUE');
+    for (const levels of [5_000, 200_000]) {
+      const parameters: Record<string, unknown> = {};
+      let deep = parameters;
+      for (let i = 0; i < levels; i += 1) deep = deep.deeper = {};
+      expect(await configCode(() => createMultiPartyRequest({ ...request, parameters })), String(levels)).toBe('CONFIG_INVALID_VALUE');
+      expect(await configCode(() => evaluateMultiPartyAuthorization(record, registry, options(parameters))), String(levels)).toBe('CONFIG_INVALID_VALUE');
+      expect(await configCode(() => createPartyAuthorization(registry, 'revoke_agent', { request: plain.request, parameters }, 'human:owner', 'owner', {} as CompositeKeyPair)), String(levels)).toBe('CONFIG_INVALID_VALUE');
+    }
+  });
+
+  it('bounds how deep the payload nests: 32 levels, operation_payload being the first', async () => {
+    const { request, options, signedOver, configCode } = await setting();
+    const nested = (levels: number) => {
+      let value: unknown = 1;
+      for (let i = 0; i < levels; i += 1) value = i % 2 ? [value] : { in: value };
+      return value;
+    };
+    // parameters is the second level, so a member of it may nest 30 more.
+    const deepest = { limits: nested(30) };
+    const atTheLimit = createMultiPartyRequest({ ...request, parameters: deepest });
+    const within = await evaluateMultiPartyAuthorization(clone(await signedOver(atTheLimit)), registry, options(deepest));
+    expect([within.authorized, codes(within)]).toEqual([true, []]);
+
+    const deeper = { limits: nested(31) };
+    expect(await configCode(() => createMultiPartyRequest({ ...request, parameters: deeper }))).toBe('CONFIG_INVALID_VALUE');
+    const record = clone(await signedOver(atTheLimit));
+    expect(await configCode(() => evaluateMultiPartyAuthorization(record, registry, options(deeper)))).toBe('CONFIG_INVALID_VALUE');
+    const over = await signedOver({ request: atTheLimit.request, parameters: deeper });
+    const refused = await evaluateMultiPartyAuthorization(clone(over), registry, options(deepest));
+    expect([refused.authorized, refused.structure, refused.verification, codes(refused)]).toEqual([false, 'invalid', 'not_evaluated', ['MPA_NOT_REPRESENTABLE']]);
+  });
+
   it('refuses to build a request the profile would not accept', () => {
     const base = { target: 'agent:x', audience: 'verifier:y', validitySeconds: 60 };
     for (const input of [
@@ -544,5 +732,19 @@ describe('multi-party authorization: the structural check is not an authorizatio
     expect(check(record(entry('a', 'owner'), { party_id: 'b', role: 'org_admin' }))).toEqual(['Missing composite_sig for party b']);
     expect(check(record(entry('a', 'org_admin'), entry('b', 'org_admin')), { requiredParties: 2, allowedRoles: ['org_admin'], requireOwner: false })).toEqual([]);
     expect(check({ ...record(entry('a', 'owner'), entry('b', 'owner')), operation: 'delete_everything' })).toEqual(['No policy defined for operation: delete_everything']);
+  });
+
+  it('gives a result, not an exception, for JSON written to break it', () => {
+    // An object with a member named toString cannot be turned into text: none of these may be printed or used as a key.
+    const hostile = '{"toString":1}';
+    for (const text of [
+      `{"operation":${hostile},"authorizations":[]}`,
+      `{"operation":"revoke_agent","authorizations":[{"party_id":"a","role":${hostile},"composite_sig":{}},{"party_id":"b","role":"owner","composite_sig":{}}]}`,
+      `{"operation":"revoke_agent","authorizations":[{"party_id":${hostile},"role":"owner"},{"party_id":"b","role":"owner","composite_sig":{}}]}`,
+      '{"operation":"revoke_agent","authorizations":[null,7]}',
+    ]) {
+      const r = checkMultiPartyAuthorizationStructure(JSON.parse(text));
+      expect([r.valid, r.errors.length > 0], text).toEqual([false, true]);
+    }
   });
 });

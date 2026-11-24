@@ -25,7 +25,7 @@ import { compositeSign, compositeVerify, type CompositeKeyPair } from './composi
 import type { AlgorithmRegistry } from './crypto-registry.js';
 import { DCP_CONTEXTS } from './domain-separation.js';
 import { parseRfc3339 } from './session-nonce.js';
-import { DEFAULT_VERIFIER_POLICY, SESSION_CLOCK_SKEW_MS, canonicalB64Bytes } from './verify-v2.js';
+import { SESSION_CLOCK_SKEW_MS, canonicalB64Bytes } from './verify-v2.js';
 
 export const MPA_V1 = 'mpa-v1' as const;
 /** The most authorizations a record may carry under the profile. */
@@ -33,11 +33,17 @@ export const MPA_V1_MAX_AUTHORIZATIONS = 16;
 /** The longest validity window an operator may allow, in seconds. */
 export const MPA_V1_MAX_VALIDITY_SECONDS = 86_400;
 
+/** How deep operation_payload may nest (§ 2.2): it is the first level and `parameters` the second. */
+const MPA_V1_MAX_DEPTH = 32;
 const MAX_REQUEST_ID = 128;
 const MAX_IDENTIFIER = 256;
 const MAX_MESSAGE = 300;
 const OPERATIONS: readonly string[] = ['revoke_agent', 'rotate_org_key', 'change_jurisdiction', 'modify_recovery_config'];
 const ROLES: readonly string[] = ['owner', 'org_admin', 'recovery_contact'];
+// The algorithms of a hybrid signature of the profile (§ 4). Its own, and frozen: a verifier policy object is
+// exported and any code in the process can change it.
+const CLASSICAL_ALGS: readonly string[] = Object.freeze(['ed25519']);
+const PQ_ALGS: readonly string[] = Object.freeze(['ml-dsa-65', 'slh-dsa-192f']);
 
 export type MultiPartyConfigCode = 'CONFIG_UNKNOWN_FIELD' | 'CONFIG_INVALID_VALUE' | 'CONFIG_MPA_DUPLICATE' | 'CONFIG_MPA_UNSATISFIABLE';
 
@@ -106,39 +112,52 @@ function printable(value: unknown): string {
 
 /**
  * An object that is only its named members: what JSON.parse, a literal or Object.create(null) makes, in this realm or
- * in another (its prototype is the end of the chain, or there is none).
+ * in another. Its prototype is an Object.prototype (the end of the chain, with the methods of one), or there is none:
+ * an object made over another one, even one with no prototype, has members that are not its own.
  */
 function isPlain(v: unknown): v is Record<string, unknown> {
   if (!isObject(v)) return false;
   const proto: object | null = Object.getPrototypeOf(v);
-  return (proto === null || Object.getPrototypeOf(proto) === null) && Object.getOwnPropertySymbols(v).length === 0;
+  const isObjectPrototype = proto !== null && Object.getPrototypeOf(proto) === null && Object.hasOwn(proto, 'isPrototypeOf');
+  return (proto === null || isObjectPrototype) && Object.getOwnPropertySymbols(v).length === 0;
 }
 
 const RANGE = '-(2^53 - 1) to 2^53 - 1';
+const DATA = `an object of JSON data: well-formed text, integers within ${RANGE}, nested no deeper than the profile allows`;
+
+/** An unpaired surrogate: in Unicode mode a pair is one code point, and only a surrogate on its own is one of these. */
+const UNPAIRED = /\p{Cs}/u;
+const isText = (v: unknown, max: number): v is string => isBounded(v, max) && !UNPAIRED.test(v);
 
 /**
- * Whether `value` is data of the profile (§ 3): JSON, with no number but the integers from -(2^53 - 1) to 2^53 - 1.
- * dcp-jcs-v1 takes more, and what it makes of it is not one thing. An integer beyond that range is written digit by
- * digit by one SDK and as the nearest binary64 by another, and read as that binary64 by most parsers: two numbers
- * would be signed, compared and verified as one. And this canonicalizer writes any object as the members it lists, so
- * a Set, a Map, a Date or an instance would be compared as {}.
+ * Whether `value` is data of the profile (§ 2.2), nesting at most `levels` deep: JSON, with no number but the
+ * integers from -(2^53 - 1) to 2^53 - 1 and no string with an unpaired surrogate. dcp-jcs-v1 takes more, and what it
+ * makes of it is not one thing. An integer beyond that range is written digit by digit by one SDK and as the nearest
+ * binary64 by another, and read as that binary64 by most parsers: two numbers would be signed, compared and verified
+ * as one. An unpaired surrogate is U+FFFD to one SDK and unreadable to another. And this canonicalizer writes any
+ * object as the members it lists, so a Set, a Map, a Date or an instance would be compared as {}.
  */
-function isProfileData(value: unknown): boolean {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+function isProfileData(value: unknown, levels: number): boolean {
+  if (typeof value === 'string') return !UNPAIRED.test(value);
+  if (value === null || typeof value === 'boolean') return true;
   if (typeof value === 'number') return Number.isSafeInteger(value);
+  if (levels < 1) return false;
   if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i += 1) if (!(i in value) || !isProfileData(value[i])) return false;
+    for (let i = 0; i < value.length; i += 1) if (!(i in value) || !isProfileData(value[i], levels - 1)) return false;
     return true;
   }
   if (!isPlain(value)) return false;
-  for (const key of Object.keys(value)) if (!isProfileData(value[key])) return false;
+  for (const key of Object.keys(value)) if (UNPAIRED.test(key) || !isProfileData(value[key], levels - 1)) return false;
   return true;
 }
 
-/** The dcp-jcs-v1 form, or undefined when the value is not data of the profile or is not representable. */
-function canonical(value: unknown): string | undefined {
+/**
+ * The dcp-jcs-v1 form, or undefined when the value is not data of the profile or is not representable. `levels` is
+ * how deep it may nest: all of them for operation_payload, one fewer for `parameters`, which is inside it.
+ */
+function canonical(value: unknown, levels = MPA_V1_MAX_DEPTH): string | undefined {
   try {
-    return isProfileData(value) ? canonicalizeV2(value) : undefined;
+    return isProfileData(value, levels) ? canonicalizeV2(value) : undefined;
   } catch {
     return undefined;
   }
@@ -148,22 +167,23 @@ function canonical(value: unknown): string | undefined {
 const NOT_DATA = Symbol('not JSON data');
 
 /**
- * `value` with arrays and objects of its own: the JSON it is, read once, with nothing of the caller's left to read
- * again. An object that is more than its members (a Set, a Date, an instance, one with an own symbol) is not copied
- * member by member, which would make an empty object of most; NOT_DATA takes its place, so that what judges the
- * copy refuses it. Plain loops, one frame a level, so that it reaches at least as deep as canonicalization does; a
- * hole stays a hole, so that an array is never made larger than it was.
+ * `value` with arrays and objects of its own, at most `levels` deep: the JSON it is, read once, with nothing of the
+ * caller's left to read again. An object that is more than its members (a Set, a Date, an instance, one with an own
+ * symbol) is not copied member by member, which would make an empty object of most, and what nests deeper than the
+ * profile allows is not followed, however deep it goes; NOT_DATA takes the place of either, so that what judges the
+ * copy refuses it. A hole stays a hole, so that an array is never made larger than it was.
  */
-function snapshot(value: unknown): unknown {
+function snapshot(value: unknown, levels: number): unknown {
   if (Array.isArray(value)) {
+    if (levels < 1) return NOT_DATA;
     const copy = new Array<unknown>(value.length);
-    for (let i = 0; i < copy.length; i += 1) if (i in value) copy[i] = snapshot(value[i]);
+    for (let i = 0; i < copy.length; i += 1) if (i in value) copy[i] = snapshot(value[i], levels - 1);
     return copy;
   }
   if (!isObject(value)) return value;
-  if (!isPlain(value)) return NOT_DATA;
+  if (levels < 1 || !isPlain(value)) return NOT_DATA;
   const copy: Record<string, unknown> = Object.create(null); // no prototype: "__proto__" is a member like any other
-  for (const key of Object.keys(value)) copy[key] = snapshot(value[key]);
+  for (const key of Object.keys(value)) copy[key] = snapshot(value[key], levels - 1);
   return copy;
 }
 
@@ -231,11 +251,11 @@ export function createMultiPartyPolicyStore(policySet: unknown): MultiPartyPolic
   if (isMultiPartyPolicyStore(policySet)) return policySet;
   if (!isObject(policySet)) return fail('CONFIG_INVALID_VALUE', 'the policy set must be an object');
   unknownField(policySet, ['policy_set_version', 'profile', 'audience', 'max_validity_seconds', 'subjects'], 'policy set');
-  if (typeof policySet.policy_set_version !== 'string' || policySet.policy_set_version === '') {
+  if (typeof policySet.policy_set_version !== 'string' || policySet.policy_set_version === '' || UNPAIRED.test(policySet.policy_set_version)) {
     fail('CONFIG_INVALID_VALUE', 'policy_set_version must be a non-empty string');
   }
   if (policySet.profile !== MPA_V1) fail('CONFIG_INVALID_VALUE', `profile must be ${MPA_V1}`);
-  if (!isBounded(policySet.audience, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'audience must be a string of 1 to 256 characters');
+  if (!isText(policySet.audience, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'audience must be a string of 1 to 256 characters');
   const seconds = policySet.max_validity_seconds;
   if (!isInteger(seconds) || seconds < 1 || seconds > MPA_V1_MAX_VALIDITY_SECONDS) {
     fail('CONFIG_INVALID_VALUE', `max_validity_seconds must be an integer from 1 to ${MPA_V1_MAX_VALIDITY_SECONDS}`);
@@ -247,7 +267,7 @@ export function createMultiPartyPolicyStore(policySet: unknown): MultiPartyPolic
     const where = `subjects[${i}]`;
     if (!isObject(subject)) return fail('CONFIG_INVALID_VALUE', `${where} must be an object`);
     unknownField(subject, ['target', 'parties', 'operations'], where);
-    if (!isBounded(subject.target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', `${where}.target must be a string of 1 to 256 characters`);
+    if (!isText(subject.target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', `${where}.target must be a string of 1 to 256 characters`);
     const target = subject.target as string;
     if (subjects.has(target)) fail('CONFIG_MPA_DUPLICATE', `${where}: target ${printable(target)} is listed twice`);
     if (!Array.isArray(subject.parties) || subject.parties.length === 0) fail('CONFIG_INVALID_VALUE', `${where}.parties must be a non-empty array`);
@@ -257,7 +277,7 @@ export function createMultiPartyPolicyStore(policySet: unknown): MultiPartyPolic
       const at = `${where}.parties[${j}]`;
       if (!isObject(party)) return fail('CONFIG_INVALID_VALUE', `${at} must be an object`);
       unknownField(party, ['party_id', 'role'], at);
-      if (typeof party.party_id !== 'string' || party.party_id === '') fail('CONFIG_INVALID_VALUE', `${at}.party_id must be a non-empty string`);
+      if (typeof party.party_id !== 'string' || party.party_id === '' || UNPAIRED.test(party.party_id)) fail('CONFIG_INVALID_VALUE', `${at}.party_id must be a non-empty string`);
       if (!ROLES.includes(party.role as string)) fail('CONFIG_INVALID_VALUE', `${at}.role ${printable(party.role)} is not a role`);
       const id = party.party_id as string;
       if (parties.has(id)) fail('CONFIG_MPA_DUPLICATE', `${at}: party ${printable(id)} is listed twice for the target`);
@@ -278,6 +298,7 @@ export function createMultiPartyPolicyStore(policySet: unknown): MultiPartyPolic
       if (allowed.length === 0) fail('CONFIG_INVALID_VALUE', `${at}.allowed_roles must not be empty`);
       if (requiredRoles.some((r) => !allowed.includes(r))) fail('CONFIG_INVALID_VALUE', `${at}.required_roles must be among allowed_roles`);
       const eligible = [...parties.values()].filter((role) => allowed.includes(role));
+      if (required > MPA_V1_MAX_AUTHORIZATIONS) fail('CONFIG_MPA_UNSATISFIABLE', `${at}: ${required} parties are required and a record holds at most ${MPA_V1_MAX_AUTHORIZATIONS} authorizations`);
       if (required > eligible.length) fail('CONFIG_MPA_UNSATISFIABLE', `${at}: ${required} parties are required and ${eligible.length} have an allowed role`);
       if (requiredRoles.some((r) => !eligible.includes(r))) fail('CONFIG_MPA_UNSATISFIABLE', `${at}: no party holds a required role`);
       operations.set(operation, Object.freeze({ required_parties: required, allowed_roles: Object.freeze([...allowed]), required_roles: Object.freeze([...requiredRoles]) }));
@@ -330,14 +351,14 @@ export interface CreateMultiPartyRequestInput {
 export function createMultiPartyRequest(input: CreateMultiPartyRequestInput): MultiPartyOperationPayload {
   if (!isObject(input)) return fail('CONFIG_INVALID_VALUE', 'the request input must be an object');
   const { target, audience, parameters = {}, validitySeconds, issuedAt = Date.now(), requestId = `mpa:${randomBytes(16).toString('hex')}` } = input;
-  if (!isBounded(target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'target must be a string of 1 to 256 characters');
-  if (!isBounded(audience, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'audience must be a string of 1 to 256 characters');
-  if (!isBounded(requestId, MAX_REQUEST_ID)) fail('CONFIG_INVALID_VALUE', 'requestId must be a string of 1 to 128 characters');
+  if (!isText(target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'target must be a string of 1 to 256 characters');
+  if (!isText(audience, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'audience must be a string of 1 to 256 characters');
+  if (!isText(requestId, MAX_REQUEST_ID)) fail('CONFIG_INVALID_VALUE', 'requestId must be a string of 1 to 128 characters');
   if (!isInteger(validitySeconds) || validitySeconds < 1 || validitySeconds > MPA_V1_MAX_VALIDITY_SECONDS) {
     fail('CONFIG_INVALID_VALUE', `validitySeconds must be an integer from 1 to ${MPA_V1_MAX_VALIDITY_SECONDS}`);
   }
   if (!isInteger(issuedAt)) fail('CONFIG_INVALID_VALUE', 'issuedAt must be an integer number of milliseconds');
-  if (!isObject(parameters) || canonical(snapshot(parameters)) === undefined) fail('CONFIG_INVALID_VALUE', `parameters must be an object of JSON data with integers within ${RANGE}`);
+  if (!isObject(parameters) || canonical(snapshot(parameters, MPA_V1_MAX_DEPTH - 1), MPA_V1_MAX_DEPTH - 1) === undefined) fail('CONFIG_INVALID_VALUE', `parameters must be ${DATA}`);
   return {
     request: {
       profile: MPA_V1,
@@ -354,7 +375,12 @@ export function createMultiPartyRequest(input: CreateMultiPartyRequestInput): Mu
 const signedBytes = (operation: unknown, operationPayload: unknown, partyId: unknown, role: unknown): Uint8Array =>
   new TextEncoder().encode(canonicalizeV2({ operation, operation_payload: operationPayload, party_id: partyId, role }));
 
-/** One party's authorization: its composite signature over {operation, operation_payload, party_id, role}. */
+/**
+ * One party's authorization: its composite signature over {operation, operation_payload, party_id, role}.
+ *
+ * The payload must be data of the profile (§ 2.2), and it is copied before it is signed. What is not data is not
+ * signed as something else: canonicalized, a Map is {}, and the party would authorize what it never read.
+ */
 export async function createPartyAuthorization(
   registry: AlgorithmRegistry,
   operation: MultiPartyOperation,
@@ -363,7 +389,9 @@ export async function createPartyAuthorization(
   role: AuthorizationRole,
   keys: CompositeKeyPair,
 ): Promise<PartyAuthorization> {
-  const sig = await compositeSign(registry, DCP_CONTEXTS.MultiPartyAuth, signedBytes(operation, operationPayload, partyId, role), keys);
+  const payload = snapshot(operationPayload, MPA_V1_MAX_DEPTH);
+  if (!isObject(payload) || canonical(payload) === undefined) fail('CONFIG_INVALID_VALUE', `operationPayload must be ${DATA}`);
+  const sig = await compositeSign(registry, DCP_CONTEXTS.MultiPartyAuth, signedBytes(operation, payload, partyId, role), keys);
   return { party_id: partyId, role, composite_sig: sig };
 }
 
@@ -413,7 +441,9 @@ const STRUCTURE_POLICIES: Record<string, MultiPartyStructurePolicy> = {
  * about who signed or whether the operation is authorized: for that, evaluateMultiPartyAuthorization.
  */
 export function checkMultiPartyAuthorizationStructure(mpa: MultiPartyAuthorization, policy?: MultiPartyStructurePolicy): MultiPartyStructureResult {
-  if (!isObject(mpa) || !Array.isArray(mpa.authorizations)) return { valid: false, errors: ['Not a multi-party authorization'] };
+  if (!isObject(mpa) || !Array.isArray(mpa.authorizations) || typeof mpa.operation !== 'string') return { valid: false, errors: ['Not a multi-party authorization'] };
+  // What is not a string is printed through printable: an object can be made that cannot be turned into text.
+  const text = (v: unknown) => (typeof v === 'string' ? v : printable(v));
   const effective = policy ?? (Object.hasOwn(STRUCTURE_POLICIES, mpa.operation) ? STRUCTURE_POLICIES[mpa.operation] : undefined);
   if (!effective) return { valid: false, errors: [`No policy defined for operation: ${mpa.operation}`] };
   const errors: string[] = [];
@@ -422,8 +452,8 @@ export function checkMultiPartyAuthorizationStructure(mpa: MultiPartyAuthorizati
   }
   if (effective.requireOwner && !mpa.authorizations.some((a) => a?.role === 'owner')) errors.push('Owner authorization required but not present');
   for (const auth of mpa.authorizations) {
-    if (!effective.allowedRoles.includes(auth?.role)) errors.push(`Role ${auth?.role} not allowed for operation ${mpa.operation}`);
-    if (!auth?.composite_sig) errors.push(`Missing composite_sig for party ${auth?.party_id}`);
+    if (!effective.allowedRoles.includes(auth?.role)) errors.push(`Role ${text(auth?.role)} not allowed for operation ${mpa.operation}`);
+    if (!auth?.composite_sig) errors.push(`Missing composite_sig for party ${text(auth?.party_id)}`);
   }
   return { valid: errors.length === 0, errors };
 }
@@ -473,7 +503,7 @@ const SIG_B64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 function isSignaturePart(v: unknown): boolean {
   return (
-    isObject(v) && hasOnly(v, ['alg', 'kid', 'sig_b64']) && typeof v.alg === 'string' && typeof v.kid === 'string' && KID.test(v.kid) &&
+    isObject(v) && hasOnly(v, ['alg', 'kid', 'sig_b64']) && typeof v.alg === 'string' && !UNPAIRED.test(v.alg) && typeof v.kid === 'string' && KID.test(v.kid) &&
     typeof v.sig_b64 === 'string' && v.sig_b64.length >= 8 && v.sig_b64.length <= 66476 && SIG_B64.test(v.sig_b64)
   );
 }
@@ -491,7 +521,7 @@ function conformsToSchema(record: unknown): record is MultiPartyAuthorization {
     if (!isObject(a) || !hasOnly(a, ['party_id', 'role', 'composite_sig']) || !hasAll(a, ['party_id', 'role', 'composite_sig'])) return false;
     const sig = a.composite_sig;
     return (
-      typeof a.party_id === 'string' && ROLES.includes(a.role as string) &&
+      typeof a.party_id === 'string' && !UNPAIRED.test(a.party_id) && ROLES.includes(a.role as string) &&
       isObject(sig) && hasOnly(sig, ['classical', 'pq', 'binding']) && hasAll(sig, ['classical', 'pq', 'binding']) &&
       isSignaturePart(sig.classical) && (sig.pq === null || isSignaturePart(sig.pq)) &&
       (sig.binding === 'pq_over_classical' || sig.binding === 'classical_only')
@@ -526,9 +556,9 @@ function structureCode(record: unknown): MultiPartyCode | undefined {
 function validExpected(expected: unknown): { operation: string; target: string; parameters: string } {
   if (!isObject(expected) || !hasOnly(expected, ['operation', 'target', 'parameters'])) return fail('CONFIG_INVALID_VALUE', 'expected must be {operation, target, parameters}');
   if (!OPERATIONS.includes(expected.operation as string)) fail('CONFIG_INVALID_VALUE', `expected.operation ${printable(expected.operation)} is not an operation`);
-  if (!isBounded(expected.target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'expected.target must be a string of 1 to 256 characters');
-  const parameters = isObject(expected.parameters) ? canonical(snapshot(expected.parameters)) : undefined;
-  if (parameters === undefined) return fail('CONFIG_INVALID_VALUE', `expected.parameters must be an object of JSON data with integers within ${RANGE}`);
+  if (!isText(expected.target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'expected.target must be a string of 1 to 256 characters');
+  const parameters = isObject(expected.parameters) ? canonical(snapshot(expected.parameters, MPA_V1_MAX_DEPTH - 1), MPA_V1_MAX_DEPTH - 1) : undefined;
+  if (parameters === undefined) return fail('CONFIG_INVALID_VALUE', `expected.parameters must be ${DATA}`);
   return { operation: expected.operation as string, target: expected.target as string, parameters };
 }
 
@@ -581,11 +611,12 @@ export async function evaluateMultiPartyAuthorization(
 
   // 1. Structure: the first failure, and nothing else is read. From here on `record` is the evaluation's own copy:
   // it waits on the signatures, and what the caller does to its object meanwhile must not count.
+  // The record is one level above operation_payload: what nests deeper than the payload may is left as NOT_DATA.
   let malformed: MultiPartyCode | undefined;
   try {
-    record = snapshot(record);
+    record = snapshot(record, MPA_V1_MAX_DEPTH + 1);
   } catch {
-    malformed = structureCode(record) ?? 'MPA_NOT_REPRESENTABLE'; // nested too deeply to copy
+    malformed = 'MPA_SCHEMA_INVALID'; // a member that cannot be read: the object is not read a second time
   }
   malformed ??= structureCode(record);
   if (malformed) {
@@ -638,12 +669,11 @@ export async function evaluateMultiPartyAuthorization(
   if (result.errors.length > 0) return result;
 
   // 4. Verification: every authorization is a hybrid signature, by the party's trusted keys, over this request.
-  const { accepted_classical_algs: classicalAlgs, accepted_pq_algs: pqAlgs } = DEFAULT_VERIFIER_POLICY;
   let counted = 0;
   for (const [i, auth] of mpa.authorizations.entries()) {
     const before = result.errors.length;
     const sig = auth.composite_sig;
-    if (sig.binding !== 'pq_over_classical' || !sig.pq || !classicalAlgs.includes(sig.classical.alg) || !pqAlgs.includes(sig.pq.alg)) {
+    if (sig.binding !== 'pq_over_classical' || !sig.pq || !CLASSICAL_ALGS.includes(sig.classical.alg) || !PQ_ALGS.includes(sig.pq.alg)) {
       add('MPA_HYBRID_REQUIRED', `${printable(auth.party_id)}: a classical and a post-quantum signature are both required`);
     } else {
       const trusted = trust.principals.get(auth.party_id);

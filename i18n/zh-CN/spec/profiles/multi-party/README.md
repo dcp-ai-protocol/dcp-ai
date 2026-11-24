@@ -69,6 +69,8 @@
 - `target` 按运营方策略中的名称指明操作的对象。`audience` 指明可以依据这份授权行事的验证器。
 - `parameters` 是一个对象：操作自身的参数，没有参数时为空。
 - `operation_payload` 中的每个数值，按最接近的 binary64 读取后，都是 -(2^53 - 1) 至 2^53 - 1 之间的整数，即 binary64 能精确保存的整数。`1.0` 和 `1e2` 是这样的整数，binary64 无法与这样的整数区分的字面量也是。超出这个范围时，把 JSON 数值读作 binary64 的实现与精确读取的实现会为同一份记录写出不同的 `dcp-jcs-v1` 文本，对一个整数的签名就会对相邻的整数同样有效。更大的值（例如 64 位标识符）放在字符串中。
+- `operation_payload` 中的每个字符串（包括成员名）都是格式良好的 Unicode 文本：没有不成对的代理项（无论是否以转义形式书写），也没有不是 UTF-8 的字节。除此之外的内容，各实现的读取结果并不一致：有的在该位置放入 U+FFFD，有的则无法读取。
+- `operation_payload` 最多嵌套 32 层，它自身是第 1 层，`parameters` 是第 2 层。
 
 参与方签名的内容不变：`UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`。经典签名覆盖这些字节，后量子签名覆盖这些字节后接经典签名。
 
@@ -111,7 +113,7 @@
 | 任一层级出现 schema 之外的字段 | `CONFIG_UNKNOWN_FIELD` |
 | `policy_set_version` 缺失或为空；`profile` 不是 `mpa-v1`；`audience` 不是 1 至 256 个字符的字符串；`max_validity_seconds` 不是 1 至 86400 的整数；角色或操作不在列表之内；`parties` 为空；`allowed_roles` 为空或有重复的角色；`required_parties` 小于 2；`required_roles` 不在 `allowed_roles` 之中 | `CONFIG_INVALID_VALUE` |
 | 同一个目标列出两次，或同一个目标下同一个参与方列出两次 | `CONFIG_MPA_DUPLICATE` |
-| `required_parties` 大于具有允许角色的参与方数量，或某个必需角色没有任何这样的参与方持有 | `CONFIG_MPA_UNSATISFIABLE` |
+| `required_parties` 大于具有允许角色的参与方数量，或大于 16（一份记录最多容纳的授权数）；或某个必需角色没有任何这样的参与方持有 | `CONFIG_MPA_UNSATISFIABLE` |
 
 当一个策略集存在其中多个问题时，可以报告其中任意一个的代码。
 
@@ -129,7 +131,7 @@
 
 ## 3. 执行方声明的内容
 
-执行方给出它即将执行的操作、目标和参数。它们必须是列表中的一项操作、1 至 256 个字符的目标，以及数值均为 §2.2 范围内整数的 JSON 数据对象。否则，调用会作为配置错误（`CONFIG_INVALID_VALUE`）被拒绝，不给出任何结果。授权必须恰好针对这些内容。
+执行方给出它即将执行的操作、目标和参数。它们必须是列表中的一项操作、1 至 256 个字符且为格式良好文本的目标，以及属于 §2.2 所述数据的对象：数值在其范围内，文本格式良好，并且由于 `parameters` 是 `operation_payload` 的第 2 层，最多嵌套 31 层。否则，调用会作为配置错误（`CONFIG_INVALID_VALUE`）被拒绝，不给出任何结果。授权必须恰好针对这些内容。
 
 <a id="4-evaluation"></a>
 
@@ -142,7 +144,7 @@
 | 1. 结构 | 记录符合其 schema | `MPA_SCHEMA_INVALID` |
 | | `operation_payload` 有 `request` 成员 | `MPA_REQUEST_MISSING` |
 | | `operation_payload` 符合第 2.2 节，时刻为 RFC 3339 | `MPA_REQUEST_INVALID` |
-| | `operation_payload` 可以用 `dcp-jcs-v1` 表示，且其中的数值都在 §2.2 的范围内 | `MPA_NOT_REPRESENTABLE` |
+| | `operation_payload` 是 §2.2 所述的数据（数值在其范围内，文本格式良好，最多嵌套 32 层），并且可以用 `dcp-jcs-v1` 表示 | `MPA_NOT_REPRESENTABLE` |
 | | 最多 16 个授权 | `MPA_TOO_MANY_AUTHORIZATIONS` |
 | 2. 绑定 | `operation` 是执行方声明的操作 | `MPA_OPERATION_MISMATCH` |
 | | `request.target` 是执行方声明的目标 | `MPA_TARGET_MISMATCH` |
@@ -167,6 +169,9 @@
 - 记录中的 `required_parties` 没有被签名，永远不会被读取。
 - 在第 3 阶段，起作用的角色是运营方给出的角色：已签名的角色与之不同时为 `MPA_ROLE_MISMATCH`，运营方给出的角色不被允许用于这项操作时为 `MPA_ROLE_NOT_ALLOWED`。两者可以同时适用。未知的参与方只得到 `MPA_PARTY_UNKNOWN`，不再有其他代码。
 - 在第 4 阶段，每个密钥得到下列情况中第一个适用的：未锚定、已吊销、已过期（`status` 为 `expired`，或 `expires_at` 早于 `now`）以及尚未生效（`not_before` 晚于 `now`）。只有两个密钥都可以计数时，才验证签名。
+- 第 4 阶段的算法是本配置文件自己的：经典组件为 `ed25519`，另一个组件为 `ml-dsa-65` 或 `slh-dsa-192f`。它们不从可能变化的验证策略中读取。
+- 时间点以毫秒比较：小数部分第三位之后的数字被舍弃，分辨率更高的 `now` 被截断。
+- 格式不良的文本在 `operation_payload` 之外同样被拒绝：任何字符串（`party_id` 或算法名称）中带有这种文本的记录不符合其模式（`MPA_SCHEMA_INVALID`），任何字符串中带有这种文本的策略集无法加载（`CONFIG_INVALID_VALUE`）。
 
 <a id="5-result"></a>
 
@@ -207,7 +212,7 @@
 | `CONFIG_UNKNOWN_FIELD`, `CONFIG_INVALID_VALUE`, `CONFIG_MPA_DUPLICATE`, `CONFIG_MPA_UNSATISFIABLE` | 在加载策略集时抛出，或针对执行方声明的内容（第 3 节）抛出 |
 | `CONFIG_TRUST_*` | 在加载信任集时抛出（准入配置文件第 2.2 节） |
 
-消息最长 300 个字符，绝不包含私钥、令牌，也不包含除被比较的标识符之外的运营方配置。
+消息最长 300 个字符，绝不包含私钥或令牌。但结果确实会描述运营方的配置：其代码、消息和字段会说明策略集的要求（目标、操作、参与方及其角色、阈值、最长有效期）以及信任集中关于某个参与方的情况（未锚定、已吊销或已过期的密钥及其 `kid`），而且第 2、3 阶段在验证任何签名之前就会给出这些信息。见第 6 节的 A4。
 
 <a id="6-adapters"></a>
 
@@ -218,6 +223,7 @@
 - **A1.** 只有当 `authorized` 为真时才执行操作，而且执行的就是交给评估的那项操作、那个目标和那些参数。
 - **A2.** 策略集、信任集、它们的来源、受众以及租户，都来自运营方的代码和配置。请求的任何字段、请求头或工具参数都不能选择或更改它们。
 - **A3.** 非幂等的操作只能使用一次，这一点由适配器负责保证（第 7 节）。
+- **A4.** 结果会向读取它的任何一方描述运营方的策略集和信任集，对没有任何人签名的记录也是如此。适配器必须（MUST）只把结果返回给运营方允许了解这些内容的调用方；对其他调用方，至多返回操作是否已获授权。
 
 <a id="7-guarantees-and-limits"></a>
 

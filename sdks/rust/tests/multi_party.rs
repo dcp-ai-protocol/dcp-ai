@@ -383,6 +383,57 @@ fn takes_the_integers_a_binary64_holds_exactly_and_no_other_number() {
 }
 
 #[test]
+fn bounds_how_deep_the_payload_nests() {
+    let (owner, admin) = (party("human:owner"), party("human:admin"));
+    let now = 1_795_003_200_000; // 2026-11-18T12:00:00Z
+    let policy = MultiPartyPolicyStore::from_json(&json!({
+        "policy_set_version": "here.1", "profile": "mpa-v1", "audience": "verifier:here", "max_validity_seconds": 600,
+        "subjects": [{
+            "target": "agent:signed-here",
+            "parties": [{ "party_id": owner.id, "role": "owner" }, { "party_id": admin.id, "role": "org_admin" }],
+            "operations": { "revoke_agent": { "required_parties": 2, "allowed_roles": ["owner", "org_admin"], "required_roles": ["owner"] } },
+        }],
+    }))
+    .unwrap();
+    let trust = PrincipalTrustStore::from_json(&json!({ "trust_set_version": "here.1", "principals": [owner.trusted, admin.trusted] })).unwrap();
+    let request = |parameters: &Value| {
+        create_multi_party_request(&MultiPartyRequestInput {
+            target: "agent:signed-here",
+            audience: "verifier:here",
+            parameters: Some(parameters),
+            validity_seconds: 600,
+            issued_at_ms: Some(now),
+            request_id: None,
+        })
+    };
+    let signed_over = |payload: &Value| {
+        let sign = |p: &Party, role: &str| {
+            create_party_authorization(&Ed25519Provider, &MlDsa65Provider, "revoke_agent", payload, p.id, role, &p.classical, &p.pq).unwrap()
+        };
+        build_multi_party_authorization("revoke_agent", payload, vec![sign(&owner, "owner"), sign(&admin, "org_admin")], 0)
+    };
+    let evaluate = |record: &Value, parameters: &Value| {
+        let expected = MultiPartyExpected { operation: "revoke_agent", target: "agent:signed-here", parameters };
+        evaluate_multi_party_authorization(record, &MultiPartyOptions { policy: &policy, trust: &trust, expected, now_ms: now + 1000 })
+    };
+    let nested = |levels: usize| (0..levels).fold(json!(1), |value, i| if i % 2 == 1 { json!([value]) } else { json!({ "in": value }) });
+
+    // operation_payload is the first of 32 levels and parameters the second, so a member of it may nest 30 more.
+    let deepest = json!({ "limits": nested(30) });
+    let at_the_limit = request(&deepest).unwrap();
+    let r = evaluate(&signed_over(&at_the_limit), &deepest).unwrap();
+    assert!(r.authorized && r.errors.is_empty(), "{:?}", r.errors);
+
+    let deeper = json!({ "limits": nested(31) });
+    assert_eq!(request(&deeper).err().map(|e| e.code), Some("CONFIG_INVALID_VALUE"), "built");
+    assert_eq!(evaluate(&signed_over(&at_the_limit), &deeper).err().map(|e| e.code), Some("CONFIG_INVALID_VALUE"), "stated");
+    let over = signed_over(&json!({ "request": at_the_limit["request"], "parameters": deeper }));
+    let r = evaluate(&over, &deepest).unwrap();
+    assert!(!r.authorized && r.structure == "invalid" && r.verification == "not_evaluated", "{:?}", r.errors);
+    assert_eq!(codes(&r), ["MPA_NOT_REPRESENTABLE"]);
+}
+
+#[test]
 fn refuses_to_build_a_request_the_profile_would_not_accept() {
     let (not_representable, not_an_object) = (json!({ "ratio": 0.5 }), json!("none"));
     let long = "a".repeat(257);

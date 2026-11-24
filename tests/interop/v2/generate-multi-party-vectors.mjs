@@ -101,9 +101,9 @@ const signedBytes = (operation, operation_payload, party_id, role, context = CON
  * One party's authorization. The classical signature covers the signed bytes; the post-quantum one covers them
  * followed by the classical signature (pq_over_classical).
  */
-function sign(signer, operation, operation_payload, role, { as = signer.id, context = CONTEXT, pqCoversClassical = true, kidsOf = signer } = {}) {
+function sign(signer, operation, operation_payload, role, { as = signer.id, context = CONTEXT, pqCoversClassical = true, kidsOf = signer, classicalOver = (m) => m } = {}) {
   const msg = signedBytes(operation, operation_payload, as, role, context);
-  const classical = ALGS.ed25519.sign(msg, signer.classical.secretKey);
+  const classical = ALGS.ed25519.sign(classicalOver(msg), signer.classical.secretKey);
   const pq = ALGS['ml-dsa-65'].sign(pqCoversClassical ? Buffer.concat([msg, classical]) : msg, signer.pq.secretKey);
   return {
     party_id: as,
@@ -168,6 +168,13 @@ const JURISDICTION = payload({ target: ORG }, { jurisdiction: 'CL' });
 const NO_PARAMETERS = payload({}, {});
 const OTHER_AUDIENCE = payload({ audience: 'verifier:other-gateway' });
 const TOO_LONG = payload({ expires_at: '2026-11-18T00:30:01Z' });
+const ONE_MILLISECOND_TOO_LONG = payload({ expires_at: '2026-11-18T00:30:00.001Z' });
+// Instants are read in milliseconds: nine tenths of one more is still the limit, not past it.
+const BELOW_A_MILLISECOND = payload({ expires_at: '2026-11-18T00:30:00.0009Z' });
+/** A value nested `levels` deep, objects and arrays in turn. */
+const nested = (levels) => Array.from({ length: levels }).reduce((value, _, i) => (i % 2 ? [value] : { in: value }), 1);
+/** The same with arrays only, so the deepest level is an array. */
+const arrays = (levels) => Array.from({ length: levels }).reduce((value) => [value], 1);
 const BACKWARDS = payload({ issued_at: '2026-11-18T00:10:20Z', expires_at: '2026-11-18T00:10:10Z' });
 const UNKNOWN_TARGET = payload({ target: 'agent:unknown-bot' });
 const ORG_KEY_ON_AGENT = payload({}, { new_kid: 'c0ffee00c0ffee00c0ffee00c0ffee00' });
@@ -219,11 +226,15 @@ const RECORDS = {
   org_key: signed('rotate_org_key', ORG_KEY, [[ALICE, 'owner'], [ERIN, 'org_admin']]),
   jurisdiction: signed('change_jurisdiction', JURISDICTION, [[BOB, 'org_admin'], [ERIN, 'org_admin']]),
   no_parameters: signed('revoke_agent', NO_PARAMETERS, [[ALICE, 'owner'], [BOB, 'org_admin']]),
+  // operation_payload is the first of 32 levels and parameters the second: a member of it may nest 30 more
+  nested_at_the_limit: signed('revoke_agent', payload({}, { limits: nested(30) }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
+  arrays_nested_at_the_limit: signed('revoke_agent', payload({}, { limits: arrays(30) }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
   decimal_point_at_the_limit: signed('revoke_agent', payload({}, literal('ceiling_with_a_point')), [[ALICE, 'owner'], [BOB, 'org_admin']]),
   integers_at_the_limit: signed('revoke_agent', payload({}, { ceiling: Number.MAX_SAFE_INTEGER, floor: Number.MIN_SAFE_INTEGER }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
   record_asks_for_five: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES], 5),
   record_asks_for_an_absurd_number: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES], 1e30),
   with_offsets: signed('revoke_agent', WITH_OFFSETS, [[ALICE, 'owner'], [BOB, 'org_admin']]),
+  below_a_millisecond: signed('revoke_agent', BELOW_A_MILLISECOND, [[ALICE, 'owner'], [BOB, 'org_admin']]),
 
   // limits: exactly on a bound, so the structure phase lets them through; no signature is read
   sixteen_authorizations: record('revoke_agent', REVOKE, Array.from({ length: 16 }, (_, n) => unsigned(`human:party-${String(n + 1).padStart(2, '0')}`, 'org_admin', n))),
@@ -249,6 +260,8 @@ const RECORDS = {
   parameters_not_an_object: record('revoke_agent', { request: request(), parameters: 'none' }, [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
   number_not_an_integer: record('revoke_agent', payload({}, { ratio: 0.5 }), [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
   // Past 2^53 - 1 a binary64 no longer holds every integer. Both parties signed these two: the signatures are not the problem.
+  nested_past_the_limit: signed('revoke_agent', payload({}, { limits: nested(31) }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
+  arrays_nested_past_the_limit: signed('revoke_agent', payload({}, { limits: arrays(31) }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
   integer_above_the_limit: signed('revoke_agent', payload({}, { amount: 2 ** 53 }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
   integer_below_the_limit: signed('revoke_agent', payload({}, { limits: [1, { floor: -(2 ** 53) }] }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
   integer_in_exponent_form: record('revoke_agent', payload({}, { amount: 1e21 }), [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
@@ -319,6 +332,7 @@ const RECORDS = {
   // binding: every signature verifies
   another_audience: signed('revoke_agent', OTHER_AUDIENCE, [[ALICE, 'owner'], [BOB, 'org_admin']]),
   validity_too_long: signed('revoke_agent', TOO_LONG, [[ALICE, 'owner'], [BOB, 'org_admin']]),
+  validity_one_millisecond_too_long: signed('revoke_agent', ONE_MILLISECOND_TOO_LONG, [[ALICE, 'owner'], [BOB, 'org_admin']]),
   expiry_before_issue: signed('revoke_agent', BACKWARDS, [[ALICE, 'owner'], [BOB, 'org_admin']]),
   unknown_target: signed('revoke_agent', UNKNOWN_TARGET, [[ALICE, 'owner'], [BOB, 'org_admin']]),
   org_key_on_an_agent: signed('rotate_org_key', ORG_KEY_ON_AGENT, [[ALICE, 'owner'], [BOB, 'org_admin']]),
@@ -338,6 +352,8 @@ const RECORDS = {
   pq_removed_under_the_hybrid_binding: withBob(mutate(BOB_REVOKES, (e) => { e.composite_sig.pq = null; })),
   hybrid_signature_declared_classical_only: withBob(mutate(BOB_REVOKES, (e) => { e.composite_sig.binding = 'classical_only'; })),
   unknown_classical_algorithm: withBob(mutate(BOB_REVOKES, (e) => { e.composite_sig.classical.alg = 'rsa-2048'; })),
+  // The post-quantum signature covers the classical one and verifies; the classical one was made over other bytes.
+  classical_signature_invalid_alone: withBob(sign(BOB, 'revoke_agent', REVOKE, 'org_admin', { classicalOver: (m) => Buffer.concat([m, Buffer.from([0])]) })),
   two_classical_signatures: withBob(mutate(BOB_REVOKES, (e) => {
     const msg = signedBytes('revoke_agent', REVOKE, BOB.id, 'org_admin');
     const second = ALGS.ed25519.sign(Buffer.concat([msg, Buffer.from(e.composite_sig.classical.sig_b64, 'base64')]), BOB.classical.secretKey);
@@ -366,6 +382,7 @@ const trustSet = (version, ...principals) => ({ trust_set_version: version, prin
 const TRUST_SETS = {
   base: trustSet('2026-11-18.1', ...[ALICE, BOB, CAROL, DAVE, ERIN].map((p) => principal(p))),
   bob_classical_revoked: trustSet('2026-11-18.2', principal(ALICE), principal(BOB, { status: 'revoked' })),
+  bob_pq_status_expired: trustSet('2026-11-18.6', principal(ALICE), principal(BOB, {}, { status: 'expired' })),
   bob_pq_expired: trustSet('2026-11-18.3', principal(ALICE), principal(BOB, {}, { expires_at: '2026-11-18T00:05:00Z' })),
   bob_classical_not_yet_valid: trustSet('2026-11-18.4', principal(ALICE), principal(BOB, { not_before: '2026-11-18T00:20:00Z' })),
   without_bob: trustSet('2026-11-18.5', principal(ALICE)),
@@ -426,12 +443,15 @@ const CASES = [
   ['organization_target', 'controls', 'Another target with its own parties and operations', { record: 'org_key' }, yes(2)],
   ['no_required_role', 'controls', 'An operation with no required role: two administrators', { record: 'jurisdiction' }, yes(2)],
   ['empty_parameters', 'controls', 'An operation without parameters', { record: 'no_parameters' }, yes(2)],
+  ['nested_at_the_limit', 'controls', 'Parameters nested as deep as the profile allows: 32 levels, operation_payload being the first', { record: 'nested_at_the_limit' }, yes(2)],
+  ['arrays_nested_at_the_limit', 'controls', 'The same depth with arrays only: the deepest level is an array', { record: 'arrays_nested_at_the_limit' }, yes(2)],
   ['decimal_point_at_the_limit', 'controls', '2^53 - 1 written 9007199254740991.0: the integer a binary64 reads, and the one the parties signed', { record: 'decimal_point_at_the_limit' }, yes(2)],
   ['integers_at_the_limit', 'controls', 'Parameters with 2^53 - 1 and -(2^53 - 1), the largest integers of the profile', { record: 'integers_at_the_limit' }, yes(2)],
   ['record_asks_for_more_than_the_operator', 'controls', 'required_parties in the record is not signed and does not count', { record: 'record_asks_for_five' }, yes(2)],
   ['record_asks_for_an_absurd_number', 'controls', 'required_parties 1e+30: an integer for the schema, larger than any machine integer, and it does not count', { record: 'record_asks_for_an_absurd_number' }, yes(2)],
   ['last_instant', 'controls', 'One millisecond before expires_at', { record: 'two_of_three', now: '2026-11-18T00:29:59.999Z' }, yes(2)],
   ['issued_within_the_clock_allowance', 'controls', 'issued_at 30 seconds ahead of now', { record: 'two_of_three', now: '2026-11-17T23:59:30Z' }, yes(2)],
+  ['fraction_below_a_millisecond', 'controls', 'expires_at with a fourth decimal: read in milliseconds, the window is exactly the limit of 1800 seconds', { record: 'below_a_millisecond' }, yes(2)],
   ['timestamps_with_offsets', 'controls', 'RFC 3339 instants with numeric offsets and microseconds', { record: 'with_offsets' }, yes(2)],
 
   // limits: exactly on a bound; refused later, by another phase
@@ -509,6 +529,8 @@ const CASES = [
   ['issued_at_a_number', 'structure', 'issued_at as a number of milliseconds', { record: 'issued_at_a_number' }, malformed('MPA_REQUEST_INVALID')],
   ['expiry_a_number', 'structure', 'expires_at as a number of milliseconds', { record: 'expiry_a_number' }, malformed('MPA_REQUEST_INVALID')],
   ['number_not_an_integer', 'structure', 'A number dcp-jcs-v1 cannot represent', { record: 'number_not_an_integer' }, malformed('MPA_NOT_REPRESENTABLE')],
+  ['nested_past_the_limit', 'structure', 'Parameters nested one level deeper, signed by both parties', { record: 'nested_past_the_limit' }, malformed('MPA_NOT_REPRESENTABLE')],
+  ['arrays_nested_past_the_limit', 'structure', 'One level deeper with arrays only, signed by both parties', { record: 'arrays_nested_past_the_limit' }, malformed('MPA_NOT_REPRESENTABLE')],
   ['integer_above_the_limit', 'structure', '2^53 in parameters, signed by both parties: one more than the largest integer of the profile', { record: 'integer_above_the_limit' }, malformed('MPA_NOT_REPRESENTABLE')],
   ['integer_below_the_limit', 'structure', '-(2^53) inside an array of parameters, signed by both parties', { record: 'integer_below_the_limit' }, malformed('MPA_NOT_REPRESENTABLE')],
   ['integer_in_exponent_form', 'structure', '1e+21: an integer for JSON, past the range', { record: 'integer_in_exponent_form' }, malformed('MPA_NOT_REPRESENTABLE')],
@@ -527,6 +549,7 @@ const CASES = [
   ['expired', 'binding', 'now is expires_at', { record: 'two_of_three', now: EXPIRES }, unbound(['MPA_EXPIRED'])],
   ['not_yet_valid', 'binding', 'issued_at more than 30 seconds ahead of now', { record: 'two_of_three', now: '2026-11-17T23:59:29.999Z' }, unbound(['MPA_NOT_YET_VALID'])],
   ['validity_longer_than_the_operator_allows', 'binding', 'A window of 1801 seconds under a limit of 1800', { record: 'validity_too_long' }, unbound(['MPA_VALIDITY_INVALID'])],
+  ['validity_one_millisecond_longer', 'binding', 'A window one millisecond longer than the limit of 1800 seconds', { record: 'validity_one_millisecond_too_long' }, unbound(['MPA_VALIDITY_INVALID'])],
   ['expiry_before_issue', 'binding', 'expires_at before issued_at, both otherwise acceptable at now', { record: 'expiry_before_issue' }, unbound(['MPA_VALIDITY_INVALID'])],
   ['target_the_operator_does_not_have', 'binding', 'No subject for the target', { record: 'unknown_target' }, unbound(['MPA_TARGET_UNKNOWN'], null)],
   ['operation_not_listed_for_the_target', 'binding', 'The operator lists the operation for another target only', { record: 'org_key_on_an_agent' }, unbound(['MPA_OPERATION_NOT_ALLOWED'], null)],
@@ -556,6 +579,8 @@ const CASES = [
   ['kid_of_the_other_algorithm', 'signatures', 'The classical slot names the kid of the party\'s post-quantum key', { record: 'kid_of_the_other_algorithm' }, unverified(1, 'MPA_KEY_NOT_ANCHORED')],
   ['enough_parties_and_a_forged_signature', 'signatures', 'Two valid parties meet the threshold; a third entry that does not verify refuses the record', { record: 'two_valid_and_one_forged' }, unverified(2, 'MPA_SIGNATURE_INVALID')],
   ['signature_not_canonical_base64', 'signatures', 'A signature spelled with non-zero trailing bits', { record: 'signature_not_canonical_base64' }, unverified(1, 'MPA_SIGNATURE_INVALID')],
+  ['classical_signature_invalid_alone', 'signatures', 'A classical signature over other bytes, under a post-quantum signature that covers it and verifies', { record: 'classical_signature_invalid_alone' }, unverified(1, 'MPA_SIGNATURE_INVALID')],
+  ['key_status_expired', 'signatures', 'The operator marks the post-quantum key expired, with no expires_at', { record: 'two_of_three', trust_set: 'bob_pq_status_expired' }, unverified(1, 'MPA_KEY_EXPIRED')],
   ['key_revoked', 'signatures', 'The operator revoked the classical key', { record: 'two_of_three', trust_set: 'bob_classical_revoked' }, unverified(1, 'MPA_KEY_REVOKED')],
   ['key_expired', 'signatures', 'The post-quantum key expired before now', { record: 'two_of_three', trust_set: 'bob_pq_expired' }, unverified(1, 'MPA_KEY_EXPIRED')],
   ['key_not_yet_valid', 'signatures', 'The classical key is not valid until after now', { record: 'two_of_three', trust_set: 'bob_classical_not_yet_valid' }, unverified(1, 'MPA_KEY_NOT_YET_VALID')],
@@ -588,6 +613,10 @@ const policy = (change) => {
   return p;
 };
 const op = (p) => p.subjects[0].operations.revoke_agent;
+/** Seventeen parties with an allowed role, so the number of parties is not what limits the threshold. */
+const manyParties = (p) => {
+  for (let n = 1; n <= 15; n++) p.subjects[0].parties.push({ party_id: `human:admin-${String(n).padStart(2, '0')}`, role: 'org_admin' });
+};
 const CONFIG_CASES = [
   ['minimal', MINI, null],
   ['no_subjects', policy((p) => { p.subjects = []; }), null],
@@ -609,6 +638,9 @@ const CONFIG_CASES = [
   ['target_twice', policy((p) => { p.subjects.push(structuredClone(p.subjects[0])); }), 'CONFIG_MPA_DUPLICATE'],
   ['party_twice', policy((p) => { p.subjects[0].parties.push({ party_id: ALICE.id, role: 'org_admin' }); }), 'CONFIG_MPA_DUPLICATE'],
   ['threshold_no_one_can_reach', policy((p) => { op(p).required_parties = 3; }), 'CONFIG_MPA_UNSATISFIABLE'],
+  // a record holds at most 16 authorizations, so no record meets a threshold above 16, however many parties there are
+  ['threshold_of_sixteen', policy((p) => { manyParties(p); op(p).required_parties = 16; }), null],
+  ['threshold_above_what_a_record_holds', policy((p) => { manyParties(p); op(p).required_parties = 17; }), 'CONFIG_MPA_UNSATISFIABLE'],
   ['required_role_no_party_holds', policy((p) => { op(p).allowed_roles = ROLES; op(p).required_roles = ['recovery_contact']; }), 'CONFIG_MPA_UNSATISFIABLE'],
   // the policy set schema keyword by keyword: the same set with one change
   ['subject_with_no_operation', policy((p) => { p.subjects[0].operations = {}; }), null],
@@ -679,8 +711,10 @@ const canonicalBytes = (value) => {
   return bytes.toString('base64') === value ? bytes : undefined;
 };
 
-/** The numbers of the profile, at every depth: integers a binary64 holds exactly, from -(2^53 - 1) to 2^53 - 1. */
-const inProfile = (v) => (typeof v === 'number' ? Number.isSafeInteger(v) : v === null || typeof v !== 'object' || Object.values(v).every(inProfile));
+/** Data of the profile: numbers are integers a binary64 holds exactly, from -(2^53 - 1) to 2^53 - 1, and it nests at most `levels` deep. */
+const MAX_DEPTH = 32;
+const inProfile = (v, levels = MAX_DEPTH) =>
+  typeof v === 'number' ? Number.isSafeInteger(v) : v === null || typeof v !== 'object' || (levels >= 1 && Object.values(v).every((member) => inProfile(member, levels - 1)));
 
 function structureCode(rec) {
   if (!conforms('multi_party_authorization', rec)) return 'MPA_SCHEMA_INVALID';
@@ -805,7 +839,7 @@ function policyCode(p) {
   for (const s of p.subjects) {
     for (const rule of Object.values(s.operations)) {
       const eligible = s.parties.filter((party) => rule.allowed_roles.includes(party.role));
-      if (rule.required_parties > eligible.length || rule.required_roles.some((r) => !eligible.some((party) => party.role === r))) return 'CONFIG_MPA_UNSATISFIABLE';
+      if (rule.required_parties > MAX_AUTHORIZATIONS || rule.required_parties > eligible.length || rule.required_roles.some((r) => !eligible.some((party) => party.role === r))) return 'CONFIG_MPA_UNSATISFIABLE';
     }
   }
   return null;
@@ -887,7 +921,8 @@ const out = {
     '(1) structure, first failure only: the record conforms to multi_party_authorization.schema.json (MPA_SCHEMA_INVALID); operation_payload has a request member ' +
     '(MPA_REQUEST_MISSING) and conforms to multi_party_request.schema.json with RFC 3339 instants (MPA_REQUEST_INVALID); every number in it, read as the nearest binary64, is an integer from ' +
     '-(2^53 - 1) to 2^53 - 1, the integers a binary64 holds exactly, so it is representable in dcp-jcs-v1 and every implementation writes the same text for it ' +
-    '(MPA_NOT_REPRESENTABLE); at most 16 authorizations (MPA_TOO_MANY_AUTHORIZATIONS). ' +
+    '(MPA_NOT_REPRESENTABLE), and it nests at most 32 levels deep, operation_payload being the first (MPA_NOT_REPRESENTABLE); at most 16 authorizations ' +
+    '(MPA_TOO_MANY_AUTHORIZATIONS). ' +
     '(2) binding, every code: operation, request.target and the canonical form of parameters equal the expected ones (MPA_OPERATION_MISMATCH, MPA_TARGET_MISMATCH, ' +
     'MPA_PARAMETERS_MISMATCH); request.audience equals the policy set audience (MPA_AUDIENCE_MISMATCH); issued_at is not later than now plus 30 seconds ' +
     '(MPA_NOT_YET_VALID); expires_at is later than now (MPA_EXPIRED); expires_at is later than issued_at by at most max_validity_seconds (MPA_VALIDITY_INVALID); ' +
@@ -903,6 +938,7 @@ const out = {
     'counted party (MPA_REQUIRED_ROLE_MISSING). authorized is true only when no phase added a code. The required_parties of the record never counts. ' +
     'verification is not_evaluated when phase 4 was not reached; required_parties is null when no operation rule was found. ' +
     'config_cases: loading policy_set MUST fail with expect_code, or succeed when it is null; a set with several problems is not among the cases. ' +
+    'A required_parties above 16 is CONFIG_MPA_UNSATISFIABLE: a record holds at most 16 authorizations. ' +
     'trust_config_cases: loading trust_set with the principal trust set loader MUST fail with expect_code. ' +
     'Bounds (request_id 128, target and audience 256) count Unicode code points. ' +
     'Groups: controls are authorized; structure, binding, parties, signatures and threshold are refused by that phase; in binding, parties and threshold every ' +
