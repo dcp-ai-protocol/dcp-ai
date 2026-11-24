@@ -552,15 +552,20 @@ func mpaSignedBytes(operation, operationPayload, partyID, role interface{}) ([]b
 }
 
 // CreatePartyAuthorization is one party's authorization: its composite signature
-// over {operation, operation_payload, party_id, role}. The payload is data of
-// the profile, as mpaCanonical takes it: a party signs what it holds, not what
-// encoding/json would write in its place.
+// over {operation, operation_payload, party_id, role}. The payload is an object
+// of data of the profile, as mpaCanonical takes it, and the rest is UTF-8: a
+// party signs what it holds, not what encoding/json would write in its place.
+// A payload read from JSON text is what the decoder made of it, U+FFFD where
+// that text was not well formed, and this function cannot tell.
 func CreatePartyAuthorization(registry *AlgorithmRegistry, operation string, operationPayload map[string]interface{}, partyID, role string, classicalKey, pqKey CompositeKeyInfo) (map[string]interface{}, error) {
 	if registry == nil {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the registry must not be nil")
 	}
-	if _, err := mpaCanonical(operationPayload, mpaMaxDepth); err != nil {
-		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "operationPayload must be %s", mpaData)
+	if !utf8.ValidString(operation) || !utf8.ValidString(partyID) || !utf8.ValidString(role) {
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "operation, partyID and role must be UTF-8")
+	}
+	if _, err := mpaCanonical(operationPayload, mpaMaxDepth); operationPayload == nil || err != nil {
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "operationPayload must be an object of %s", mpaData)
 	}
 	signed, err := mpaSignedBytes(operation, operationPayload, partyID, role)
 	if err != nil {

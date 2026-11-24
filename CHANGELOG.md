@@ -93,12 +93,13 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 ### Security
 
 - **`mpa-v1`: the Go signer signs data of the profile only** (source on `main`, not in a published version; no version
-  bump). `CreatePartyAuthorization` of the Go SDK signed any payload it was given. For bytes that are not UTF-8
-  `encoding/json` writes U+FFFD, so a party that held `keys/\xff` signed `keys/\uFFFD`, and an executor that stated
-  that was authorized. The signer now refuses, with `CONFIG_INVALID_VALUE`, a payload that is not data of the profile:
-  JSON values as the request builder takes them, well-formed text, integers from -(2^53 - 1) to 2^53 - 1, at most 32
-  levels. It is what the signer of the TypeScript SDK does. A nil slice or map under the last level a payload may nest
-  is taken, as the `null` it is written as.
+  bump). `CreatePartyAuthorization` of the Go SDK signed any payload the canonicalization could write. For bytes that
+  are not UTF-8 `encoding/json` writes U+FFFD, so a party that held `keys/\xff` signed `keys/\uFFFD`, and an executor
+  that stated that was authorized. The signer now refuses, with `CONFIG_INVALID_VALUE`, a payload that is not an
+  object of data of the profile (JSON values as the request builder takes them, well-formed text, integers from -(2^53
+  - 1) to 2^53 - 1, at most 32 levels), as the signer of the TypeScript SDK does, and an operation, a party or a role
+  that is not UTF-8. A nil slice or map under the last level a payload may nest is taken, as the `null` it is written
+  as.
 
 - **`mpa-v1`: well-formed text, a nesting limit and the profile's own algorithms** (source on `main`, not in a
   published version; no version bump). Follow-ups from the independent review of the profile, in the four SDKs unless

@@ -1028,6 +1028,21 @@ func TestMultiPartyAPartySignsNothingItCannotSign(t *testing.T) {
 	if a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", deep(32), party.id, "owner", party.classical, party.pq); err != nil || a == nil {
 		t.Fatalf("as many levels as the profile nests: %v, %v", a, err)
 	}
+	// The payload is an object, and what a party signs with it is text: for bytes that are not UTF-8 the record would
+	// say U+FFFD, the party of an operator whose policy names one so.
+	for name, stated := range map[string]struct {
+		operation, party, role string
+		payload                map[string]interface{}
+	}{
+		"no payload":                     {"revoke_agent", party.id, "owner", nil},
+		"an operation that is not UTF-8": {"revoke_agent\xff", party.id, "owner", map[string]interface{}{}},
+		"a party that is not UTF-8":      {"revoke_agent", party.id + "\xff", "owner", map[string]interface{}{}},
+		"a role that is not UTF-8":       {"revoke_agent", party.id, "owner\xff", map[string]interface{}{}},
+	} {
+		if a, err := v2.CreatePartyAuthorization(reg, stated.operation, stated.payload, stated.party, stated.role, party.classical, party.pq); !mpaInvalidValue(err) || a != nil {
+			t.Fatalf("%s: %v, %v", name, a, err)
+		}
+	}
 	// A secret key that is not one.
 	broken := party.classical
 	broken.SecretKeyB64 = "AAAA"

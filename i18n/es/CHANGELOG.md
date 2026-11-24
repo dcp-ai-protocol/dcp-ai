@@ -114,13 +114,13 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 ### Seguridad
 
 - **`mpa-v1`: el firmante de Go solo firma datos del perfil** (código fuente en `main`, en ninguna versión publicada;
-  sin cambio de versión). `CreatePartyAuthorization` del SDK de Go firmaba cualquier carga que recibiera. En lugar de
-  los bytes que no son UTF-8, `encoding/json` escribe U+FFFD, de modo que una parte que tenía `keys/\xff` firmaba
-  `keys/\uFFFD`, y un ejecutor que declaraba eso quedaba autorizado. El firmante rechaza ahora, con
-  `CONFIG_INVALID_VALUE`, una carga que no es un dato del perfil: valores JSON como los toma el constructor de la
-  petición, texto bien formado, enteros de -(2^53 - 1) a 2^53 - 1 y 32 niveles como máximo. Es lo que hace el firmante
-  del SDK de TypeScript. Una lista o un mapa nil bajo el último nivel que puede anidar una carga se acepta, como el
-  `null` con que se escribe.
+  sin cambio de versión). `CreatePartyAuthorization` del SDK de Go firmaba cualquier carga que la canonicalización
+  pudiera escribir. En lugar de los bytes que no son UTF-8, `encoding/json` escribe U+FFFD, de modo que una parte que
+  tenía `keys/\xff` firmaba `keys/\uFFFD`, y un ejecutor que declaraba eso quedaba autorizado. El firmante rechaza
+  ahora, con `CONFIG_INVALID_VALUE`, una carga que no es un objeto de datos del perfil (valores JSON como los toma el
+  constructor de la petición, texto bien formado, enteros de -(2^53 - 1) a 2^53 - 1 y 32 niveles como máximo), igual
+  que el firmante del SDK de TypeScript, y una operación, una parte o un rol que no sean UTF-8. Una lista o un mapa
+  nil bajo el último nivel que puede anidar una carga se acepta, como el `null` con que se escribe.
 
 - **`mpa-v1`: texto bien formado, un límite de anidamiento y los algoritmos propios del perfil** (código fuente en
   `main`, en ninguna versión publicada; sin cambio de versión). Correcciones posteriores a la revisión independiente
