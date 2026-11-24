@@ -1053,7 +1053,7 @@ effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 围绕 X25519 + ML-KEM-768 混合密钥交换设计的智能体间会话协议。这些函数并不执行该交换：由调用方执行交换，并把得到的会话密钥传给
 `createSession`。
 
-这些函数也不认证对方，验证对方的 bundle 同样不能认证：[DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) 正在修订。
+这些函数也不认证对方，验证对方的 bundle 同样不能认证：[DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) 正在修订。
 
 ### `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)`
 

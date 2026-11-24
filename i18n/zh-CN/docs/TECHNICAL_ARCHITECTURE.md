@@ -337,7 +337,7 @@ Agent A                                     Agent B
 
 关键组件：
 - **发现**：每个组织的 `.well-known/dcp-agent-directory.json`
-- **握手**：规范中为相互验证 bundle + 混合 KEM（X25519 + ML-KEM-768）；SDK 构建握手消息，会话密钥由调用方派生（没有 SDK 导出混合交换）。按现有规范，该握手并不认证双方（[DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) 正在修订）
+- **握手**：规范中为相互验证 bundle + 混合 KEM（X25519 + ML-KEM-768）；SDK 构建 `A2A_HELLO` 和 `A2A_WELCOME` 消息，会话密钥由调用方派生（没有 SDK 导出混合交换）。按现有规范，该握手并不认证双方（[DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) 正在修订）
 - **会话**：用 AES-256-GCM 加密、带单调递增序号的消息
 - **密钥更新**：会话会报告何时需要更新（`needsRekeying`，默认每 1000 条消息一次）；新密钥由调用方派生
 - **审计**：规范要求两个智能体都在各自的审计链中记录 A2A 交互；TypeScript 的会话函数本身不会写入审计条目

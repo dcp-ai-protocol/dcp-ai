@@ -264,6 +264,8 @@ console.log(result.verified, result.errors); // true []
 
 ### A2A Protocol (DCP-04)
 
+These functions build the `A2A_HELLO` and `A2A_WELCOME` messages and encrypt the messages of a session. They do not authenticate the counterparty, and verifying its bundle does not either: [DCP-04 §3](../../spec/DCP-04.md#3-handshake-protocol) is under revision.
+
 | Function | Description |
 |----------|-------------|
 | `createAgentDirectory(organization, agents)` | Creates an in-memory agent directory |
@@ -536,6 +538,8 @@ Key types exported by the SDK:
 - `PrincipalMirror` — Principal preference snapshot
 
 ## A2A Protocol
+
+These functions build the `A2A_HELLO` and `A2A_WELCOME` messages and encrypt the messages of a session. They do not authenticate the counterparty, and verifying its bundle does not either: [DCP-04 §3](../../spec/DCP-04.md#3-handshake-protocol) is under revision.
 
 Agent-to-agent encrypted communication:
 

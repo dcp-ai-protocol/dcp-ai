@@ -5,7 +5,7 @@
 
 # DCP-AI と EU AI 法 — ロギング、人間による監督、記録保存の義務との対応
 
-> [英語版](../../../docs/EU_AI_ACT_MAPPING.md)の参考訳です（18/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/EU_AI_ACT_MAPPING.md)の参考訳です（24/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 **仕様のバージョン：** 2.0
 **最終更新：** 2026 年 10 月
@@ -59,7 +59,7 @@ DCP の役割は、エージェントのインスタンスと、それについ�
 | **責任あるプリンシパル** | `schemas/v2/responsible_principal_record.schema.json`：`human_id`、`legal_name`、`entity_type`（`natural_person` または `organization`）、`jurisdiction`、`liability_mode`（`owner_responsible`）、`override_rights`、`binding_keys` | **導入者**、または第 26 条 (2) に基づき導入者が人間による監督を割り当てる自然人 | RPR は、エージェントの行動に責任を負う者を名指しします。`entity_type` が `organization` の場合は通常導入者そのもの、`natural_person` の場合は通常、導入者の内部で `override_rights` を持つ人です。 |
 | **エージェント** | `schemas/v2/agent_passport.schema.json`：`agent_id`、`keys`、`principal_binding_reference`、`capabilities`、`risk_tier`、`status` | **AI システム**（またはその構成要素） | DCP のエージェントは、独自の鍵とライフサイクルの状態を持つ、デプロイされたインスタンスです。基盤となるモデルやフレームワークの提供者は、DCP のどのアーティファクトにも現れません。 |
 | **オペレーター**（検証サービス、ポリシーエンジン、透明性ログ、アンカーサービス、失効サービスの） | `server/`、`services/`、検証器のポリシー（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md)） | 通常は**導入者**。提供者がシステムの一部として制御を提供する場合は**提供者**、あるいは第三者 | オペレーターは、検証器のポリシー、監査データの保持、アンカリングの頻度を決めます。第 5 節のいくつかの項目はオペレーターの担当です。 |
-| **相手方エージェント**（DCP-04、DCP-09） | `interaction_record.counterparty_agent_id`、委任マンデート | 別の AI システム。別の導入者のものの場合もある | インタラクション記録は、各当事者に相手方のマンデートの証拠を与えます。 |
+| **相手方エージェント**（DCP-04、DCP-09） | `interaction_record.counterparty_agent_id`、委任マンデート | 別の AI システム。別の導入者のものの場合もある | インタラクション記録は、相手方が自分のマンデートとして申告した内容を各当事者に与えます。仕様のとおりでは、DCP-04 のハンドシェイクは相手方を認証しません（[§3](../../../spec/DCP-04.md#3-handshake-protocol)、改訂中）。 |
 
 対応付けへの二つの帰結：
 
@@ -123,7 +123,7 @@ DCP-AI の仕様は、RPR によって結び付けられた人を「human」や�
 |---------|------------------------|---------------|----------|-----------------------------------|
 | [第 27 条 (1)(e)–(f)](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_27) | 基本権影響評価（公的機関、公共サービスの提供者、附属書 III の 5(b) と (c)）は、実施する人間による監督の措置と、リスクが現実化した場合に取る措置（内部ガバナンスと苦情処理の仕組みを含む）を記述する。 | 具体的で文書化できる監督の措置：RPR の `override_rights`、`escalate` を伴う意図のゲート、Human Confirmation、認識の閾値、アドバイザリー宣言、ライフサイクルの制御、緊急失効。内部ガバナンスとエスカレーション：DCP-07 の 3 段階のモデル（直接交渉、文脈に応じた仲裁、人間への上訴、§5）と `createDispute`、`escalateDispute`、`resolveDispute`、`createObjection`。DCP-08 の侵害報告（`reportViolation`）。 | `partial` | 評価そのもの（プロセス、影響を受ける人、リスク、第 27 条 (1)(a)–(d)）は導入者が担います。DCP-07 と DCP-08 は、エージェントとそのプリンシパルの間の仕組みであり、影響を受けた自然人のための苦情の窓口ではありません（第 6 節）。Omnibus は第 27 条 (4)–(5) を改正し、GDPR のデータ保護影響評価への相互参照を認めました。 |
 | [第 86 条](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_86) | 説明を受ける権利（3.3 の行を参照）。 | **人間への上訴**（DCP-07 §5.3）：紛争のどの当事者も、いつでも責任あるプリンシパルにエスカレートできます。人間の判断はプロトコルの中では最終的であり、仲裁の決定として記録されます（`schemas/v2/arbitration_resolution.schema.json`）。**紛争の記録**（`schemas/v2/dispute_record.schema.json`：`dispute_type`、`human_appeal` を含む `escalation_level`、`status`、`evidence_hashes`）。**ナラティブレイヤー**（DCP-09 §7.4）：平易な言葉の要約、推論を伴う主な判断、未解決の問題、プリンシパルが取るべき行動。 | `partial` | これらの仕組みは、導入者自身の人々に、エージェントの判断を見直す文書化された道筋を与えます。第 86 条に基づく影響を受けた人の権利は、プロトコルの外で、導入者に対して行使されます。 |
-| [第 26 条 (11)](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_26)、[第 50 条 (1)](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_50) | 自然人について判断を行う、またはその判断を支援する附属書 III のシステムの導入者は、その人々に知らせる。提供者は、AI システムと対話する人が、明らかな場合を除き、そのことを知らされるようにする。 | Agent Passport は、行為者が名指しされたプリンシパルに結び付いた AI エージェントであることの、署名付きで検証可能な宣言であり、どの相手方にも提示できます（`presentFull`、`presentCompact`、`presentReference`。ほかのエージェントには DCP-04 のハンドシェイク）。 | `partial` | 自然人への開示（UI、文言、「at the latest at the time of the first interaction」というタイミング、第 50 条 (5)）は、提供者と導入者が担います。DCP は開示を裏付ける検証可能な証明を与えますが、開示そのものは行いません。 |
+| [第 26 条 (11)](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_26)、[第 50 条 (1)](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_50) | 自然人について判断を行う、またはその判断を支援する附属書 III のシステムの導入者は、その人々に知らせる。提供者は、AI システムと対話する人が、明らかな場合を除き、そのことを知らされるようにする。 | Agent Passport は、行為者が名指しされたプリンシパルに結び付いた AI エージェントであることの、署名付きで検証可能な宣言であり、どの相手方にも提示できます（`presentFull`、`presentCompact`、`presentReference`。ほかのエージェントには DCP-04 のハンドシェイク）。そこで提示しても、提示した側がそのエージェントであることの証明にはなりません。仕様のとおりでは、ハンドシェイクは当事者を認証しません（[§3](../../../spec/DCP-04.md#3-handshake-protocol)、改訂中）。 | `partial` | 自然人への開示（UI、文言、「at the latest at the time of the first interaction」というタイミング、第 50 条 (5)）は、提供者と導入者が担います。DCP は開示を裏付ける検証可能な証明を与えますが、開示そのものは行いません。 |
 | [第 50 条 (2)](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_50)、[第 50 条 (4)](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_50) | 合成コンテンツの機械可読なマーキング。ディープフェイクと、公共の関心事に関する AI 生成テキストの開示。 | なし。`evidence.evidence_hash` はアーティファクトの宣言されたバイト列を結び付けることはできますが、そのアーティファクトが実際に生成されたことも、マーキングされたことも証明しません。 | `out of scope` | コンテンツのマーキングと検出は、別の技術的措置です。 |
 
 <a id="35-incident-reporting-and-post-market-monitoring"></a>

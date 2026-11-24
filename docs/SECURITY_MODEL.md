@@ -177,7 +177,7 @@ DCP v2.0 significantly strengthens the security model with post-quantum cryptogr
 
 **Protection:**
 - **Hybrid composite signatures:** A V2 composite signature pairs Ed25519 (classical) with ML-DSA-65 (post-quantum, FIPS 204). The PQ signature covers the classical signature (`pq_over_classical` binding), so breaking either alone is insufficient. A V2 signature can also be `classical_only`; whether it is accepted depends on the verification mode (§8).
-- **Hybrid KEM:** The DCP-04 key exchange uses X25519 + ML-KEM-768 (FIPS 203), so session keys stay secure if either component algorithm holds. The SDKs do not run this exchange: the caller derives the session key ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.1).
+- **Hybrid KEM:** The DCP-04 key exchange uses X25519 + ML-KEM-768 (FIPS 203), so session keys stay secure against an attacker who only observes if either component algorithm holds; as specified, the exchange is not authenticated (see §11). The SDKs do not run this exchange: the caller derives the session key ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.1).
 - **Dual hash chains:** the design uses SHA-256 and SHA3-256 in parallel to provide continuity if one hash family is compromised, provided both chains are verified. The V2 bundle verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 check the optional secondary links and secondary Merkle root that are present, but do not require them, and earlier versions do not check them; a successful result therefore does not establish this additional protection ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 
 **Strength:** NIST Level 3 post-quantum security for signatures checked in `hybrid_required` mode (the mode of the elevated and maximum tiers): an attacker must break both the classical and the post-quantum algorithm.
@@ -222,14 +222,14 @@ The nonce does not stop the same bundle from being presented again: a whole bund
 **Attack:** An attacker intercepts or hijacks an agent-to-agent communication session.
 
 **Protection:**
-- **Mutual bundle verification:** Both agents verify each other's bundles before establishing a session. This does not authenticate the counterparty: a signed bundle is a public artifact, and the handshake messages are not signed with the agents' keys. [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) is under revision; establish who the peer is by other means.
+- **Mutual bundle verification:** Both agents verify each other's bundles before establishing a session. The caller does this: the SDK helpers carry the bundles and do not verify them. This does not authenticate the counterparty: a signed bundle is a public artifact, and the handshake messages are not signed with the agents' keys. [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) is under revision; establish who the peer is by other means.
 - **Hybrid KEM key exchange:** Ephemeral keys provide forward secrecy. Compromising long-term keys does not reveal past session keys. The SDKs leave this exchange to the caller.
 - **AES-256-GCM encryption:** All session messages are encrypted with authenticated encryption.
 - **Monotonic sequence numbers:** Prevent replay and reordering within a session.
 - **Periodic rekeying:** The session reports when a rekey is due (`needsRekeying`); the caller derives the new key.
 - **Revocation awareness:** The specification ends a session when either agent is revoked. The SDKs do not watch revocation during a session: the application must check it and close the session.
 
-**Strength:** Post-quantum forward secrecy + authenticated encryption, when the caller runs the hybrid exchange and the rekeying. Not authentication of the counterparty.
+**Strength:** Post-quantum forward secrecy + authenticated encryption against an attacker who only observes, when the caller runs the hybrid exchange and the rekeying. Not authentication of the counterparty: as specified, the handshake gives no protection against a man-in-the-middle or impersonation ([DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol)), and the session is encrypted to whoever completed it.
 
 ### 12. Lifecycle State Manipulation (DCP-05)
 

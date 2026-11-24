@@ -1057,7 +1057,7 @@ effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 Protocolo de sesión entre agentes, diseñado en torno a un intercambio de claves híbrido X25519 + ML-KEM-768. Estas
 funciones no realizan ese intercambio: quien llama lo realiza y pasa la clave de sesión resultante a `createSession`.
 
-Tampoco autentican a la contraparte, y verificar su bundle no lo hace: [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) está en revisión.
+Tampoco autentican a la contraparte, y verificar su bundle no lo hace: [DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) está en revisión.
 
 ### `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)`
 

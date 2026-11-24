@@ -1056,7 +1056,7 @@ effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 X25519 + ML-KEM-768 のハイブリッドな鍵交換を前提に設計された、エージェント間のセッションプロトコルです。これらの関数はその
 交換を行いません。呼び出し側が交換を行い、得られたセッション鍵を `createSession` に渡します。
 
-これらの関数は相手方の認証も行いません。相手方のバンドルを検証しても認証にはなりません。[DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) は改訂中です。
+これらの関数は相手方の認証も行いません。相手方のバンドルを検証しても認証にはなりません。[DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) は改訂中です。
 
 ### `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)`
 

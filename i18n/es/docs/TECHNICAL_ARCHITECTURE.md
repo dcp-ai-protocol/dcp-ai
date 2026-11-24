@@ -337,7 +337,7 @@ Agent A                                     Agent B
 
 Componentes clave:
 - **Descubrimiento**: `.well-known/dcp-agent-directory.json` por organización
-- **Handshake**: verificación mutua de bundles + KEM híbrido (X25519 + ML-KEM-768) en la especificación; los SDK construyen los mensajes del handshake, y quien llama deriva la clave de sesión (ningún SDK exporta el intercambio híbrido). Tal como está especificado, el handshake no autentica a las partes ([DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) está en revisión)
+- **Handshake**: verificación mutua de bundles + KEM híbrido (X25519 + ML-KEM-768) en la especificación; los SDK construyen los mensajes `A2A_HELLO` y `A2A_WELCOME`, y quien llama deriva la clave de sesión (ningún SDK exporta el intercambio híbrido). Tal como está especificado, el handshake no autentica a las partes ([DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) está en revisión)
 - **Sesión**: mensajes cifrados con AES-256-GCM con números de secuencia monótonos
 - **Renovación de claves**: la sesión indica cuándo toca (`needsRekeying`, cada 1000 mensajes por defecto); quien llama deriva la nueva clave
 - **Auditoría**: la especificación hace que ambos agentes registren las interacciones A2A en sus cadenas de auditoría; las funciones de sesión de TypeScript no escriben entradas de auditoría por sí mismas

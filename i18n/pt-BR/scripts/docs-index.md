@@ -15,7 +15,7 @@ hide:
 
 > Uma camada portátil de prestação de contas para agentes de IA em redes abertas.
 
-Identidade verificável criptograficamente, intenção legível por máquina, trilhas de auditoria que permitem detectar adulterações, comunicação autenticada entre agentes, governança do ciclo de vida, prestação de contas procedimental e representação delegada, numa única pilha de protocolo híbrida e pós-quântica.
+Identidade verificável criptograficamente, intenção legível por máquina, trilhas de auditoria que permitem detectar adulterações, comunicação entre agentes, governança do ciclo de vida, prestação de contas procedimental e representação delegada, numa única pilha de protocolo híbrida e pós-quântica.
 
 [Começar :material-rocket-launch:](quickstart/QUICKSTART.md){ .md-button .md-button--primary }
 [Experimentar o playground :material-play-circle:](playground/){ .md-button }

@@ -445,7 +445,7 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 
 ## 7. Comunicación entre agentes (A2A)
 
-> Estas funciones construyen los mensajes del handshake y cifran los mensajes de una sesión. No autentican a la contraparte, y verificar su bundle tampoco: [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) está en revisión. Hay que establecer por otros medios quién es el interlocutor.
+> Estas funciones construyen los mensajes `A2A_HELLO` y `A2A_WELCOME` y cifran los mensajes de una sesión. No autentican a la contraparte, y verificar su bundle tampoco: [DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) está en revisión. Hay que establecer por otros medios quién es el interlocutor.
 
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';

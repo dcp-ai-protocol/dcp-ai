@@ -437,7 +437,7 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 
 ## 7. 智能体间（A2A）通信
 
-> 这些函数用于构建握手消息并加密会话消息。它们并不认证对方，验证对方的 bundle 也不能认证：[DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) 正在修订。请通过其他途径确认对端是谁。
+> 这些函数用于构建 `A2A_HELLO` 和 `A2A_WELCOME` 消息并加密会话消息。它们并不认证对方，验证对方的 bundle 也不能认证：[DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) 正在修订。请通过其他途径确认对端是谁。
 
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';

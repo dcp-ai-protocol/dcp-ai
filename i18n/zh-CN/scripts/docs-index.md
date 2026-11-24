@@ -15,7 +15,7 @@ hide:
 
 > 面向开放网络上 AI 智能体的可移植问责层。
 
-可通过密码学验证的身份、机器可读的意图、可检测篡改的审计轨迹、经认证的智能体间通信、生命周期治理、程序性问责以及委托代理——集成在一个混合后量子协议栈中。
+可通过密码学验证的身份、机器可读的意图、可检测篡改的审计轨迹、智能体间通信、生命周期治理、程序性问责以及委托代理——集成在一个混合后量子协议栈中。
 
 [开始使用 :material-rocket-launch:](quickstart/QUICKSTART.md){ .md-button .md-button--primary }
 [试用 playground :material-play-circle:](playground/){ .md-button }

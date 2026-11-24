@@ -439,7 +439,7 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 
 ## 7. エージェント間（A2A）通信
 
-> これらの関数は、ハンドシェイクのメッセージを構築し、セッションのメッセージを暗号化します。相手方を認証するものではなく、相手方のバンドルを検証しても認証にはなりません。[DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) は改訂中です。相手が誰であるかは、別の手段で確かめてください。
+> これらの関数は、`A2A_HELLO` と `A2A_WELCOME` のメッセージを構築し、セッションのメッセージを暗号化します。相手方を認証するものではなく、相手方のバンドルを検証しても認証にはなりません。[DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) は改訂中です。相手が誰であるかは、別の手段で確かめてください。
 
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';

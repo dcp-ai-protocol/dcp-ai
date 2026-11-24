@@ -15,7 +15,7 @@ hide:
 
 > Una capa portátil de rendición de cuentas para agentes de IA en redes abiertas.
 
-Identidad verificable criptográficamente, intención legible por máquinas, trazas de auditoría que permiten detectar manipulaciones, comunicación autenticada entre agentes, gobierno del ciclo de vida, rendición de cuentas procedimental y representación delegada, en una sola pila de protocolo híbrida y poscuántica.
+Identidad verificable criptográficamente, intención legible por máquinas, trazas de auditoría que permiten detectar manipulaciones, comunicación entre agentes, gobierno del ciclo de vida, rendición de cuentas procedimental y representación delegada, en una sola pila de protocolo híbrida y poscuántica.
 
 [Empezar :material-rocket-launch:](quickstart/QUICKSTART.md){ .md-button .md-button--primary }
 [Probar el playground :material-play-circle:](playground/){ .md-button }
