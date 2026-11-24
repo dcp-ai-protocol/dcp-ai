@@ -204,6 +204,30 @@ fn fail<T>(code: &'static str, message: impl Into<String>) -> Result<T, MultiPar
 
 const INVALID: &str = "CONFIG_INVALID_VALUE";
 
+/// 2^53 - 1. Past it a binary64, which is what dcp-jcs-v1 reads a number into, no longer holds every integer, and
+/// two SDKs would write two different texts for the same signed number.
+const LARGEST_INTEGER: i64 = (1 << 53) - 1;
+const RANGE: &str = "-(2^53 - 1) to 2^53 - 1";
+
+/// Whether a value holds, at every depth, only numbers the profile compares: integers within RANGE.
+fn is_profile_data(value: &Value) -> bool {
+    match value {
+        Value::Number(n) => match n.as_i64() {
+            Some(i) => (-LARGEST_INTEGER..=LARGEST_INTEGER).contains(&i),
+            // 1e2 and 1.0 are integers of the profile; a u64 past i64 is past the range too.
+            None => n.as_f64().is_some_and(|f| f.fract() == 0.0 && f.abs() <= LARGEST_INTEGER as f64),
+        },
+        Value::Array(members) => members.iter().all(is_profile_data),
+        Value::Object(members) => members.values().all(is_profile_data),
+        _ => true,
+    }
+}
+
+/// The canonical text of a value the profile compares, or None when it is not data of the profile.
+fn canonical(value: &Value) -> Option<String> {
+    is_profile_data(value).then(|| canonicalize_v2(value).ok()).flatten()
+}
+
 /// A string of 1 to `max` Unicode code points.
 fn bounded_str(value: Option<&Value>, max: usize) -> Option<&str> {
     let s = value?.as_str()?;
@@ -426,8 +450,8 @@ pub fn create_multi_party_request(input: &MultiPartyRequestInput) -> Result<Valu
         return fail(INVALID, "request_id must be a string of 1 to 128 characters");
     }
     let parameters = input.parameters.cloned().unwrap_or_else(|| json!({}));
-    if !parameters.is_object() || canonicalize_v2(&parameters).is_err() {
-        return fail(INVALID, "parameters must be an object representable in dcp-jcs-v1");
+    if !parameters.is_object() || canonical(&parameters).is_none() {
+        return fail(INVALID, format!("parameters must be an object of JSON data with integers within {RANGE}"));
     }
     let issued = input.issued_at_ms.unwrap_or_else(|| {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
@@ -630,7 +654,7 @@ fn structure_code(record: &Value) -> Option<&'static str> {
     if !conforms_to_request(payload) {
         return Some("MPA_REQUEST_INVALID");
     }
-    if canonicalize_v2(&record["operation_payload"]).is_err() {
+    if canonical(&record["operation_payload"]).is_none() {
         return Some("MPA_NOT_REPRESENTABLE");
     }
     (authorizations.len() > MPA_V1_MAX_AUTHORIZATIONS).then_some("MPA_TOO_MANY_AUTHORIZATIONS")
@@ -671,8 +695,8 @@ fn evaluate_with(record: &Value, options: &MultiPartyOptions, provider_for: Prov
     if bounded_str(Some(&Value::String(expected.target.to_string())), MAX_IDENTIFIER).is_none() {
         return fail(INVALID, "expected.target must be a string of 1 to 256 characters");
     }
-    let Some(expected_parameters) = expected.parameters.is_object().then(|| canonicalize_v2(expected.parameters).ok()).flatten() else {
-        return fail(INVALID, "expected.parameters must be an object representable in dcp-jcs-v1");
+    let Some(expected_parameters) = expected.parameters.is_object().then(|| canonical(expected.parameters)).flatten() else {
+        return fail(INVALID, format!("expected.parameters must be an object of JSON data with integers within {RANGE}"));
     };
 
     let mut result = MultiPartyEvaluation {
@@ -720,7 +744,7 @@ fn evaluate_with(record: &Value, options: &MultiPartyOptions, provider_for: Prov
     if target != expected.target {
         result.add("MPA_TARGET_MISMATCH", format!("the request is for target {}", printable_str(&target)));
     }
-    if canonicalize_v2(parameters).ok().as_ref() != Some(&expected_parameters) {
+    if canonical(parameters).as_ref() != Some(&expected_parameters) {
         result.add("MPA_PARAMETERS_MISMATCH", "the signed parameters are not the ones about to be used");
     }
     if request["audience"].as_str() != Some(policy.audience.as_str()) {

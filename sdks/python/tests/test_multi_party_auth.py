@@ -374,6 +374,61 @@ async def test_with_no_clock_given_the_system_clock_decides(registry):
     assert [stale["authorized"], _codes(stale)] == [False, ["MPA_EXPIRED"]]
 
 
+@pytest.mark.asyncio
+async def test_takes_the_integers_a_binary64_holds_exactly_and_no_other_number(registry):
+    owner, admin = await _party("human:owner"), await _party("human:admin")
+    now = 1795003200000  # 2026-11-18T12:00:00Z
+    request = {"target": "agent:signed-here", "audience": "verifier:here", "issued_at_ms": now, "validity_seconds": 600}
+    configuration = {
+        "policy": {
+            "policy_set_version": "here.1", "profile": "mpa-v1", "audience": "verifier:here", "max_validity_seconds": 600,
+            "subjects": [{
+                "target": "agent:signed-here",
+                "parties": [{"party_id": owner["id"], "role": "owner"}, {"party_id": admin["id"], "role": "org_admin"}],
+                "operations": {"revoke_agent": {"required_parties": 2, "allowed_roles": ["owner", "org_admin"], "required_roles": ["owner"]}},
+            }],
+        },
+        "trust": {"trust_set_version": "here.1", "principals": [owner["trusted"], admin["trusted"]]},
+        "now_ms": now + 1000,
+    }
+
+    def expected(parameters):
+        return {"operation": "revoke_agent", "target": "agent:signed-here", "parameters": parameters}
+
+    async def signed_over(payload):
+        """A record whose two parties signed `payload`, whatever it holds: the signer signs what it is given."""
+        return json.loads(json.dumps(build_multi_party_authorization("revoke_agent", payload, [
+            await create_party_authorization(registry, "revoke_agent", payload, owner["id"], "owner", owner["classical"], owner["pq"]),
+            await create_party_authorization(registry, "revoke_agent", payload, admin["id"], "org_admin", admin["classical"], admin["pq"]),
+        ])))
+
+    largest_integer = 2**53 - 1
+    # The largest integers of the profile are built, signed, stated and authorized.
+    largest = {"ceiling": largest_integer, "floor": -largest_integer}
+    at_the_limit = create_multi_party_request(parameters=largest, **request)
+    within = await evaluate_multi_party_authorization(await signed_over(at_the_limit), registry, expected=expected(largest), **configuration)
+    assert [within["authorized"], _codes(within)] == [True, []]
+
+    for parameters in (
+        {"amount": largest_integer + 1}, {"amount": -largest_integer - 1}, {"amount": 10**21}, {"amount": 1e21},
+        {"amount": 2.0**53}, {"limits": [1, {"amount": largest_integer + 1}]},
+    ):
+        # One more is not a request the SDK builds...
+        with pytest.raises(MultiPartyConfigError) as built:
+            create_multi_party_request(parameters=parameters, **request)
+        assert built.value.code == "CONFIG_INVALID_VALUE", parameters
+        # ...nor parameters an executor can state...
+        with pytest.raises(MultiPartyConfigError) as stated:
+            await evaluate_multi_party_authorization(await signed_over(at_the_limit), registry, expected=expected(parameters), **configuration)
+        assert stated.value.code == "CONFIG_INVALID_VALUE", parameters
+        # ...and a record that holds one decides nothing, whoever signed it: 2^53 and 2^53 + 1 are one number to
+        # whoever reads JSON numbers as binary64, so a signature over one would stand for the other.
+        over = await signed_over({"request": at_the_limit["request"], "parameters": parameters})
+        refused = await evaluate_multi_party_authorization(over, registry, expected=expected(largest), **configuration)
+        assert [refused["authorized"], refused["structure"], refused["verification"], _codes(refused)] == [
+            False, "invalid", "not_evaluated", ["MPA_NOT_REPRESENTABLE"]], parameters
+
+
 def test_refuses_to_build_a_request_the_profile_would_not_accept():
     base = {"target": "agent:x", "audience": "verifier:y", "validity_seconds": 60}
     for change in (

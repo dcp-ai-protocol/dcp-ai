@@ -4,7 +4,7 @@
 
 # 多方授权配置文件：`mpa-v1`
 
-> 本文是[英文规范](../../../../../spec/profiles/multi-party/README.md)的参考译文，更新于 20/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../../../spec/profiles/multi-party/README.md)的参考译文，更新于 24/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 **状态：** 草案，v1
 **范围：** 在运营方固定的策略下，一份多方授权是否为某个验证器授权对一个目标执行一项操作
@@ -68,6 +68,7 @@
 - `request` 恰好有这六个成员。`request_id` 为 1 至 128 个字符；`target` 和 `audience` 为 1 至 256 个字符。长度按 Unicode 码点计算。
 - `target` 按运营方策略中的名称指明操作的对象。`audience` 指明可以依据这份授权行事的验证器。
 - `parameters` 是一个对象：操作自身的参数，没有参数时为空。
+- `operation_payload` 中的每个数值都是 -(2^53 - 1) 至 2^53 - 1 之间的整数，即 binary64 能精确保存的整数。超出这个范围时，把 JSON 数值读作 binary64 的实现与精确读取的实现会为同一份记录写出不同的 `dcp-jcs-v1` 文本，对一个整数的签名就会对相邻的整数同样有效。更大的值（例如 64 位标识符）放在字符串中。
 
 参与方签名的内容不变：`UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`。经典签名覆盖这些字节，后量子签名覆盖这些字节后接经典签名。
 
@@ -128,7 +129,7 @@
 
 ## 3. 执行方声明的内容
 
-执行方给出它即将执行的操作、目标和参数。它们必须是列表中的一项操作、1 至 256 个字符的目标，以及可以用 `dcp-jcs-v1` 表示的对象。否则，调用会作为配置错误（`CONFIG_INVALID_VALUE`）被拒绝，不给出任何结果。授权必须恰好针对这些内容。
+执行方给出它即将执行的操作、目标和参数。它们必须是列表中的一项操作、1 至 256 个字符的目标，以及数值均为 §2.2 范围内整数的 JSON 数据对象。否则，调用会作为配置错误（`CONFIG_INVALID_VALUE`）被拒绝，不给出任何结果。授权必须恰好针对这些内容。
 
 <a id="4-evaluation"></a>
 
@@ -141,7 +142,7 @@
 | 1. 结构 | 记录符合其 schema | `MPA_SCHEMA_INVALID` |
 | | `operation_payload` 有 `request` 成员 | `MPA_REQUEST_MISSING` |
 | | `operation_payload` 符合第 2.2 节，时刻为 RFC 3339 | `MPA_REQUEST_INVALID` |
-| | `operation_payload` 可以用 `dcp-jcs-v1` 表示 | `MPA_NOT_REPRESENTABLE` |
+| | `operation_payload` 可以用 `dcp-jcs-v1` 表示，且其中的数值都在 §2.2 的范围内 | `MPA_NOT_REPRESENTABLE` |
 | | 最多 16 个授权 | `MPA_TOO_MANY_AUTHORIZATIONS` |
 | 2. 绑定 | `operation` 是执行方声明的操作 | `MPA_OPERATION_MISMATCH` |
 | | `request.target` 是执行方声明的目标 | `MPA_TARGET_MISMATCH` |

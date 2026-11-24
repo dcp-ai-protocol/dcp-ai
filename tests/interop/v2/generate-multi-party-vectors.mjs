@@ -197,6 +197,9 @@ const resigned = (change) => reshaped((r) => change(r.authorizations[1].composit
 /** The same, the change made to the request block. */
 const rerequested = (change) => reshaped((r) => change(r.operation_payload.request));
 
+/** 2^53 + 1: JSON.stringify cannot write it, so its digits replace a placeholder in the text of the file. */
+const ODD = { placeholder: 2 ** 53 + 2, digits: '9007199254740993' };
+
 const RECORDS = {
   two_of_three: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES]),
   three_of_three: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES, CAROL_REVOKES]),
@@ -205,6 +208,7 @@ const RECORDS = {
   org_key: signed('rotate_org_key', ORG_KEY, [[ALICE, 'owner'], [ERIN, 'org_admin']]),
   jurisdiction: signed('change_jurisdiction', JURISDICTION, [[BOB, 'org_admin'], [ERIN, 'org_admin']]),
   no_parameters: signed('revoke_agent', NO_PARAMETERS, [[ALICE, 'owner'], [BOB, 'org_admin']]),
+  integers_at_the_limit: signed('revoke_agent', payload({}, { ceiling: Number.MAX_SAFE_INTEGER, floor: Number.MIN_SAFE_INTEGER }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
   record_asks_for_five: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES], 5),
   record_asks_for_an_absurd_number: record('revoke_agent', REVOKE, [ALICE_REVOKES, BOB_REVOKES], 1e30),
   with_offsets: signed('revoke_agent', WITH_OFFSETS, [[ALICE, 'owner'], [BOB, 'org_admin']]),
@@ -232,6 +236,11 @@ const RECORDS = {
   target_too_long: record('revoke_agent', payload({ target: `agent:${'a'.repeat(251)}` }), [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
   parameters_not_an_object: record('revoke_agent', { request: request(), parameters: 'none' }, [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
   number_not_an_integer: record('revoke_agent', payload({}, { ratio: 0.5 }), [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
+  // Past 2^53 - 1 a binary64 no longer holds every integer. Both parties signed these two: the signatures are not the problem.
+  integer_above_the_limit: signed('revoke_agent', payload({}, { amount: 2 ** 53 }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
+  integer_below_the_limit: signed('revoke_agent', payload({}, { limits: [1, { floor: -(2 ** 53) }] }), [[ALICE, 'owner'], [BOB, 'org_admin']]),
+  integer_in_exponent_form: record('revoke_agent', payload({}, { amount: 1e21 }), [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
+  integer_no_binary64_holds: record('revoke_agent', payload({}, { amount: ODD.placeholder }), [unsigned(ALICE.id, 'owner'), unsigned(BOB.id, 'org_admin', 1)]),
   seventeen_authorizations: record('revoke_agent', REVOKE, Array.from({ length: 17 }, (_, n) => unsigned(`human:party-${String(n + 1).padStart(2, '0')}`, 'org_admin', n))),
 
   // structure, the record schema keyword by keyword: the same record with one change
@@ -403,6 +412,7 @@ const CASES = [
   ['organization_target', 'controls', 'Another target with its own parties and operations', { record: 'org_key' }, yes(2)],
   ['no_required_role', 'controls', 'An operation with no required role: two administrators', { record: 'jurisdiction' }, yes(2)],
   ['empty_parameters', 'controls', 'An operation without parameters', { record: 'no_parameters' }, yes(2)],
+  ['integers_at_the_limit', 'controls', 'Parameters with 2^53 - 1 and -(2^53 - 1), the largest integers of the profile', { record: 'integers_at_the_limit' }, yes(2)],
   ['record_asks_for_more_than_the_operator', 'controls', 'required_parties in the record is not signed and does not count', { record: 'record_asks_for_five' }, yes(2)],
   ['record_asks_for_an_absurd_number', 'controls', 'required_parties 1e+30: an integer for the schema, larger than any machine integer, and it does not count', { record: 'record_asks_for_an_absurd_number' }, yes(2)],
   ['last_instant', 'controls', 'One millisecond before expires_at', { record: 'two_of_three', now: '2026-11-18T00:29:59.999Z' }, yes(2)],
@@ -484,6 +494,10 @@ const CASES = [
   ['issued_at_a_number', 'structure', 'issued_at as a number of milliseconds', { record: 'issued_at_a_number' }, malformed('MPA_REQUEST_INVALID')],
   ['expiry_a_number', 'structure', 'expires_at as a number of milliseconds', { record: 'expiry_a_number' }, malformed('MPA_REQUEST_INVALID')],
   ['number_not_an_integer', 'structure', 'A number dcp-jcs-v1 cannot represent', { record: 'number_not_an_integer' }, malformed('MPA_NOT_REPRESENTABLE')],
+  ['integer_above_the_limit', 'structure', '2^53 in parameters, signed by both parties: one more than the largest integer of the profile', { record: 'integer_above_the_limit' }, malformed('MPA_NOT_REPRESENTABLE')],
+  ['integer_below_the_limit', 'structure', '-(2^53) inside an array of parameters, signed by both parties', { record: 'integer_below_the_limit' }, malformed('MPA_NOT_REPRESENTABLE')],
+  ['integer_in_exponent_form', 'structure', '1e+21: an integer for JSON, past the range', { record: 'integer_in_exponent_form' }, malformed('MPA_NOT_REPRESENTABLE')],
+  ['integer_no_binary64_holds', 'structure', 'The digits of 2^53 + 1: read as a binary64 they are 2^53, read exactly they are not, and neither is in the range', { record: 'integer_no_binary64_holds' }, malformed('MPA_NOT_REPRESENTABLE')],
   ['seventeen_authorizations', 'structure', 'More than 16 authorizations', { record: 'seventeen_authorizations' }, malformed('MPA_TOO_MANY_AUTHORIZATIONS')],
 
   // binding: the signatures verify; the request is not the one the executor is about to carry out, here, now
@@ -648,11 +662,15 @@ const canonicalBytes = (value) => {
   return bytes.toString('base64') === value ? bytes : undefined;
 };
 
+/** The numbers of the profile, at every depth: integers a binary64 holds exactly, from -(2^53 - 1) to 2^53 - 1. */
+const inProfile = (v) => (typeof v === 'number' ? Number.isSafeInteger(v) : v === null || typeof v !== 'object' || Object.values(v).every(inProfile));
+
 function structureCode(rec) {
   if (!conforms('multi_party_authorization', rec)) return 'MPA_SCHEMA_INVALID';
   const p = rec.operation_payload;
   if (!Object.hasOwn(p, 'request')) return 'MPA_REQUEST_MISSING';
   if (!conforms('multi_party_request', p) || !isInstant(p.request.issued_at) || !isInstant(p.request.expires_at)) return 'MPA_REQUEST_INVALID';
+  if (!inProfile(p)) return 'MPA_NOT_REPRESENTABLE';
   try {
     canon(p);
   } catch {
@@ -850,7 +868,8 @@ const out = {
     "case's expect for records[record], under policy_sets[policy_set] and trust_sets[trust_set], for the operation, target and parameters in expected, at now_ms. " +
     'expect.codes is the set of codes, sorted; no order among them is compared. Phases, each stopping the next when it adds a code: ' +
     '(1) structure, first failure only: the record conforms to multi_party_authorization.schema.json (MPA_SCHEMA_INVALID); operation_payload has a request member ' +
-    '(MPA_REQUEST_MISSING) and conforms to multi_party_request.schema.json with RFC 3339 instants (MPA_REQUEST_INVALID); it is representable in dcp-jcs-v1 ' +
+    '(MPA_REQUEST_MISSING) and conforms to multi_party_request.schema.json with RFC 3339 instants (MPA_REQUEST_INVALID); every number in it is an integer from ' +
+    '-(2^53 - 1) to 2^53 - 1, the integers a binary64 holds exactly, so it is representable in dcp-jcs-v1 and every implementation writes the same text for it ' +
     '(MPA_NOT_REPRESENTABLE); at most 16 authorizations (MPA_TOO_MANY_AUTHORIZATIONS). ' +
     '(2) binding, every code: operation, request.target and the canonical form of parameters equal the expected ones (MPA_OPERATION_MISMATCH, MPA_TARGET_MISMATCH, ' +
     'MPA_PARAMETERS_MISMATCH); request.audience equals the policy set audience (MPA_AUDIENCE_MISMATCH); issued_at is not later than now plus 30 seconds ' +
@@ -885,7 +904,9 @@ const out = {
   config_cases: CONFIG_CASES,
   trust_config_cases: TRUST_CONFIG_CASES,
 };
-const text = `${JSON.stringify(out, null, 2)}\n`;
+const written = `${JSON.stringify(out, null, 2)}\n`;
+const text = written.replace(`"amount": ${ODD.placeholder}`, `"amount": ${ODD.digits}`);
+if (text === written || text.split(ODD.digits).length !== 2 || text.includes(String(ODD.placeholder))) throw new Error('the digits of 2^53 + 1 were not written once');
 const summary = `${cases.length} cases, ${CONFIG_CASES.length} policy configuration cases, ${TRUST_CONFIG_CASES.length} trust configuration case`;
 if (process.argv.includes('--check')) {
   const same = readFileSync(OUT, 'utf8') === text;

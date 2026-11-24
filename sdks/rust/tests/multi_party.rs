@@ -311,6 +311,78 @@ fn a_request_built_with_no_clock_given_is_issued_now() {
 }
 
 #[test]
+fn takes_the_integers_a_binary64_holds_exactly_and_no_other_number() {
+    let (owner, admin) = (party("human:owner"), party("human:admin"));
+    let now = 1_795_003_200_000; // 2026-11-18T12:00:00Z
+    let policy = MultiPartyPolicyStore::from_json(&json!({
+        "policy_set_version": "here.1", "profile": "mpa-v1", "audience": "verifier:here", "max_validity_seconds": 600,
+        "subjects": [{
+            "target": "agent:signed-here",
+            "parties": [{ "party_id": owner.id, "role": "owner" }, { "party_id": admin.id, "role": "org_admin" }],
+            "operations": { "revoke_agent": { "required_parties": 2, "allowed_roles": ["owner", "org_admin"], "required_roles": ["owner"] } },
+        }],
+    }))
+    .unwrap();
+    let trust = PrincipalTrustStore::from_json(&json!({ "trust_set_version": "here.1", "principals": [owner.trusted, admin.trusted] })).unwrap();
+    let request = |parameters: &Value| {
+        create_multi_party_request(&MultiPartyRequestInput {
+            target: "agent:signed-here",
+            audience: "verifier:here",
+            parameters: Some(parameters),
+            validity_seconds: 600,
+            issued_at_ms: Some(now),
+            request_id: None,
+        })
+    };
+    // A record whose two parties signed payload, whatever it holds: the signer signs what it is given.
+    let signed_over = |payload: &Value| {
+        let sign = |p: &Party, role: &str| {
+            create_party_authorization(&Ed25519Provider, &MlDsa65Provider, "revoke_agent", payload, p.id, role, &p.classical, &p.pq).unwrap()
+        };
+        build_multi_party_authorization("revoke_agent", payload, vec![sign(&owner, "owner"), sign(&admin, "org_admin")], 0)
+    };
+    let evaluate = |record: &Value, parameters: &Value| {
+        let expected = MultiPartyExpected { operation: "revoke_agent", target: "agent:signed-here", parameters };
+        evaluate_multi_party_authorization(record, &MultiPartyOptions { policy: &policy, trust: &trust, expected, now_ms: now + 1000 })
+    };
+    let not_representable = |r: &MultiPartyEvaluation| {
+        !r.authorized && r.structure == "invalid" && r.verification == "not_evaluated" && codes(r) == ["MPA_NOT_REPRESENTABLE"]
+    };
+
+    // The largest integers of the profile are built, signed, stated and authorized.
+    const LARGEST: i64 = (1 << 53) - 1;
+    let within = json!({ "ceiling": LARGEST, "floor": -LARGEST });
+    let at_the_limit = request(&within).unwrap();
+    let r = evaluate(&signed_over(&at_the_limit), &within).unwrap();
+    assert!(r.authorized && r.errors.is_empty(), "{:?}", r.errors);
+
+    for (name, parameters) in [
+        ("2^53", json!({ "amount": LARGEST + 1 })),
+        ("-(2^53)", json!({ "amount": -LARGEST - 1 })),
+        ("an identifier in u64", json!({ "new_key_id": 1_234_567_890_123_456_789_u64 })),
+        ("10^21 as an f64", json!({ "amount": 1e21 })),
+        ("2^53 as an f64", json!({ "amount": 9_007_199_254_740_992.0 })),
+        ("2^53 inside an array", json!({ "limits": [1, { "amount": LARGEST + 1 }] })),
+    ] {
+        // One more is not a request the SDK builds...
+        assert_eq!(request(&parameters).err().map(|e| e.code), Some("CONFIG_INVALID_VALUE"), "{name}, built");
+        // ...nor parameters an executor can state...
+        assert_eq!(evaluate(&signed_over(&at_the_limit), &parameters).err().map(|e| e.code), Some("CONFIG_INVALID_VALUE"), "{name}, stated");
+        // ...and a record that holds one decides nothing, whoever signed it: 2^53 and 2^53 + 1 are one number
+        // to whoever reads JSON numbers as binary64, so a signature over one would stand for the other.
+        let over = signed_over(&json!({ "request": at_the_limit["request"], "parameters": parameters }));
+        let r = evaluate(&over, &within).unwrap();
+        assert!(not_representable(&r), "{name}, in a record: {:?}", r.errors);
+    }
+    // The digits of the record are what is judged: 2^53 + 1 written where 2^53 - 1 was signed.
+    let written = serde_json::to_string(&signed_over(&at_the_limit)).unwrap();
+    let rewritten = written.replacen("\"ceiling\":9007199254740991", "\"ceiling\":9007199254740993", 1);
+    assert_ne!(written, rewritten, "the record was not rewritten");
+    let r = evaluate(&serde_json::from_str(&rewritten).unwrap(), &within).unwrap();
+    assert!(not_representable(&r), "a record rewritten to 2^53 + 1: {:?}", r.errors);
+}
+
+#[test]
 fn refuses_to_build_a_request_the_profile_would_not_accept() {
     let (not_representable, not_an_object) = (json!({ "ratio": 0.5 }), json!("none"));
     let long = "a".repeat(257);

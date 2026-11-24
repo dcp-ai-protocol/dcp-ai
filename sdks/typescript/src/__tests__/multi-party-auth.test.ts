@@ -346,6 +346,106 @@ describe('multi-party authorization: signing', () => {
     expect([stale.authorized, codes(stale)]).toEqual([false, ['MPA_EXPIRED']]);
   });
 
+  /** Two parties, the operator's files for them, and what one evaluation of `parameters` gives. */
+  async function setting() {
+    const [owner, admin] = [await party('human:owner'), await party('human:admin')];
+    const now = Date.parse('2026-11-18T12:00:00Z');
+    const request = { target: 'agent:signed-here', audience: 'verifier:here', issuedAt: now, validitySeconds: 600 };
+    const options = (parameters: unknown) => ({
+      policy: {
+        policy_set_version: 'here.1',
+        profile: 'mpa-v1',
+        audience: 'verifier:here',
+        max_validity_seconds: 600,
+        subjects: [{
+          target: 'agent:signed-here',
+          parties: [{ party_id: owner.id, role: 'owner' }, { party_id: admin.id, role: 'org_admin' }],
+          operations: { revoke_agent: { required_parties: 2, allowed_roles: ['owner', 'org_admin'], required_roles: ['owner'] } },
+        }],
+      },
+      trust: { trust_set_version: 'here.1', principals: [owner.trusted, admin.trusted] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expected: { operation: 'revoke_agent' as const, target: 'agent:signed-here', parameters: parameters as any },
+      now: now + 1000,
+    });
+    /** A record whose two parties signed `payload`, whatever it holds: the signer signs what it is given. */
+    const signedOver = async (payload: Parameters<typeof createPartyAuthorization>[2]) => buildMultiPartyAuthorization('revoke_agent', payload, [
+      await createPartyAuthorization(registry, 'revoke_agent', payload, owner.id, 'owner', owner.keys),
+      await createPartyAuthorization(registry, 'revoke_agent', payload, admin.id, 'org_admin', admin.keys),
+    ]);
+    const configCode = async (run: () => unknown) => {
+      try {
+        await run();
+      } catch (e) {
+        return e instanceof MultiPartyConfigError ? e.code : `another error: ${String(e)}`;
+      }
+      return 'no error';
+    };
+    return { request, options, signedOver, configCode };
+  }
+
+  it('takes the integers a binary64 holds exactly, from -(2^53 - 1) to 2^53 - 1, and no other number', async () => {
+    const { request, options, signedOver, configCode } = await setting();
+    const MAX = Number.MAX_SAFE_INTEGER;
+
+    // The largest integers of the profile are built, signed, stated and authorized.
+    const largest = { ceiling: MAX, floor: -MAX };
+    const atTheLimit = createMultiPartyRequest({ ...request, parameters: largest });
+    const within = await evaluateMultiPartyAuthorization(clone(await signedOver(atTheLimit)), registry, options(largest));
+    expect([within.authorized, codes(within)]).toEqual([true, []]);
+
+    for (const parameters of [{ amount: MAX + 1 }, { amount: -MAX - 1 }, { amount: 1e21 }, { limits: [1, { amount: MAX + 1 }] }]) {
+      const what = JSON.stringify(parameters);
+      // One more is not a request the SDK builds...
+      expect(await configCode(() => createMultiPartyRequest({ ...request, parameters })), what).toBe('CONFIG_INVALID_VALUE');
+      // ...nor parameters an executor can state...
+      const record = clone(await signedOver(atTheLimit));
+      expect(await configCode(() => evaluateMultiPartyAuthorization(record, registry, options(parameters))), what).toBe('CONFIG_INVALID_VALUE');
+      // ...and a record that holds one decides nothing, whoever signed it: 2^53 and 2^53 + 1 are one number to
+      // whoever reads JSON numbers as binary64, so a signature over one would stand for the other.
+      const over = await signedOver({ request: atTheLimit.request, parameters });
+      const refused = await evaluateMultiPartyAuthorization(clone(over), registry, options(largest));
+      expect([refused.authorized, refused.structure, refused.verification, codes(refused)], what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_NOT_REPRESENTABLE']]);
+    }
+  });
+
+  it('compares JSON data only: a Set, a Map, a Date or an instance is not a value of parameters', async () => {
+    const { request, options, signedOver, configCode } = await setting();
+    const plain = createMultiPartyRequest({ ...request, parameters: { scopes: {} } });
+    class Limit {
+      daily = 10;
+    }
+    const notJson: Array<[string, Record<string, unknown>]> = [
+      ['a Set', { scopes: new Set(['read', 'write', 'admin']) }],
+      ['a Map', { scopes: new Map([['daily', 1_000_000]]) }],
+      ['a Date', { scopes: new Date(0) }],
+      ['a RegExp', { scopes: /.*/ }],
+      ['an instance', { scopes: new Limit() }],
+      ['an array with a hole', { scopes: [1, , 3] }], // eslint-disable-line no-sparse-arrays
+      ['undefined in an array', { scopes: [undefined] }],
+      ['an undefined member', { scopes: {}, more: undefined }],
+      ['a BigInt', { scopes: 10n }],
+      ['a function', { scopes: () => 1 }],
+      ['a symbol', { scopes: Symbol('all') }],
+      ['a member under a symbol', { scopes: { [Symbol('all')]: true } }],
+    ];
+    for (const [what, parameters] of notJson) {
+      // Not a request the SDK builds...
+      expect(await configCode(() => createMultiPartyRequest({ ...request, parameters })), what).toBe('CONFIG_INVALID_VALUE');
+      // ...and not parameters an executor can state: canonicalized, most of these are {}, what the parties signed here.
+      const record = clone(await signedOver(plain));
+      expect(await configCode(() => evaluateMultiPartyAuthorization(record, registry, options(parameters))), what).toBe('CONFIG_INVALID_VALUE');
+      // A record that holds one, never sent as JSON, is not representable either: the structure phase refuses it
+      // before any signature is read.
+      const inProcess = { ...(await signedOver(plain)), operation_payload: { request: plain.request, parameters } };
+      const refused = await evaluateMultiPartyAuthorization(inProcess, registry, options({ scopes: {} }));
+      expect([refused.authorized, refused.structure, codes(refused)], what).toEqual([false, 'invalid', ['MPA_NOT_REPRESENTABLE']]);
+    }
+    // The control: the same record with plain data is authorized.
+    const control = await evaluateMultiPartyAuthorization(clone(await signedOver(plain)), registry, options({ scopes: {} }));
+    expect([control.authorized, codes(control)]).toEqual([true, []]);
+  });
+
   it('refuses to build a request the profile would not accept', () => {
     const base = { target: 'agent:x', audience: 'verifier:y', validitySeconds: 60 };
     for (const input of [

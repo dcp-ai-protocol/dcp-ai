@@ -104,19 +104,48 @@ function printable(value: unknown): string {
   return typeof value === 'object' ? (Array.isArray(value) ? 'an array' : 'an object') : String(value);
 }
 
-/** The dcp-jcs-v1 form, or undefined when the value is not representable. */
+/** An object that is only its named members: what JSON.parse, a literal or Object.create(null) makes. */
+function isPlain(v: unknown): v is Record<string, unknown> {
+  if (!isObject(v)) return false;
+  const proto: unknown = Object.getPrototypeOf(v);
+  return (proto === null || proto === Object.prototype) && Object.getOwnPropertySymbols(v).length === 0;
+}
+
+const RANGE = '-(2^53 - 1) to 2^53 - 1';
+
+/**
+ * Whether `value` is data of the profile (§ 3): JSON, with no number but the integers from -(2^53 - 1) to 2^53 - 1.
+ * dcp-jcs-v1 takes more, and what it makes of it is not one thing. An integer beyond that range is written digit by
+ * digit by one SDK and as the nearest binary64 by another, and read as that binary64 by most parsers: two numbers
+ * would be signed, compared and verified as one. And this canonicalizer writes any object as the members it lists, so
+ * a Set, a Map, a Date or an instance would be compared as {}.
+ */
+function isProfileData(value: unknown): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isSafeInteger(value);
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i += 1) if (!(i in value) || !isProfileData(value[i])) return false;
+    return true;
+  }
+  if (!isPlain(value)) return false;
+  for (const key of Object.keys(value)) if (!isProfileData(value[key])) return false;
+  return true;
+}
+
+/** The dcp-jcs-v1 form, or undefined when the value is not data of the profile or is not representable. */
 function canonical(value: unknown): string | undefined {
   try {
-    return canonicalizeV2(value);
+    return isProfileData(value) ? canonicalizeV2(value) : undefined;
   } catch {
     return undefined;
   }
 }
 
 /**
- * `value` with arrays and objects of its own: the JSON it is, read once. Anything else is kept as it is. Plain loops,
- * one frame a level, so that it reaches at least as deep as canonicalization does; a hole stays a hole, so that an
- * array is never made larger than it was.
+ * `value` with arrays and objects of its own: the JSON it is, read once. Anything else is kept as it is, an object
+ * that is more than its members included, so that what judges the copy still sees what it was. Plain loops, one
+ * frame a level, so that it reaches at least as deep as canonicalization does; a hole stays a hole, so that an array
+ * is never made larger than it was.
  */
 function snapshot(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -124,7 +153,7 @@ function snapshot(value: unknown): unknown {
     for (let i = 0; i < copy.length; i += 1) if (i in value) copy[i] = snapshot(value[i]);
     return copy;
   }
-  if (!isObject(value)) return value;
+  if (!isPlain(value)) return value;
   const copy: Record<string, unknown> = Object.create(null); // no prototype: "__proto__" is a member like any other
   for (const key of Object.keys(value)) copy[key] = snapshot(value[key]);
   return copy;
@@ -300,7 +329,7 @@ export function createMultiPartyRequest(input: CreateMultiPartyRequestInput): Mu
     fail('CONFIG_INVALID_VALUE', `validitySeconds must be an integer from 1 to ${MPA_V1_MAX_VALIDITY_SECONDS}`);
   }
   if (!isInteger(issuedAt)) fail('CONFIG_INVALID_VALUE', 'issuedAt must be an integer number of milliseconds');
-  if (!isObject(parameters) || canonical(parameters) === undefined) fail('CONFIG_INVALID_VALUE', 'parameters must be an object representable in dcp-jcs-v1');
+  if (!isObject(parameters) || canonical(snapshot(parameters)) === undefined) fail('CONFIG_INVALID_VALUE', `parameters must be an object of JSON data with integers within ${RANGE}`);
   return {
     request: {
       profile: MPA_V1,
@@ -490,8 +519,8 @@ function validExpected(expected: unknown): { operation: string; target: string; 
   if (!isObject(expected) || !hasOnly(expected, ['operation', 'target', 'parameters'])) return fail('CONFIG_INVALID_VALUE', 'expected must be {operation, target, parameters}');
   if (!OPERATIONS.includes(expected.operation as string)) fail('CONFIG_INVALID_VALUE', `expected.operation ${printable(expected.operation)} is not an operation`);
   if (!isBounded(expected.target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'expected.target must be a string of 1 to 256 characters');
-  const parameters = isObject(expected.parameters) ? canonical(expected.parameters) : undefined;
-  if (parameters === undefined) return fail('CONFIG_INVALID_VALUE', 'expected.parameters must be an object representable in dcp-jcs-v1');
+  const parameters = isObject(expected.parameters) ? canonical(snapshot(expected.parameters)) : undefined;
+  if (parameters === undefined) return fail('CONFIG_INVALID_VALUE', `expected.parameters must be an object of JSON data with integers within ${RANGE}`);
   return { operation: expected.operation as string, target: expected.target as string, parameters };
 }
 
