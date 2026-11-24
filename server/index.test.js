@@ -309,6 +309,14 @@ test("an advisory that withdraws a post-quantum algorithm reaches the signatures
     assert.equal((await append()).status, 403);
     const other = await newAgent("agent:zulu-0003");
     assert.equal((await registerNew(url, other.signedPassport)).status, 403);
+    // A later advisory that names the withdrawn algorithm as a replacement puts it back among the accepted ones. It is
+    // still an algorithm an advisory has withdrawn.
+    const later = { ...advisory, advisory_id: "DCP-ADV-0005", affected_algorithms: ["slh-dsa-192f"], replacement_algorithms: ["ml-dsa-65"] };
+    assert.equal((await postTo(url, "/v2/advisory/publish", { advisory: later }, asOperator)).status, 201);
+    assert.equal((await postTo(url, "/v2/advisory/auto-apply", {}, asOperator)).status, 200);
+    const { policy } = await (await fetch(`${url}/v2/policy`)).json();
+    assert.deepEqual([policy.accepted_pq_algs.includes("ml-dsa-65"), policy.advisory_rejected_algs.includes("ml-dsa-65")], [true, true]);
+    assert.equal((await append()).status, 403);
   } finally {
     proc.kill();
   }
