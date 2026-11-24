@@ -5,7 +5,7 @@
 
 # 运营方指南 — 运行验证服务
 
-> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 23/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 24/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本指南面向希望运行“智能体已验证”服务的**第三方**：一个验证 DCP Signed Bundle 的 HTTP API（还可以选择把哈希锚定到区块链上）。协议**不**要求任何中央服务器；验证随时都可以用 `dcp verify-bundle` 在本地完成。此服务是**可选的**，由运营方自行决定是否运行。
 
@@ -188,12 +188,13 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ### 环境变量（验证服务）
 
 - `PORT` — HTTP 端口（默认 `3000`）
-- `OPERATOR_TOKEN` — 用于管理端点（策略、公告、治理）以及注册新 `agent_id` 的 bearer 令牌；不设置时这些功能保持锁定
+- `OPERATOR_TOKEN` — 用于管理端点（策略、公告、治理）、注册新 `agent_id` 以及 `POST /v2/multi-party/authorize` 的 bearer 令牌；不设置时这些功能保持锁定
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
 - `ALLOW_V1_BUNDLES` — `false` 会拒绝所有 V1 bundle；`true`（默认值）也只有在策略会接受仅经典签名 bundle 的情况下才接受，即在 `hybrid_required` 和 `pq_only` 下不接受
 - `DCP_DEMO_ENDPOINTS` — `off`（默认）或 `dcp-05-09`，后者启用 [DCP-05–09 演示端点](#dcp-0509-service-endpoints)，并需要至少 32 个字符的 RFC 6750 b64token 形式的 `OPERATOR_TOKEN`；任何其他值都会让服务器停止
 - `TRUST_PROXY`、`REGISTRATIONS_PER_HOUR`、`MAX_REGISTERED_KEYS`、`MAX_KEYS_PER_AGENT` — 见上文
 - `DCP_TRUSTED_PRINCIPALS_FILE`、`DCP_ADMISSION_PROFILE_FILE`、`DCP_REVOCATION_LIST_URL`、`DCP_REVOCATION_LIST_AUTHORIZATION`、`DCP_REVOCATION_TIMEOUT_MS` — 用于 `POST /v2/admit` 的准入，参见 [ADMISSION.md](../../../docs/ADMISSION.md)
+- `DCP_MULTI_PARTY_POLICY_FILE` — 用于 `POST /v2/multi-party/authorize`（`mpa-v1` 配置文件）的运营方策略集；需要 `DCP_TRUSTED_PRINCIPALS_FILE` 和至少 32 个字符的 `OPERATOR_TOKEN`。不设置时该路由不存在。参见[服务器 README](../server/README.md)
 - `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS` 和 `PQ_CHECKPOINT_INTERVAL` 出现在部署配置中，但尚未被读取
 
 `anchor`、`transparency-log` 和 `revocation` 的环境变量参见 [`services/`](../../../services/) 下各自的 README，或 [`deploy/fly/`](../../../deploy/fly/) 中各服务的 `fly.toml`。
@@ -239,7 +240,7 @@ DCP v2.0 引入了后量子混合密码学、自适应安全等级和复合签�
 }
 ```
 
-`risk_overrides` 以护照的 `risk_tier` 为键。服务器没有策略文件：`VERIFIER_MODE` 和 `ALLOW_V1_BUNDLES` 在启动时设定策略，带 `{ "mode": "<mode>" }` 的 `POST /v2/policy/mode`（需要运营方令牌）在运行时切换模式，被接受的公告会加入 `advisory_rejected_algs`，`GET /v2/policy` 返回当前策略及其哈希。切换模式会把 `default_mode` 和 `risk_overrides` 的每个条目都设为该模式。要用你自己的策略嵌入验证器，请向 SDK 传入完整的策略：部分策略也会被接受，但你省略的字段不会用默认值填充（参见 [MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md) 的步骤 8）。
+`risk_overrides` 以护照的 `risk_tier` 为键。服务器没有策略文件：`VERIFIER_MODE` 和 `ALLOW_V1_BUNDLES` 在启动时设定策略，带 `{ "mode": "<mode>" }` 的 `POST /v2/policy/mode`（需要运营方令牌）在运行时切换模式，公告在运营方通过 `POST /v2/advisory/auto-apply` 应用时才会加入 `advisory_rejected_algs`（已发布的公告在此之前不改变任何行为），`GET /v2/policy` 返回当前策略及其哈希。切换模式会把 `default_mode` 和 `risk_overrides` 的每个条目都设为该模式。要用你自己的策略嵌入验证器，请向 SDK 传入完整的策略：部分策略也会被接受，但你省略的字段不会用默认值填充（参见 [MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md) 的步骤 8）。
 
 验证模式：
 - `classical_only` — 只要求 Ed25519 签名（兼容 V1）

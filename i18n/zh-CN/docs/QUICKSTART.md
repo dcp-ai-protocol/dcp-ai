@@ -4,7 +4,7 @@
 
 # DCP-AI 快速开始指南
 
-> 本文是[英文版](../../../docs/QUICKSTART.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/QUICKSTART.md)的参考译文，更新于 24/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本指南说明如何用 SDK 生成并验证 DCP 证据，以及哪些工具只是演示。
 
@@ -436,6 +436,8 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 <a id="7-agent-to-agent-a2a-communication"></a>
 
 ## 7. 智能体间（A2A）通信
+
+> 这些函数用于构建 `A2A_HELLO` 和 `A2A_WELCOME` 消息并加密会话消息。它们并不认证对方，验证对方的 bundle 也不能认证：[DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) 正在修订。请通过其他途径确认对端是谁。
 
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';

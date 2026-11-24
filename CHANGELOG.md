@@ -98,23 +98,41 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   the profile: the Go SDK read it as U+FFFD, so an executor that stated `keys/\xff` was authorized by parties that had
   signed `keys/\uFFFD`, and the Rust SDK could not read the record at all. Such a record now gets
   `MPA_NOT_REPRESENTABLE`, and the request builders and what the executor states refuse it with
-  `CONFIG_INVALID_VALUE`. Outside `operation_payload`, a record with such a `party_id` does not conform to its schema
-  (`MPA_SCHEMA_INVALID`), and a policy set with such a target, audience or `party_id` does not load.
-  `operation_payload` nests at most 32 levels deep. A policy set whose `required_parties` is above 16, the most
-  authorizations a record holds, does not load (`CONFIG_MPA_UNSATISFIABLE`). The algorithms of a hybrid signature are
-  the profile's own in the four SDKs: the TypeScript and Python SDKs took them from the default verifier policy, an
-  object any code in the process can change. Go: a nil registry is an error instead of a panic, and `Now` is read in
-  milliseconds, as the other SDKs take the clock. Python: a `required_parties` in a record that no binary64 holds is
-  not an integer of the schema, a member name that is not a string is not data, and a subclass of the policy store is
-  not a loaded store. TypeScript: `createPartyAuthorization` signs only data of the profile, also for a v2.0 payload
-  with no `request`: a `Map` in a payload was signed as `{}`, and a payload with an `undefined` member, an integer
-  outside the range or more than 32 levels is now refused with `CONFIG_INVALID_VALUE`;
-  `checkMultiPartyAuthorizationStructure` returns a result for JSON written to make it throw. The
-  [profile](spec/profiles/multi-party/README.md) states the rules (§2.2, §2.3, §3 and §4), says what a result reveals
-  of the operator's policy set and trust set, and adds A4: an adapter must return it only to callers the operator lets
-  learn that. Eight cases are new in `tests/interop/v2/multi_party_vectors.json` (142, and 62 policy configuration
-  cases), among them a classical signature that does not verify under a post-quantum one that does, a key the operator
-  marks expired and a validity one millisecond too long; CI checks that the file matches its generator.
+  `CONFIG_INVALID_VALUE`. Outside `operation_payload`, a record with such text in any string does not conform to its
+  schema (`MPA_SCHEMA_INVALID`), and a policy set with it does not load. `operation_payload` nests at most 32 levels
+  deep. A policy set whose `required_parties` is above 16, the most authorizations a record holds, does not load
+  (`CONFIG_MPA_UNSATISFIABLE`). The algorithms of a hybrid signature are the profile's own in the four SDKs: the
+  TypeScript and Python SDKs took them from the default verifier policy, an object any code in the process can change.
+  Go: a nil registry is an error instead of a panic, and `Now` is read in milliseconds, as the other SDKs take the
+  clock. Built with `GOEXPERIMENT=jsonv2`, whose encoder does not mark the bytes it replaces, a Go caller cannot state
+  U+FFFD at all. Python: a `required_parties` in a record that no binary64 holds is not an integer of the schema, a
+  member name that is not a string is not data, and a subclass of the policy store is not a loaded store. TypeScript:
+  `createPartyAuthorization` signs only data of the profile, also for a v2.0 payload with no `request`: a `Map` in a
+  payload was signed as `{}`, and a payload with an `undefined` member, an integer outside the range or more than 32
+  levels is now refused with `CONFIG_INVALID_VALUE`; `checkMultiPartyAuthorizationStructure` returns a result for JSON
+  written to make it throw. The [profile](spec/profiles/multi-party/README.md) states the rules (§2.2, §2.3, §3 and
+  §4), says what a result reveals of the operator's policy set and trust set, and adds A4: an adapter must return it
+  only to callers the operator lets learn that. Eight cases are new in `tests/interop/v2/multi_party_vectors.json`
+  (142, and 62 policy configuration cases), among them a classical signature that does not verify under a post-quantum
+  one that does, a key the operator marks expired and a validity one millisecond too long; CI checks that the file
+  matches its generator.
+
+- **Reference server and services: follow-ups from the reviews of the hardening and of the multi-party route** (source
+  on `main`, not in a published version; no version bump). **Acceptance changes.** `POST /v2/audit/append` and
+  `POST /v2/passport/register` take a signature with no post-quantum half only while the verifier mode is
+  `classical_only` or `hybrid_preferred` and no applied advisory has withdrawn its algorithm: after an advisory that
+  revoked `ed25519`, an agent with one Ed25519 key went on appending audit events. A signature whose post-quantum half
+  uses an algorithm an applied advisory has withdrawn is refused on both routes. `POST /v2/advisory/auto-apply`
+  answers `policy_modified: true` and records the change when it puts the mode back to `pq_only` after the operator
+  had set another by hand. A body that is the JSON value `null` gets 400 instead of 500, on the server and on the
+  anchor, transparency-log and revocation services, and a V1 bundle whose key has another size or is not base64 gets
+  `verified: false` instead of 500. **Documentation.** The server README says what `POST /v2/multi-party/authorize`
+  does not read (no verifier policy, advisory or mode), that its trusted principals file also turns on
+  `POST /v2/admit` without a token, and that its caller holds the operator token; the operator guide lists
+  `DCP_MULTI_PARTY_POLICY_FILE` and says that an advisory changes nothing until it is applied; the OpenAPI document
+  lists 413 and 429 for the route and a `pq` that may be null. **Tests.** The suites cover what the reviews found
+  untested in the route, among it a number outside the range of the profile (400 when stated, 403 in a record), and
+  the test harness tries the next port the system offers without spending an attempt of the service.
 
 - **`mpa-v1`: every number in the signed payload is an integer from -(2^53 - 1) to 2^53 - 1** (source on `main`, not
   in a published version; no version bump). The profile compares `parameters` through `dcp-jcs-v1`, and the SDKs did
@@ -1288,6 +1306,16 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   `repository` field, which npm provenance requires.
 
 ### Documentation
+
+- **Documents that described the DCP-04 handshake as authenticated now say what the specification's notice says**
+  (documentation only; no change to code, schemas or versions). The README and the documentation index no longer call
+  DCP-04 "authenticated" messaging or communication. The security model (the hybrid KEM, layer 8, §11 and its known
+  limitations), the quick start (§7), the technical architecture, the API reference, the TypeScript SDK README, the EU
+  AI Act mapping and the early adopters FAQ state that neither the handshake nor verifying the counterparty's bundle
+  authenticates it. The security model adds that, as specified, there is no protection against a man-in-the-middle or
+  impersonation; and where they describe the functions, the documents say that, of the four handshake messages, the
+  SDKs' A2A helpers build only `A2A_HELLO` and `A2A_WELCOME` and do not verify the bundles they carry. Each points to
+  the notice in [DCP-04 §3](spec/DCP-04.md#3-handshake-protocol), which is under revision.
 
 - **Operational limits** (new [docs/OPERATIONAL_LIMITS.md](docs/OPERATIONAL_LIMITS.md); no code, default, profile or
   wire change). What bounds inputs, trust and revocation sources, concurrency, client disconnection and the Express

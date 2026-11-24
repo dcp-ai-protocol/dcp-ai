@@ -119,18 +119,19 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   pareja, o con bytes que no son UTF-8, no es un dato del perfil: el SDK de Go la leía como U+FFFD, de modo que un
   ejecutor que declaraba `keys/\xff` quedaba autorizado por partes que habían firmado `keys/\uFFFD`, y el SDK de Rust
   no podía leer el registro. Ese registro recibe ahora `MPA_NOT_REPRESENTABLE`, y los constructores de la petición y
-  lo que declara el ejecutor lo rechazan con `CONFIG_INVALID_VALUE`. Fuera de `operation_payload`, un registro con un
-  `party_id` así no cumple su esquema (`MPA_SCHEMA_INVALID`), y un conjunto de políticas con un objetivo, una
-  audiencia o un `party_id` así no se carga. `operation_payload` anida como máximo 32 niveles. Un conjunto de
-  políticas cuyo `required_parties` es mayor que 16, el máximo de autorizaciones que cabe en un registro, no se carga
-  (`CONFIG_MPA_UNSATISFIABLE`). Los algoritmos de una firma híbrida son los del propio perfil en los cuatro SDK: los
-  de TypeScript y Python los tomaban de la política de verificación por defecto, un objeto que cualquier código del
-  proceso puede cambiar. Go: un registro de algoritmos `nil` es un error en lugar de un pánico, y `Now` se lee en
-  milisegundos, como toman el reloj los demás SDK. Python: un `required_parties` de un registro que ningún binary64
-  guarda no es un entero del esquema, un nombre de miembro que no es una cadena no es un dato, y una subclase del
-  almacén de políticas no es un almacén cargado. TypeScript: `createPartyAuthorization` solo firma datos del perfil,
-  también para una carga v2.0 sin `request`: un `Map` en una carga se firmaba como `{}`, y una carga con un miembro
-  `undefined`, un entero fuera del rango o más de 32 niveles se rechaza ahora con `CONFIG_INVALID_VALUE`;
+  lo que declara el ejecutor lo rechazan con `CONFIG_INVALID_VALUE`. Fuera de `operation_payload`, un registro con ese
+  texto en cualquier cadena no cumple su esquema (`MPA_SCHEMA_INVALID`), y un conjunto de políticas que lo lleva no se
+  carga. `operation_payload` anida como máximo 32 niveles. Un conjunto de políticas cuyo `required_parties` es mayor
+  que 16, el máximo de autorizaciones que cabe en un registro, no se carga (`CONFIG_MPA_UNSATISFIABLE`). Los
+  algoritmos de una firma híbrida son los del propio perfil en los cuatro SDK: los de TypeScript y Python los tomaban
+  de la política de verificación por defecto, un objeto que cualquier código del proceso puede cambiar. Go: un
+  registro de algoritmos `nil` es un error en lugar de un pánico, y `Now` se lee en milisegundos, como toman el reloj
+  los demás SDK. Compilado con `GOEXPERIMENT=jsonv2`, cuyo codificador no marca los bytes que sustituye, quien llama
+  desde Go no puede declarar U+FFFD. Python: un `required_parties` de un registro que ningún binary64 guarda no es un
+  entero del esquema, un nombre de miembro que no es una cadena no es un dato, y una subclase del almacén de políticas
+  no es un almacén cargado. TypeScript: `createPartyAuthorization` solo firma datos del perfil, también para una carga
+  v2.0 sin `request`: un `Map` en una carga se firmaba como `{}`, y una carga con un miembro `undefined`, un entero
+  fuera del rango o más de 32 niveles se rechaza ahora con `CONFIG_INVALID_VALUE`;
   `checkMultiPartyAuthorizationStructure` devuelve un resultado para un JSON escrito para hacerla lanzar una
   excepción. El [perfil](../../spec/profiles/multi-party/README.md) fija las reglas (§2.2, §2.3, §3 y §4), dice lo que
   un resultado revela del conjunto de políticas y del conjunto de confianza del operador, y añade A4: un adaptador
@@ -138,6 +139,24 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   `tests/interop/v2/multi_party_vectors.json` (142, y 62 casos de configuración de políticas), entre ellos una firma
   clásica que no verifica bajo una poscuántica que sí, una clave que el operador marca como caducada y una validez un
   milisegundo demasiado larga; la CI comprueba que el archivo coincide con su generador.
+
+- **Servidor y servicios de referencia: correcciones posteriores a las revisiones del endurecimiento y de la ruta
+  multiparte** (código fuente en `main`, en ninguna versión publicada; sin cambio de versión). **Cambios de
+  aceptación.** `POST /v2/audit/append` y `POST /v2/passport/register` solo admiten una firma sin mitad poscuántica
+  mientras el modo del verificador sea `classical_only` o `hybrid_preferred` y ningún aviso aplicado haya retirado su
+  algoritmo: tras un aviso que revocaba `ed25519`, un agente con una sola clave Ed25519 seguía añadiendo eventos de
+  auditoría. En las dos rutas se rechaza una firma cuya mitad poscuántica usa un algoritmo que un aviso aplicado ha
+  retirado. `POST /v2/advisory/auto-apply` responde `policy_modified: true` y registra el cambio cuando vuelve a poner
+  el modo en `pq_only` después de que el operador hubiera fijado otro a mano. Un cuerpo que es el valor JSON `null`
+  recibe 400 en lugar de 500, en el servidor y en los servicios de anclaje, registro de transparencia y revocación, y
+  un bundle V1 cuya clave tiene otro tamaño o no es base64 recibe `verified: false` en lugar de 500.
+  **Documentación.** El README del servidor dice lo que `POST /v2/multi-party/authorize` no lee (ninguna política de
+  verificación, aviso ni modo), que su archivo de principales de confianza enciende también `POST /v2/admit` sin
+  token, y que quien la llama tiene el token del operador; la guía del operador lista `DCP_MULTI_PARTY_POLICY_FILE` y
+  dice que un aviso no cambia nada hasta que se aplica; el documento OpenAPI lista 413 y 429 para la ruta y un `pq`
+  que puede ser null. **Pruebas.** Las suites cubren lo que las revisiones encontraron sin probar en la ruta, entre
+  ello un número fuera del rango del perfil (400 si se declara, 403 en un registro), y el arnés de pruebas prueba el
+  siguiente puerto que ofrece el sistema sin gastar un intento del servicio.
 
 - **`mpa-v1`: todo número de la carga firmada es un entero de -(2^53 - 1) a 2^53 - 1** (código fuente en `main`, en
   ninguna versión publicada; sin cambio de versión). El perfil compara `parameters` mediante `dcp-jcs-v1`, y los SDK
@@ -1340,6 +1359,18 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 <a id="documentation"></a>
 
 ### Documentación
+
+- **Los documentos que describían el handshake de DCP-04 como autenticado dicen ahora lo que dice el aviso de la
+  especificación** (solo documentación; sin cambios de código, esquemas ni versiones). El README y el índice de la
+  documentación ya no llaman «autenticada» a la mensajería ni a la comunicación de DCP-04. El modelo de seguridad (el
+  KEM híbrido, la capa 8, §11 y sus limitaciones conocidas), la guía de inicio rápido (§7), la arquitectura técnica,
+  la referencia de la API, el README del SDK de TypeScript, el mapeo de la Ley de IA de la UE y las preguntas
+  frecuentes para primeros adoptantes dicen que ni el handshake ni verificar el bundle de la contraparte la
+  autentican. El modelo de seguridad añade que, tal como está especificado, no hay protección frente a un
+  intermediario ni frente a la suplantación; y donde describen las funciones, los documentos dicen que, de los cuatro
+  mensajes del handshake, las funciones A2A de los SDK solo construyen `A2A_HELLO` y `A2A_WELCOME` y no verifican los
+  bundles que transportan. Todos remiten al aviso de [DCP-04 §3](../../spec/DCP-04.md#3-handshake-protocol), que está
+  en revisión.
 
 - **Límites operacionales** (nuevo [docs/OPERATIONAL_LIMITS.md](../../docs/OPERATIONAL_LIMITS.md); sin cambios de código, valores por defecto, perfiles ni wire). Qué acota las entradas, las fuentes de confianza y de revocación, la concurrencia, la desconexión del cliente y la caché de veredictos de Express, qué capa fija cada límite, qué tiene que fijar el operador, y una configuración de muestra para un piloto que no es un valor por defecto ni normativa. Enlazado desde `docs/ADMISSION.md` y los README de Express y FastAPI; el README de Express indica ahora que `req.dcpAgent.mandateId` es el valor del manifiesto, sin ninguna cadena de mandatos verificada.
 

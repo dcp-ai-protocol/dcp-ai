@@ -198,7 +198,7 @@ test("sampled raw targets: every variant a handler accepts, under any method, is
 });
 
 test("the demo handlers touch no core store (a source check; the store is not exposed to observe)", () => {
-  for (const n of ["passportRegistry", "keyRegistry", "agentKids", "keyCounts", "retiredKids", "auditCounts", "emergencyTokens", "revokedKids",
+  for (const n of ["passportRegistry", "keyRegistry", "agentKids", "keyCounts", "retiredKids", "auditCounts", "pqAgents", "emergencyTokens", "revokedKids",
     "revokedAgents", "algorithmAdvisories", "governanceKeySet", "policyHistory", "VERIFIER_POLICY", "ADMISSION"]) {
     assert.doesNotMatch(block, new RegExp(`\\b${n}\\b`), n);
   }

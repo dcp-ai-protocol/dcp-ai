@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — SDK TypeScript para o DCP-AI v2.0
 
-> Tradução informativa da [versão em inglês](../../../../sdks/typescript/README.md), atualizada em 18/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../sdks/typescript/README.md), atualizada em 24/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 SDK oficial em TypeScript para o Digital Citizenship Protocol (DCP-AI). Crie, assine e verifique Citizenship Bundles com criptografia híbrida pós-quântica (Ed25519 + ML-DSA-65), assinaturas compostas, níveis de segurança adaptativos, comunicação entre agentes (A2A), observabilidade integrada e reforço para produção.
 
@@ -294,6 +294,8 @@ console.log(result.verified, result.errors); // true []
 <a id="a2a-protocol-dcp-04"></a>
 
 ### Protocolo A2A (DCP-04)
+
+Estas funções constroem as mensagens `A2A_HELLO` e `A2A_WELCOME` e cifram as mensagens de uma sessão. Elas não autenticam a contraparte, e verificar o bundle dela também não: o [DCP-04 §3](../../../../spec/DCP-04.md#3-handshake-protocol) está em revisão.
 
 | Função | Descrição |
 |----------|-------------|
@@ -584,6 +586,8 @@ Principais tipos exportados pelo SDK:
 <a id="a2a-protocol"></a>
 
 ## Protocolo A2A
+
+Estas funções constroem as mensagens `A2A_HELLO` e `A2A_WELCOME` e cifram as mensagens de uma sessão. Elas não autenticam a contraparte, e verificar o bundle dela também não: o [DCP-04 §3](../../../../spec/DCP-04.md#3-handshake-protocol) está em revisão.
 
 Comunicação cifrada entre agentes:
 

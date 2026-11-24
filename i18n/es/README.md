@@ -1,6 +1,6 @@
 <sub>[English](../../README.md) · [中文](../zh-CN/README.md) · **Español** · [日本語](../ja/README.md) · [Português](../pt-BR/README.md)</sub>
 
-> Traducción informativa de [la versión en inglés](../../README.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../README.md), actualizada el 24/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 <div align="center">
 
@@ -103,7 +103,7 @@ Véase [spec/core/](../../spec/core/) para la especificación del núcleo.
 | [DCP-01](../../spec/DCP-01.md) | Identidad y vinculación humana | Identidad del agente, atestación del operador, vinculación de claves |
 | [DCP-02](../../spec/DCP-02.md) | Declaración de intención y control por política | Intenciones declaradas, aplicación de niveles de seguridad, evaluación de políticas |
 | [DCP-03](../../spec/DCP-03.md) | Cadena de auditoría y transparencia | Entradas de auditoría encadenadas por hash, pruebas de Merkle, registros de transparencia |
-| [DCP-04](../../spec/DCP-04.md) | Comunicación entre agentes | Mensajería autenticada entre agentes, delegación, cadenas de confianza |
+| [DCP-04](../../spec/DCP-04.md) | Comunicación entre agentes | Mensajería entre agentes, delegación, cadenas de confianza. Su handshake (§3) está en revisión: tal como está especificado no autentica a las partes |
 | [DCP-05](../../spec/DCP-05.md) | Gestión del ciclo de vida del agente | Poner en servicio, supervisar, declinar y retirar agentes con una máquina de estados |
 | [DCP-06](../../spec/DCP-06.md) | Sucesión digital y herencia | Testamentos digitales, transferencia de memoria, designación de sucesor |
 | [DCP-07](../../spec/DCP-07.md) | Resolución de conflictos y arbitraje de disputas | Disputas, niveles de escalado, arbitraje, jurisprudencia |

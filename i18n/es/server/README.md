@@ -4,7 +4,7 @@
 
 # Pasarela de referencia de DCP
 
-> Traducción informativa de [la versión en inglés](../../../server/README.md), actualizada el 20/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../server/README.md), actualizada el 24/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Servicio HTTP de verificación que implementa V1, V2 y la fase 3 (PQ primero) del Digital Citizenship Protocol. **Almacenamiento en memoria**: no necesita ninguna base de datos externa, y nada sobrevive a un reinicio (véase [Persistencia](#persistence)). Pensado para que lo ejecute cualquier tercero; el protocolo no exige un servidor central.
 
@@ -46,7 +46,7 @@ Puerto por defecto: `3000`. Se cambia con `PORT=4000 node server/index.js`. Defi
 |--------|------|-------------|
 | POST | `/v2/passport/register` | Registra un pasaporte de agente autofirmado; un `agent_id` nuevo necesita el token del operador (véase [Modelo de confianza](#trust-model)) |
 | POST | `/v2/intent/declare` | Declara una intención de un agente registrado y recibe la decisión de política del servidor (sin firmar); la `composite_sig` de la intención no se verifica |
-| POST | `/v2/audit/append` | Comprueba un evento de auditoría de un agente registrado y lo cuenta. Debe ser una entrada de auditoría V2 (`schemas/v2/audit_entry.schema.json`), y `signature` una firma compuesta sobre él bajo `DCP-AI.v2.AuditEvent` con las claves activas del agente. La pasarela no guarda eventos de auditoría ni compara `prev_hash` |
+| POST | `/v2/audit/append` | Comprueba un evento de auditoría de un agente registrado y lo cuenta. Debe ser una entrada de auditoría V2 (`schemas/v2/audit_entry.schema.json`), y `signature` una firma compuesta sobre él bajo `DCP-AI.v2.AuditEvent` con las claves activas del agente. La pasarela no guarda eventos de auditoría ni compara `prev_hash`. Un agente que nunca registró una clave poscuántica firma solo con su clave clásica únicamente mientras el modo sea `classical_only` o `hybrid_preferred` y ningún aviso aplicado haya retirado ese algoritmo, y se rechaza una firma cuya mitad poscuántica usa un algoritmo que un aviso aplicado ha retirado |
 | POST | `/v2/audit/compact` | Compacta la cadena de auditoría con un resumen de Merkle |
 | POST | `/v2/bundle/verify` | Verificación completa de un bundle V2: esquema, manifiesto, firma compuesta Ed25519 + ML-DSA-65, vinculación de sesión y cadena de auditoría (mediante `lib/verify.js` y `@dcp-ai/sdk`), contra `VERIFIER_POLICY`. Los bundles V1 reciben 400 |
 
@@ -104,7 +104,7 @@ bloqueados.
 | `PORT` | `3000` | Puerto HTTP de escucha |
 | `OPERATOR_TOKEN` | — | Token Bearer para los endpoints de operador y para registrar `agent_id` nuevos. Sin definir: ambos quedan bloqueados |
 | `VERIFIER_MODE` | `hybrid_required` | Modo de verificación al arrancar: `classical_only`, `hybrid_preferred`, `hybrid_required` o `pq_only`. Un valor no válido detiene el servidor |
-| `ALLOW_V1_BUNDLES` | `true` | `false` hace que `POST /verify` rechace todos los bundles V1. Con `true`, acepta un bundle V1 solo donde aceptaría un bundle solo clásico: el modo que corresponde al `risk_tier` del pasaporte, elevado por el nivel de seguridad de la intención, tiene que ser `classical_only` o `hybrid_preferred`. Por eso el valor por defecto `hybrid_required` rechaza los bundles V1, y `pq_only` los rechaza siempre |
+| `ALLOW_V1_BUNDLES` | `true` | `false` hace que `POST /verify` rechace todos los bundles V1. Con `true`, acepta un bundle V1 solo donde aceptaría un bundle solo clásico: el modo que corresponde al `risk_tier` del pasaporte, elevado por el nivel de seguridad de la intención, tiene que ser `classical_only` o `hybrid_preferred`. Por eso el valor por defecto `hybrid_required` rechaza los bundles V1, y `pq_only` los rechaza siempre. Además, la política tiene que seguir aceptando `ed25519`: un aviso que lo retira, una vez aplicado con `POST /v2/advisory/auto-apply`, acaba con los bundles V1 y, si no queda ningún algoritmo clásico y sí alguno poscuántico, deja la política en `pq_only` |
 | `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` activa los endpoints demo de DCP-05 a DCP-09, que entonces necesitan el token del operador (al menos 32 caracteres); cualquier valor distinto de sin definir, `off` o `dcp-05-09` detiene el servidor |
 | `TRUST_PROXY` | — | `true` solo detrás de un proxy que añade la IP del cliente a `X-Forwarded-For` (Fly, nginx). Los límites de tasa se basan entonces en su último salto; si no, en la dirección del socket, porque los clientes pueden falsificar la cabecera |
 | `REGISTRATIONS_PER_HOUR` | `20` | Llamadas a `POST /v2/passport/register` por cliente y hora; las demás reciben 429 |
@@ -161,6 +161,7 @@ compuesta obligatorias, antigüedad de clave de 365 días), y `GET /v2/policy` l
   `authorized` es verdadero, 403 con el mismo resultado y sus códigos en otro caso, y 400 cuando `expected` falta o no
   es utilizable. El servidor no ejecuta nada y no guarda estado: la misma petición recibe siempre la misma respuesta,
   así que quien llama, si su operación no es idempotente, consume `request_id` y ejecuta de forma atómica.
+- **Lo que la ruta multiparte no lee.** No recibe ninguna política de verificación: un aviso de algoritmo, el modo del verificador y una clave revocada en esta pasarela no cambian su respuesta. Siempre se exigen las dos firmas de cada parte, y la clave de una parte solo se retira con su `status` en el archivo de principales de confianza. Ese archivo, `DCP_TRUSTED_PRINCIPALS_FILE`, enciende también `POST /v2/admit`, que no pide token: cualquiera puede leer ahí su `trust_set_version`, saber si un identificador es uno de los principales del operador y conseguir que se admita un bundle firmado con las claves de una parte. Quien llama a la ruta tiene el token del operador, que también cambia el modo del verificador, publica avisos y abre los endpoints de demostración: solo debería tenerlo el ejecutor del propio operador.
 - Los **endpoints de operador** solo están protegidos por `OPERATOR_TOKEN`. La `composite_sig` de los avisos se
   comprueba solo estructuralmente: `@dcp-ai/sdk` todavía no tiene etiqueta de contexto para `AlgorithmAdvisory`, así que
   el operador responde por los avisos.

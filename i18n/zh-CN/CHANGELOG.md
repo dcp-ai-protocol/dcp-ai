@@ -112,15 +112,23 @@
   这些是对该配置文件进行独立评审之后的修正，除另有说明外适用于四个 SDK。
   `operation_payload` 中含有不成对代理项或非 UTF-8 字节的字符串不属于该配置文件的数据：Go SDK 把它读作 U+FFFD，因此声明 `keys/\xff` 的执行方会得到对 `keys/\uFFFD` 签名的参与方的授权，而 Rust SDK 则无法读取该记录。
   这样的记录现在得到 `MPA_NOT_REPRESENTABLE`，构建请求的函数以及执行方声明的内容则以 `CONFIG_INVALID_VALUE` 拒绝。
-  在 `operation_payload` 之外，带有这种 `party_id` 的记录不符合其模式（`MPA_SCHEMA_INVALID`），带有这种目标、受众或 `party_id` 的策略集无法加载。
+  在 `operation_payload` 之外，任何字符串中带有这种文本的记录不符合其模式（`MPA_SCHEMA_INVALID`），带有这种文本的策略集无法加载。
   `operation_payload` 最多嵌套 32 层。
   `required_parties` 大于 16（一份记录最多容纳的授权数）的策略集无法加载（`CONFIG_MPA_UNSATISFIABLE`）。
   混合签名的算法在四个 SDK 中都是配置文件自己的：TypeScript 和 Python SDK 原先从默认验证策略中取这些算法，而该对象可以被进程中的任何代码修改。
-  Go：算法注册表为 `nil` 时返回错误而不是 panic，`Now` 按毫秒读取，与其他 SDK 取时钟的方式一致。
+  Go：算法注册表为 `nil` 时返回错误而不是 panic，`Now` 按毫秒读取，与其他 SDK 取时钟的方式一致。使用 `GOEXPERIMENT=jsonv2` 构建时，编码器不会标记它替换掉的字节，因此 Go 调用方无法声明 U+FFFD。
   Python：记录中的 `required_parties` 若是任何 binary64 都无法保存的数值，就不是模式中的整数；不是字符串的成员名不属于数据；策略存储的子类也不是已加载的存储。
   TypeScript：`createPartyAuthorization` 只对配置文件的数据签名，对没有 `request` 的 v2.0 载荷也是如此：载荷中的 `Map` 原先被当作 `{}` 签名，带有 `undefined` 成员、超出范围的整数或超过 32 层嵌套的载荷现在以 `CONFIG_INVALID_VALUE` 拒绝；对于为使其抛出异常而编写的 JSON，`checkMultiPartyAuthorizationStructure` 也返回结果。
   [配置文件](../../spec/profiles/multi-party/README.md)规定了这些规则（§2.2、§2.3、§3 和 §4），说明结果会透露运营方策略集和信任集的哪些内容，并新增 A4：适配器必须只把结果返回给运营方允许了解这些内容的调用方。
   `tests/interop/v2/multi_party_vectors.json` 新增八个用例（共 142 个，策略配置用例 62 个），其中包括：后量子签名可验证而经典签名无法验证、运营方标记为已过期的密钥，以及长出一毫秒的有效期；CI 会检查该文件与其生成器的输出一致。
+
+- **参考服务器和服务：对加固和多方授权路由进行评审之后的修正**（`main` 上的源代码，未包含在任何已发布版本中；版本号不变）。
+  **接受行为变更：** `POST /v2/audit/append` 和 `POST /v2/passport/register` 只有在验证器模式为 `classical_only` 或 `hybrid_preferred`、且没有已应用的通告撤回其算法时，才接受不含后量子部分的签名：此前，在吊销 `ed25519` 的通告之后，只有一个 Ed25519 密钥的代理仍能继续追加审计事件。
+  在这两个路由上，后量子部分使用了已被应用的通告撤回的算法的签名都会被拒绝。
+  当运营方手动设置了其他模式、而 `POST /v2/advisory/auto-apply` 把模式重新置为 `pq_only` 时，它会应答 `policy_modified: true` 并记录这一变更。
+  请求体是 JSON 值 `null` 时，服务器以及锚定、透明日志和吊销服务返回 400 而不是 500；密钥长度不对或不是 base64 的 V1 bundle 得到 `verified: false` 而不是 500。
+  **文档：** 服务器 README 说明了 `POST /v2/multi-party/authorize` 不读取的内容（任何验证策略、通告或模式），其可信委托人文件同时会开启不需要令牌的 `POST /v2/admit`，以及调用方持有运营方令牌；运营方指南列出了 `DCP_MULTI_PARTY_POLICY_FILE`，并说明通告在应用之前不改变任何行为；OpenAPI 文档为该路由列出了 413 和 429，并说明 `pq` 可以为 null。
+  **测试：** 测试套件覆盖了评审在该路由中发现的未测试之处，其中包括超出配置文件范围的数值（声明时为 400，在记录中为 403）；测试工具会尝试系统提供的下一个端口，而不消耗服务的一次启动尝试。
 
 - **`mpa-v1`：被签名的载荷中的每个数值都是 -(2^53 - 1) 至 2^53 - 1 之间的整数**（`main` 上的源代码，未包含在任何已发布版本中；版本号不变）。
   该配置文件通过 `dcp-jcs-v1` 比较 `parameters`，而对于 binary64 无法精确保存的整数，各 SDK 写出的文本并不相同：TypeScript 和 Go SDK 会将其舍入，Python SDK 写出全部数字，Rust SDK 在 64 位以内写出全部数字。
@@ -987,6 +995,11 @@
 <a id="documentation"></a>
 
 ### 文档
+
+- **原先把 DCP-04 握手描述为已认证的文档，现在与规范中的提示保持一致**（仅文档；代码、模式和版本均无变更）。
+  README 和文档索引不再把 DCP-04 的消息传递或通信称为“经过认证”。
+  安全模型（混合 KEM、第 8 层、§11 及其已知限制）、快速入门（§7）、技术架构、API 参考、TypeScript SDK 的 README、欧盟《人工智能法案》对照表以及早期采用者常见问题说明：握手和验证对方的 bundle 都不能认证对方。安全模型还说明，按现有规范无法防范中间人攻击或冒充；在描述这些函数的地方，文档说明在握手的四种消息中，SDK 的 A2A 函数只构建 `A2A_HELLO` 和 `A2A_WELCOME`，并不验证它们所携带的 bundle。
+  这些文档都指向正在修订的 [DCP-04 §3](../../spec/DCP-04.md#3-handshake-protocol) 中的提示。
 
 - **运行限制**（新增 [docs/OPERATIONAL_LIMITS.md](../../docs/OPERATIONAL_LIMITS.md)；不改变代码、默认值、配置或线格式）。说明什么在限制输入、信任来源与撤销来源、并发、客户端断开以及 Express 的判定缓存，每个限制由哪一层设定，运营方需要设置什么，以及一份既不是默认值也不具规范性的试点示例配置。已从 `docs/ADMISSION.md` 以及 Express 和 FastAPI 的 README 链接；Express 的 README 现在说明 `req.dcpAgent.mandateId` 是清单中的值，不验证任何授权链。
 

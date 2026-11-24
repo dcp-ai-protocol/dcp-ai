@@ -86,7 +86,7 @@ See [spec/core/](spec/core/) for the core specification.
 | [DCP-01](spec/DCP-01.md) | Identity & Human Binding | Agent identity, operator attestation, key binding |
 | [DCP-02](spec/DCP-02.md) | Intent Declaration & Policy Gating | Declared intents, security tier enforcement, policy evaluation |
 | [DCP-03](spec/DCP-03.md) | Audit Chain & Transparency | Hash-chained audit entries, Merkle proofs, transparency logs |
-| [DCP-04](spec/DCP-04.md) | Agent-to-Agent Communication | Authenticated inter-agent messaging, delegation, trust chains |
+| [DCP-04](spec/DCP-04.md) | Agent-to-Agent Communication | Inter-agent messaging, delegation, trust chains. Its handshake (§3) is under revision: as specified it does not authenticate the parties |
 | [DCP-05](spec/DCP-05.md) | Agent Lifecycle Management | Commission, monitor, decline, and decommission agents with state machine enforcement |
 | [DCP-06](spec/DCP-06.md) | Digital Succession & Inheritance | Digital testaments, memory transfer, successor designation |
 | [DCP-07](spec/DCP-07.md) | Conflict Resolution & Dispute Arbitration | Disputes, escalation levels, arbitration, jurisprudence |

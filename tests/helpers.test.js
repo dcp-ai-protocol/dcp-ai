@@ -72,8 +72,10 @@ test("a port taken before readiness is retried on a new port, and the service th
 });
 
 // macOS allows a listen on all interfaces on a port another process holds on 127.0.0.1 or 0.0.0.0 only, and that
-// process then gets what the suites send to 127.0.0.1 (Linux refuses the listen). Here the OS offers such a port:
-// the next `times` listens (every one, when omitted), which are the harness's probes, get it.
+// process then gets what the suites send to 127.0.0.1 (Linux refuses the listen, so in CI these tests exercise the
+// refusal of the first probe and the move to another port, not the later probes). Here the OS offers such a port:
+// the next `times` listens (every one, when omitted), which are the harness's probes, get it. The double relies on
+// the harness calling listen(port, ...): it replaces the first argument and passes the rest on.
 const offerHeld = async (t, host, times) => {
   const other = http.createServer((_req, res) => res.end("another process"));
   await new Promise((resolve) => other.listen(0, host, resolve));
@@ -94,11 +96,32 @@ for (const host of ["127.0.0.1", "0.0.0.0"]) {
   });
 }
 
+test("ports the OS offers that are held do not spend an attempt: the next one offered is probed", async (t) => {
+  // Three listens get the held port: one round of probes where the first probe succeeds (macOS), three rounds where
+  // it is refused at once (Linux). Either way the only attempt allowed still finds a free port.
+  await offerHeld(t, "127.0.0.1", 3);
+  const { result, pids } = await run("held-in-a-row", {}, { attempts: 1, deadlineMs: 10_000 });
+  await answers(await result);
+  assert.equal(pids().length, 1);
+});
+
 test("a port that stays held on 127.0.0.1 fails after the attempts, and nothing is launched", async (t) => {
   await offerHeld(t, "127.0.0.1");
   const { result, pids } = await run("held-always", {});
-  await assert.rejects(result.then(answers), /EADDRINUSE.*port taken on attempt 3 of 3/); // answers() stops one started
+  // answers() stops one started. The message says it was the probe, not the service, that lost the port.
+  await assert.rejects(result.then(answers), /was not launched: listen EADDRINUSE.*port taken on attempt 3 of 3/);
   assert.equal(pids().length, 0);
+});
+
+test("a probe that fails for another reason is an error at once, not a port to try again", async (t) => {
+  const denied = Object.assign(new Error("listen EACCES: permission denied"), { code: "EACCES" });
+  const listen = t.mock.method(net.Server.prototype, "listen", function () {
+    process.nextTick(() => this.emit("error", denied));
+    return this;
+  });
+  const { result, pids } = await run("denied", {});
+  await assert.rejects(result, /EACCES/);
+  assert.deepEqual([listen.mock.callCount(), pids().length], [1, 0]);
 });
 
 test("readiness split across stdout chunks is still seen", async () => {

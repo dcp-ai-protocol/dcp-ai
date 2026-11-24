@@ -24,10 +24,12 @@ export async function startService(script, env = {}) {
 
 /**
  * startService with its limits explicit (the harness's own test uses short ones). Another process
- * may hold the port the OS offers (freePort rejects with EADDRINUSE, and nothing is launched on it)
- * or take it between the probe and the service's own listen (the service exits with EADDRINUSE
- * before it is ready): only that is retried on a new port, at most `attempts` times in all and
- * never once `deadlineMs` (monotonic) is spent. Any other exit, a spawn error or the deadline
+ * may hold every port the OS offers (freePort rejects with EADDRINUSE, and nothing is launched) or
+ * take the port between the probe and the service's own listen (the service exits with EADDRINUSE
+ * before it is ready; on macOS only when the other process holds it on all interfaces, otherwise
+ * the listen succeeds and the other process keeps what is sent to 127.0.0.1, which is why freePort
+ * probes each address first): only that is retried on a new port, at most `attempts` times in all
+ * and never once `deadlineMs` (monotonic) is spent. Any other exit, a spawn error or the deadline
  * rejects, and only after the process is gone: past the deadline it gets SIGTERM, then SIGKILL after
  * a short grace. Its stderr is passed through as before, and its first Error line is in the error.
  */
@@ -41,6 +43,7 @@ export async function startServiceWithin(script, env, { attempts, deadlineMs }) 
       port = await freePort();
     } catch (error) {
       if (error.code !== "EADDRINUSE") throw error;
+      error.message = `${script} was not launched: ${error.message}`; // the probe failed, not the service
       outcome = { addressInUse: true, error };
     }
     if (performance.now() >= deadline) break; // never launch with the budget spent
@@ -53,13 +56,35 @@ export async function startServiceWithin(script, env, { attempts, deadlineMs }) 
   throw lost ?? new Error(`${script} was not launched: the startup deadline was already spent`);
 }
 
+const PORT_CANDIDATES = 8;
+
 /**
  * A port the OS reports free now where the services listen (all interfaces) and where the suites
- * reach them (127.0.0.1). The first probe alone is not enough: macOS allows a listen on all
- * interfaces on a port another process holds on 127.0.0.1 or 0.0.0.0 only, and that process then
- * gets what is sent to 127.0.0.1. Rejects with EADDRINUSE when the port the OS offers is held.
+ * reach them (127.0.0.1). A port it offers that is held is not an attempt of the service: the next
+ * one offered is probed, since macOS hands ports out in sequence and a run of them may be taken.
+ * Rejects with EADDRINUSE when PORT_CANDIDATES in a row are held.
  */
 async function freePort() {
+  let held;
+  for (let candidate = 0; candidate < PORT_CANDIDATES; candidate++) {
+    try {
+      return await probedPort();
+    } catch (error) {
+      if (error.code !== "EADDRINUSE") throw error;
+      held = error;
+    }
+  }
+  throw held;
+}
+
+/**
+ * One port the OS offers, probed on each address. The first probe alone is not enough: macOS allows
+ * a listen on all interfaces on a port another process holds on 127.0.0.1 or 0.0.0.0 only, and that
+ * process then gets what is sent to 127.0.0.1. The order matters: the OS picks the port on the first
+ * probe (all interfaces, as the services listen) and the other two ask for that same port. The
+ * harness's own test replaces the first argument of listen, so keep the call as (port, host, callback).
+ */
+async function probedPort() {
   let port = 0; // the OS picks it on the first probe
   for (const host of [undefined, "0.0.0.0", "127.0.0.1"]) {
     const probe = net.createServer();

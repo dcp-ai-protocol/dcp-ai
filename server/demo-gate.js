@@ -20,13 +20,13 @@ export const DEMO_VALUE = "dcp-05-09";
 const B64TOKEN = /^[A-Za-z0-9\-._~+/]+=*$/;
 export const MIN_DEMO_TOKEN_LENGTH = 32;
 
+/** Whether `token` can lock a route: an RFC 6750 b64token of at least MIN_DEMO_TOKEN_LENGTH characters. */
+export const usableOperatorToken = (token) => typeof token === "string" && B64TOKEN.test(token) && token.length >= MIN_DEMO_TOKEN_LENGTH;
+
 /**
  * Reads DCP_DEMO_ENDPOINTS and, when it enables the demo, OPERATOR_TOKEN, from `env`. Returns true (on) or
  * false (off); anything else throws, and no message carries the token.
  */
-/** Whether `token` can lock a route: an RFC 6750 b64token of at least MIN_DEMO_TOKEN_LENGTH characters. */
-export const usableOperatorToken = (token) => typeof token === "string" && B64TOKEN.test(token) && token.length >= MIN_DEMO_TOKEN_LENGTH;
-
 export function demoEnabled(env) {
   const value = env.DCP_DEMO_ENDPOINTS;
   if (value === undefined || value === "off") return false;
