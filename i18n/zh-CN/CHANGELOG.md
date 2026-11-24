@@ -118,6 +118,37 @@
   `dcp-jcs-v1`、被签名的字节和模式都不变；`tests/interop/v2/multi_party_vectors.json` 新增五个用例。
   该问题由对该配置文件的独立评审发现。
 
+- **参考服务器：`POST /v2/audit/append` 会检查事件及其签名，并且不再保存事件**（仅 `main` 上的源代码，不在任何已发布
+  版本中；版本号不变）。此前该端点接受任何人发来的任意 JSON 作为审计事件，包括不带 `agent_id` 的事件，并把每个请求体
+  无上限地保存在内存中，因此仅凭请求就能耗尽网关的内存。现在只有当事件是已登记智能体的 V2 审计条目
+  （`schemas/v2/audit_entry.schema.json`），并且 `signature` 是该智能体的有效密钥在 `DCP-AI.v2.AuditEvent` 下对它所作的
+  复合签名时才会被接受；智能体登记过后量子密钥的，两把密钥都要签名，即使登记表已不再保留该密钥的条目。被接受的事件只计数，不保存：
+  `chain_length` 是为该智能体接受的请求数，因此同一事件再次发送会再次计数，`prev_hash` 仍然不作比较。对不符合其
+  schema 的请求体，400 回答最多列出 50 个问题，本路由和其他检查请求体的路由都是如此。**接受范围变更：**
+  未签名的事件或不符合 schema 的事件此前得到 201，现在得到 403 或 400。
+
+- **验证服务器和撤销服务：已登记的紧急撤销令牌只能凭其秘密值或由运营方替换**（仅 `main` 上的源代码，不在任何已发布
+  版本中；版本号不变）。此前，用一份由有效密钥签名的更新护照重新登记智能体，也会替换它的紧急撤销令牌。该令牌是这些密钥
+  泄露时责任主体所依靠的手段，因此现在不能仅凭这些密钥替换它：护照带有不同令牌的重新登记会以 403 被拒绝，除非请求同时带有
+  `current_revocation_secret`（已登记令牌的秘密值）或运营方令牌。带有相同令牌或不带令牌的护照仍可像以前一样重新登记，并
+  保留已登记的令牌。撤销服务现在还会拒绝不是字符串的令牌：此前它接受一个包含令牌的数组，随后对该智能体的紧急撤销回答 500。
+  **接受范围变更：** 在 `POST /v2/passport/register`（网关）和 `POST /v2/register`（撤销服务）上，
+  仅由智能体密钥签名的令牌替换此前得到 201，现在得到 403。各 SDK、护照 schema 和传输格式不变。
+
+- **参考服务器：`POST /verify` 对 V1 bundle 也应用验证方策略**（仅 `main` 上的源代码，不在任何已发布版本中；
+  版本号不变）。对于 V1 bundle（一个 Ed25519 签名，没有后量子签名），服务器此前只读取 `allow_v1_bundles`，因此无论
+  策略要求哪种模式，都回答 `verified: true`。现在只有在 VERIFICATION.md V2-10 会接受仅经典签名 bundle 的情况下才接受
+  V1 bundle，这也是 Express、OpenClaw 和 FastAPI 集成已经采用的规则：`allow_v1_bundles` 为真，策略仍然接受 `ed25519`，并且 V1 护照
+  `risk_tier` 对应的策略模式与 V1 意图和策略决定的安全层级模式中更严格者为 `classical_only` 或
+  `hybrid_preferred`。对 V1 bundle 的回答现在带有 `warnings`：请求中没有 `public_key_b64` 时，它会说明签名是用
+  bundle 自己声明的密钥检查的。当一项通告使策略不再剩下任何经典算法时，`POST /v2/advisory/auto-apply` 现在会把整个
+  策略切换为 `pq_only`。此前它只改变默认模式，各风险层级仍保持原有模式：在该模式接受的地方，V1 bundle 仍能通过验证，
+  而混合 V2 bundle 则被拒绝。**接受范围变更：** 在默认的 `hybrid_required` 下（`docker/docker-compose.yml`
+  也设置为该值），此前能通过验证的 V1 bundle 现在得到 `verified: false`；`VERIFIER_MODE=classical_only` 或
+  `hybrid_preferred` 仍然接受意图属于 routine 或 standard 层级的 V1 bundle。在策略拒绝 V1 bundle 的情况下，
+  不是 V2 bundle 的请求体会在读取其余内容之前得到该拒绝（200，`verified: false`）：此前，没有公钥的得到 400，
+  有 schema 或签名错误的得到这些错误。`lib/verify.js`、CLI 和各 SDK 不变。
+
 - **DCP-04 §3（A2A 握手）和 DCP-09 §8 处于修订中：请勿按现有文本实现**（仅涉及规范和文档；代码的行为、模式、默认值和版本均无变化）。
   按现有规范，该握手并不认证双方：其消息未用代理的密钥签名，
   因此临时 KEM 密钥和所协商的参数都没有与一方出示的 bundle 绑定，而已签名 bundle 是公开的工件。

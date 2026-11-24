@@ -48,7 +48,7 @@ What they cover (25/10/2026):
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /v2/passport/register` | Register agent passport + keys (a new `agent_id` needs the operator token) | Request: `{ signed_passport }`; the composite self-signature must verify |
+| `POST /v2/passport/register` | Register agent passport + keys (a new `agent_id` needs the operator token) | Request: `{ signed_passport, current_revocation_secret? }`; the composite self-signature must verify, and replacing a registered emergency revocation token takes its secret or the operator token |
 | `GET /v2/keys/{kid}` | Key registry lookup | Response: `{ found, kid, key, agent_id }` |
 | `POST /v2/keys/rotate` | Key rotation with PoP | Request: `KeyRotationRecord` (`{ old_kid, new_key, timestamp, proof_of_possession, authorization_sig }`) |
 
@@ -64,7 +64,7 @@ What they cover (25/10/2026):
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /v2/audit/append` | Append audit event | Request: `{ audit_event }` |
+| `POST /v2/audit/append` | Check and count an audit event signed by a registered agent (no event is kept) | Request: `{ audit_event, signature }` |
 | `POST /v2/audit/compact` | Compact audit trail | Request: `{ compaction }` |
 
 #### V2 Revocation & Emergency

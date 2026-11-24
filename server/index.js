@@ -11,7 +11,7 @@
  * V2 Endpoints:
  *   POST /v2/passport/register                — Register agent passport + keys
  *   POST /v2/intent/declare                   — Declare intent, get policy decision
- *   POST /v2/audit/append                     — Append audit event to chain
+ *   POST /v2/audit/append                     — Check a signed audit event and count it (none is kept)
  *   POST /v2/bundle/verify                    — Full V2 composite verification
  *   GET  /v2/keys/:kid                        — Key registry lookup
  *   POST /v2/keys/rotate                      — Key rotation with PoP
@@ -57,7 +57,7 @@ import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
   DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, MultiPartyConfigError, createMultiPartyPolicyStore, createPrincipalTrustStore,
-  evaluateMultiPartyAuthorization, resolveStrictV1Profile, verifyKeyRotation,
+  effectiveVerificationMode, evaluateMultiPartyAuthorization, resolveStrictV1Profile, verifyKeyRotation,
 } from "@dcp-ai/sdk";
 import {
   verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry, isCanonicalB64, KEY_BYTES, SIG_BYTES,
@@ -107,9 +107,13 @@ addFormats(ajv);
 loadSchemasFromDir(ajv, path.join(baseDir, "schemas", "v1"));
 loadSchemasFromDir(ajv, path.join(baseDir, "schemas", "v2"));
 
+// A body can break a schema in as many places as it has members, and the answer would grow with it: the first
+// MAX_SCHEMA_ERRORS are listed (api/openapi.yaml, ErrorResponse.details).
+const MAX_SCHEMA_ERRORS = 50;
+
 /**
  * Validate data against a schema $id.
- * Returns { valid: true } or { valid: false, errors: string[] }.
+ * Returns { valid: true } or { valid: false, errors: string[] }, with at most MAX_SCHEMA_ERRORS errors.
  */
 function validateAgainstSchema(schemaId, data) {
   const validate = ajv.getSchema(schemaId);
@@ -118,7 +122,7 @@ function validateAgainstSchema(schemaId, data) {
   if (ok) return { valid: true };
   return {
     valid: false,
-    errors: (validate.errors || []).map(
+    errors: (validate.errors || []).slice(0, MAX_SCHEMA_ERRORS).map(
       (e) => `${e.instancePath || "/"} ${e.message}`,
     ),
   };
@@ -326,7 +330,8 @@ const agentKids = new Map();         // agent_id -> Set of its kids in keyRegist
 const keyCounts = new Map();         // agent_id -> keys it ever registered
 const retiredKids = new Map();       // kid -> agent_id of dropped rotated-out keys: revoked for good
 const passportRegistry = new Map();  // agent_id -> { created_at, registered_at }
-const auditChains = new Map();       // agent_id -> [events]
+const auditCounts = new Map();       // agent_id -> audit events accepted (the events are not kept)
+const pqAgents = new Set();          // agent_ids that have registered a post-quantum key, now or before
 const emergencyTokens = new Map();   // agent_id -> token_hash
 const revokedKids = new Set();       // set of revoked kids
 const revokedAgents = new Set();     // set of emergency-revoked agents
@@ -429,6 +434,8 @@ function setSecurityHeaders(res) {
 // keyRegistry is only written through these, so agentKids stays in step with it.
 function registerKey(entry) {
   keyRegistry.set(entry.key.kid, entry);
+  // Kept apart from the entries: a retired key's entry is dropped in time, and what its agent registered is not.
+  if (!DEFAULT_VERIFIER_POLICY.accepted_classical_algs.includes(entry.key.alg)) pqAgents.add(entry.agent_id);
   if (!agentKids.has(entry.agent_id)) agentKids.set(entry.agent_id, new Set());
   agentKids.get(entry.agent_id).add(entry.key.kid);
   keyCounts.set(entry.agent_id, (keyCounts.get(entry.agent_id) ?? 0) + 1);
@@ -457,6 +464,12 @@ function deriveKid(alg, publicKeyB64) {
   const sep = Buffer.from([0x00]);
   const input = Buffer.concat([algBytes, sep, pkBytes]);
   return crypto.createHash("sha256").update(input).digest("hex").slice(0, 32);
+}
+
+// sha256(secret) is the registered emergency token: the secret is 32 bytes, as 64 lowercase hex characters.
+function opensToken(secret, token) {
+  return typeof secret === "string" && /^[0-9a-f]{64}$/.test(secret) &&
+    "sha256:" + crypto.createHash("sha256").update(Buffer.from(secret, "hex")).digest("hex") === token;
 }
 
 function validateSessionNonce(nonce) {
@@ -500,6 +513,36 @@ function computeRiskScore(actionType, impact, dataClasses) {
 
 function resolveVerificationModeForTier(tier) {
   return TIER_TO_VERIFICATION_MODE[tier] || VERIFIER_POLICY.default_mode;
+}
+
+/**
+ * Why POST /verify refuses a V1 bundle under VERIFIER_POLICY, or null. A V1 bundle has one Ed25519
+ * signature and no post-quantum one, so it passes only where spec/VERIFICATION.md V2-10 would accept a
+ * classical-only bundle: the rule of v1Refusal in integrations/express/src/dcp-verify.ts. The policy
+ * mode is the one for the passport's risk_tier (default_mode without one; a risk_tier the policy has
+ * no mode for counts as hybrid_required), raised by the security tier of the V1 intent and policy
+ * decision. V1 risk_score is 0 to 1: a missing or invalid one fails closed to elevated. And the algorithm
+ * of that one signature has to be one the policy still accepts: an advisory can withdraw it.
+ */
+const V1_SIGNATURE_ALG = "ed25519";
+function v1Refusal(bundle) {
+  if (!VERIFIER_POLICY.allow_v1_bundles) return "V1 bundles are disabled by verifier policy";
+  if (!VERIFIER_POLICY.accepted_classical_algs.includes(V1_SIGNATURE_ALG) ||
+      (VERIFIER_POLICY.advisory_rejected_algs || []).includes(V1_SIGNATURE_ALG)) {
+    return `V1 bundles are not accepted here: they are signed with ${V1_SIGNATURE_ALG}, which the verifier policy no longer accepts`;
+  }
+  const b = bundle && typeof bundle === "object" ? bundle : {};
+  const riskTier = b.agent_passport?.risk_tier;
+  const known = typeof riskTier === "string" && Object.hasOwn(VERIFIER_POLICY.risk_overrides, riskTier);
+  const policyMode = riskTier === undefined ? VERIFIER_POLICY.default_mode
+    : known ? VERIFIER_POLICY.risk_overrides[riskTier] : undefined;
+  const v1Score = b.policy_decision?.risk_score;
+  const riskScore = typeof v1Score === "number" && v1Score >= 0 && v1Score <= 1 ? Math.round(v1Score * 1000) : undefined;
+  const tier = computeSecurityTier(b.intent, { risk_score: riskScore });
+  const mode = effectiveVerificationMode(policyMode, tier);
+  if (mode === "classical_only" || mode === "hybrid_preferred") return null;
+  return `V1 bundles are not accepted here: the policy requires ${mode} for this bundle (security tier ${tier}), ` +
+    "and a V1 bundle has no post-quantum signature";
 }
 
 function decidePolicy(riskScore) {
@@ -604,12 +647,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     // V1 verification
-    if (!VERIFIER_POLICY.allow_v1_bundles) {
-      return send(res, 200, {
-        verified: false,
-        dcp_version: "1.0",
-        errors: ["V1 bundles are disabled by verifier policy"],
-      }, "1.0");
+    const refusal = v1Refusal(signedBundle.bundle);
+    if (refusal) {
+      return send(res, 200, { verified: false, dcp_version: "1.0", errors: [refusal], warnings: [] }, "1.0");
     }
 
     const publicKeyB64 = body.public_key_b64 || signedBundle?.signature?.signer?.public_key_b64;
@@ -625,6 +665,11 @@ const server = http.createServer(async (req, res) => {
       verified: result.verified,
       dcp_version: "1.0",
       errors: result.errors || [],
+      // Without a pinned key, the signature only shows that the bundle agrees with the key it declares.
+      warnings: body.public_key_b64 ? [] : [
+        "Signature checked against the key the bundle declares (signature.signer.public_key_b64); " +
+          "send public_key_b64 to check it against a key you trust",
+      ],
     }, "1.0");
     return;
   }
@@ -675,8 +720,9 @@ const server = http.createServer(async (req, res) => {
 
   // ── V2: Register passport + keys ──
   // The passport's composite self-signature proves possession of its signer
-  // keys, and only those are registered. Re-registering an agent (e.g. with a
-  // new emergency token) must be signed by all of its active keys.
+  // keys, and only those are registered. Re-registering an agent must be signed
+  // by all of its active keys; replacing its emergency token also takes the
+  // token's secret or the operator.
   if (req.method === "POST" && req.url === "/v2/passport/register") {
     if (!checkRegistrationRate(getClientIp(req))) {
       return send(res, 429, { error: `Rate limit exceeded. Max ${REGISTRATIONS_PER_HOUR} registrations per hour.` });
@@ -759,6 +805,16 @@ const server = http.createServer(async (req, res) => {
       }
       if (!(Date.parse(passport.created_at) > Date.parse(registered.created_at))) {
         return send(res, 409, { error: "Re-registration needs a passport newer (created_at) than the registered one" });
+      }
+      // The emergency token is the principal's way out when these keys are compromised, so the
+      // keys alone do not replace it: that takes the registered token's secret, or the operator.
+      const currentToken = emergencyTokens.get(agentId);
+      const newToken = passport.emergency_revocation_token;
+      if (currentToken && newToken && newToken !== currentToken &&
+          !opensToken(body.current_revocation_secret, currentToken) && !isOperator(req)) {
+        return send(res, 403, {
+          error: "Replacing the emergency revocation token needs current_revocation_secret (the registered token's secret) or the operator token",
+        });
       }
     }
     const takenKid = signerKids.find((kid) =>
@@ -854,6 +910,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── V2: Append audit event ──
+  // The event is checked and counted, not kept: a V2 audit entry (schemas/v2/audit_entry.schema.json) of a
+  // registered agent, with `signature` a composite signature over it under "DCP-AI.v2.AuditEvent" by the
+  // agent's active keys, both of them when it registered a post-quantum key. prev_hash is not compared:
+  // the gateway has no earlier event to compare it with, and the chain is the agent's to keep.
   if (req.method === "POST" && req.url === "/v2/audit/append") {
     let body;
     try { body = await parseBody(req); }
@@ -863,40 +923,31 @@ const server = http.createServer(async (req, res) => {
     }
 
     const { audit_event, signature } = body;
-    if (!audit_event) {
-      return send(res, 400, { error: "Missing audit_event" });
+    const schemaResult = validateAgainstSchema("https://dcp-ai.org/schemas/v2/audit_entry.schema.json", audit_event);
+    if (!audit_event || !schemaResult.valid) {
+      return send(res, 400, { error: "Missing or invalid audit_event", details: schemaResult.errors });
     }
 
     const agentId = audit_event.agent_id;
-
-    // Verify agent is registered
-    if (agentId && !passportRegistry.has(agentId)) {
+    if (!passportRegistry.has(agentId)) {
       return send(res, 400, { error: `Agent ${agentId} not registered` });
     }
 
-    // Verify prev_hash continuity
-    let chain = auditChains.get(agentId);
-    if (!chain) {
-      chain = [];
-      auditChains.set(agentId, chain);
+    // Revoked and expired keys are not active, so a revoked agent has none to sign with. One classical key is
+    // enough only for an agent that never registered a post-quantum one: its entries today do not say that.
+    const activeKeys = keysOf(agentId).filter(isActiveKey).map((entry) => entry.key);
+    const allowClassicalOnly = !pqAgents.has(agentId);
+    if (!(await verifyCompositeSig(DCP_CONTEXTS.AuditEvent, audit_event, signature, activeKeys, { allowClassicalOnly }))) {
+      return send(res, 403, { error: "signature does not verify against the agent's active registered keys" });
     }
 
-    if (chain.length > 0) {
-      const lastEntry = chain[chain.length - 1];
-      const expectedPrevHash = `sha256:${crypto.createHash("sha256")
-        .update(JSON.stringify(lastEntry))
-        .digest("hex")}`;
-      if (audit_event.prev_hash !== expectedPrevHash && audit_event.prev_hash !== "GENESIS") {
-        // Warn but don't reject (the client computes prev_hash locally)
-      }
-    }
-
-    chain.push(audit_event);
+    const chainLength = (auditCounts.get(agentId) ?? 0) + 1;
+    auditCounts.set(agentId, chainLength);
 
     send(res, 201, {
       ok: true,
       audit_id: audit_event.audit_id,
-      chain_length: chain.length,
+      chain_length: chainLength,
     }, "2.0");
     return;
   }
@@ -1132,10 +1183,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Verify pre-image
-    const secretBytes = Buffer.from(revocation_secret, "hex");
-    const computedHash = "sha256:" + crypto.createHash("sha256").update(secretBytes).digest("hex");
-
-    if (computedHash !== tokenHash) {
+    if (!opensToken(revocation_secret, tokenHash)) {
       console.log(`[emergency-revoke] FAILED attempt for agent ${agent_id} from ${ip}`);
       return send(res, 403, { error: "Invalid revocation secret" });
     }
@@ -1424,13 +1472,12 @@ const server = http.createServer(async (req, res) => {
 
     VERIFIER_POLICY.advisory_rejected_algs = [...blocked];
 
-    // Auto-switch to pq_only if all classical algorithms removed
+    // Auto-switch to pq_only if all classical algorithms removed: the mode of every risk tier, as
+    // POST /v2/policy/mode sets it, and with it no V1 bundles. Changing default_mode alone left the risk
+    // tiers on the mode they had.
     if (VERIFIER_POLICY.accepted_classical_algs.length === 0 &&
         VERIFIER_POLICY.accepted_pq_algs.length > 0) {
-      VERIFIER_POLICY.default_mode = "pq_only";
-      VERIFIER_POLICY.min_classical = 0;
-      VERIFIER_POLICY.require_composite_binding = false;
-      VERIFIER_POLICY.allow_classical_fallback_disable = true;
+      setVerifierMode("pq_only");
       warnings.push("All classical algorithms deprecated/revoked. Auto-switched to pq_only mode.");
     }
 
@@ -2334,7 +2381,7 @@ server.listen(PORT, () => {
   console.log("  V2:");
   console.log("    POST /v2/passport/register                — register agent passport + keys");
   console.log("    POST /v2/intent/declare                   — declare intent, get policy decision");
-  console.log("    POST /v2/audit/append                     — append audit event");
+  console.log("    POST /v2/audit/append                     — check and count a signed audit event");
   console.log("    POST /v2/audit/compact                    — audit trail compaction");
   console.log("    POST /v2/bundle/verify                    — full V2 bundle verification");
   console.log("    GET  /v2/keys/:kid                        — key lookup");

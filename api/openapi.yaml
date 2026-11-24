@@ -172,6 +172,9 @@ paths:
 
         V1: Schema validation, Ed25519 signature, bundle hash integrity,
         Merkle root, intent hash chain, and previous hash chain verification.
+        A V1 bundle has no post-quantum signature, so it is taken only where
+        the verifier policy would take a classical-only bundle (not under
+        hybrid_required or pq_only); otherwise the answer is verified false.
 
         V2: Composite signature structure, session nonce consistency,
         manifest integrity, tier-aware policy enforcement.
@@ -189,7 +192,7 @@ paths:
                     - $ref: "#/components/schemas/SignedBundleV2"
                 public_key_b64:
                   type: string
-                  description: Optional Ed25519 public key (base64) for V1. Falls back to signer.public_key_b64.
+                  description: Optional Ed25519 public key (base64) for V1. Falls back to signer.public_key_b64, which the response then reports in warnings.
             example:
               signed_bundle:
                 bundle:
@@ -574,7 +577,9 @@ paths:
       description: |
         Registers a V2 agent passport with composite-signed keys.
         Verifies deterministic kid derivation and stores keys in the registry.
-        Optionally registers an emergency revocation token.
+        Optionally registers an emergency revocation token. A re-registration
+        replaces a registered token only with current_revocation_secret or the
+        operator token (403 otherwise); a passport without a token keeps it.
       requestBody:
         required: true
         content:
@@ -585,6 +590,10 @@ paths:
               properties:
                 signed_passport:
                   $ref: "#/components/schemas/SignedPayload"
+                current_revocation_secret:
+                  type: string
+                  pattern: "^[0-9a-f]{64}$"
+                  description: Secret of the registered emergency revocation token. Needed, unless the operator token is sent, when a re-registration carries a different token.
             example:
               signed_passport:
                 payload:
@@ -623,6 +632,41 @@ paths:
                 registered_kids: ["abc123..."]
         "400":
           description: Invalid passport data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Registering a new agent_id needs the operator token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: >-
+            The passport's signature does not verify against its own keys, the agent has been revoked, or
+            the passport carries another emergency revocation token than the registered one and the request
+            has neither `current_revocation_secret` nor the operator token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >-
+            A re-registration that is not signed by all of the agent's active keys or is not newer than the
+            registered passport, or a key that is retired or registered to another agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Registration rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "507":
+          description: The key registry is full
           content:
             application/json:
               schema:
@@ -706,24 +750,31 @@ paths:
   /v2/audit/append:
     post:
       tags: [Audit]
-      summary: Append audit event to chain
+      summary: Check and count a signed audit event
       operationId: appendAudit
-      description: Appends a signed audit event to the agent's audit chain, verifying prev_hash continuity.
+      description: |
+        Checks an audit event of a registered agent and counts it. The event
+        must be a V2 audit entry (schemas/v2/audit_entry.schema.json) and
+        signature a composite signature over it under "DCP-AI.v2.AuditEvent"
+        by the agent's active registered keys: both of them for an agent that
+        has registered a post-quantum key. For an agent whose keys are all
+        classical, `pq` is null, not omitted, and the binding is
+        `classical_only`. The gateway keeps no audit events and does not compare
+        prev_hash; chain_length is the number of requests accepted for the
+        agent, so an event sent again counts again.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [audit_event]
+              required: [audit_event, signature]
               properties:
                 audit_event:
                   type: object
-                  additionalProperties: false
-                  maxProperties: 50
+                  description: A V2 audit entry (schemas/v2/audit_entry.schema.json).
                 signature:
-                  type: object
-                  additionalProperties: false
+                  $ref: "#/components/schemas/CompositeSignature"
       responses:
         "201":
           description: Audit event appended
@@ -739,7 +790,13 @@ paths:
                   chain_length:
                     type: integer
         "400":
-          description: Invalid audit event
+          description: Invalid audit event (`details` lists at most 50 schema problems), or its agent is not registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: The signature does not verify against the agent's active registered keys
           content:
             application/json:
               schema:

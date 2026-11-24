@@ -70,7 +70,7 @@ DCP の API の正式な定義です。HTTP/REST 向けの OpenAPI 3.1 の仕様
 
 | メソッド | パス | 説明 |
 |--------|------|-------------|
-| `POST /v2/passport/register` | エージェントのパスポートと鍵を登録する（新しい `agent_id` にはオペレーターのトークンが必要） | リクエスト：`{ signed_passport }`。複合の自己署名が検証できなければならない |
+| `POST /v2/passport/register` | エージェントのパスポートと鍵を登録する（新しい `agent_id` にはオペレーターのトークンが必要） | リクエスト：`{ signed_passport, current_revocation_secret? }`。複合の自己署名が検証できなければならず、登録済みの緊急失効トークンを差し替えるにはその秘密値かオペレーターのトークンが必要 |
 | `GET /v2/keys/{kid}` | 鍵のレジストリの照会 | レスポンス：`{ found, kid, key, agent_id }` |
 | `POST /v2/keys/rotate` | 保有の証明を伴う鍵のローテーション | リクエスト：`KeyRotationRecord`（`{ old_kid, new_key, timestamp, proof_of_possession, authorization_sig }`） |
 
@@ -91,7 +91,7 @@ DCP の API の正式な定義です。HTTP/REST 向けの OpenAPI 3.1 の仕様
 
 | メソッド | パス | 説明 |
 |--------|------|-------------|
-| `POST /v2/audit/append` | 監査イベントを追加する | リクエスト：`{ audit_event }` |
+| `POST /v2/audit/append` | 登録済みのエージェントが署名した監査イベントを確認して数える（イベントは保存しない） | リクエスト：`{ audit_event, signature }` |
 | `POST /v2/audit/compact` | 監査証跡を圧縮する | リクエスト：`{ compaction }` |
 
 <a id="v2-revocation--emergency"></a>

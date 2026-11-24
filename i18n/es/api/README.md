@@ -69,7 +69,7 @@ Qué cubren (25/10/2026):
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST /v2/passport/register` | Registra el pasaporte y las claves de un agente (un `agent_id` nuevo necesita el token del operador) | Petición: `{ signed_passport }`; la autofirma compuesta debe verificarse |
+| `POST /v2/passport/register` | Registra el pasaporte y las claves de un agente (un `agent_id` nuevo necesita el token del operador) | Petición: `{ signed_passport, current_revocation_secret? }`; la autofirma compuesta debe verificarse, y sustituir un token de revocación de emergencia registrado requiere su secreto o el token del operador |
 | `GET /v2/keys/{kid}` | Consulta del registro de claves | Respuesta: `{ found, kid, key, agent_id }` |
 | `POST /v2/keys/rotate` | Rotación de claves con prueba de posesión | Petición: `KeyRotationRecord` (`{ old_kid, new_key, timestamp, proof_of_possession, authorization_sig }`) |
 
@@ -90,7 +90,7 @@ Qué cubren (25/10/2026):
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST /v2/audit/append` | Añade un evento de auditoría | Petición: `{ audit_event }` |
+| `POST /v2/audit/append` | Comprueba y cuenta un evento de auditoría firmado por un agente registrado (no se guarda ningún evento) | Petición: `{ audit_event, signature }` |
 | `POST /v2/audit/compact` | Compacta el rastro de auditoría | Petición: `{ compaction }` |
 
 <a id="v2-revocation--emergency"></a>

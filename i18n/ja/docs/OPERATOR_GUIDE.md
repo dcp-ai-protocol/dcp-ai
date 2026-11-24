@@ -5,7 +5,7 @@
 
 # オペレーターガイド — 検証サービスの運用
 
-> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（20/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（23/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドは、「エージェント検証済み」サービス、つまり DCP の Signed Bundle を検証する（オプションでハッシュをブロックチェーンにアンカーする）HTTP API を運用したい**第三者**のためのものです。プロトコルは中央のサーバーを**必要としません**。検証はいつでも `dcp verify-bundle` でローカルに行えます。このサービスは**オプション**であり、オペレーターの判断で運用されます。
 
@@ -69,7 +69,7 @@
 { "verified": false, "errors": ["SIGNATURE INVALID", "Hint: Check that the public key ..."] }
 ```
 
-リファレンスサーバー（`server/`）はこれを `POST /verify` として実装しています。そのレスポンスには常に `dcp_version` と `errors` が含まれ、V2 では `warnings`、`verifier_policy_hash`、`resolved_tier` が加わります。リクエストのボディは JSON です。
+リファレンスサーバー（`server/`）はこれを `POST /verify` として実装しています。検査したバンドルへのレスポンス（200）には常に `dcp_version`、`errors`、`warnings` が含まれ、V2 では `verifier_policy_hash` と `resolved_tier` が加わります。リクエストとして読めないボディへの 400 に含まれるのは `verified: false` と `errors` だけです。V1 のバンドルを受け入れるのは、ポリシーが古典のみのバンドルを受け入れる場合だけです（下記の `ALLOW_V1_BUNDLES`）。また、V1 のバンドルが `public_key_b64` なしで送られた場合は、バンドル自身が宣言する鍵で署名を確認したことを警告します。リクエストのボディは JSON です。
 
 <a id="post-anchor-optional"></a>
 
@@ -179,7 +179,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ゲートウェイの 2 つの部分は動作が異なります。
 
 - **DCP-05–09 のレコードストアは追い出しを行います。** ライフサイクル、稼働状況、遺言、継承、紛争、判例、異議、権利、義務、違反、委任状、助言の宣言、ミラー、インタラクション、注意の閾値のストアです。それぞれ最大 10,000 件、エージェントごとのリストでもエージェントあたり 10,000 件を保持し、古いものから追い出します（FIFO）。追い出されたレコードはエラーなしで消えます。
-- **監査チェーンには独自の上限がありません**（`POST /v2/audit/append`）。適用されるのはリクエストの制限だけです。
+- **監査イベントは数えるだけで、保存しません**（`POST /v2/audit/append`）。ゲートウェイは、登録済みのエージェントの署名を含めて各イベントを確認し、登録済みのエージェントごとにカウンターを 1 つ持ちます。
 
 制限はクライアントの IP ごとに数えます。`X-Forwarded-For` にクライアントの IP を追加するプロキシの背後では `TRUST_PROXY=true` を設定してください。そうしないと、すべてのクライアントがプロキシのアドレスを共有します。
 
@@ -190,7 +190,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 - `PORT` — HTTP のポート（既定値 `3000`）
 - `OPERATOR_TOKEN` — 管理用エンドポイント（ポリシー、勧告、ガバナンス）と新しい `agent_id` の登録のための bearer トークン。未設定ならそれらはロックされたまま
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
-- `ALLOW_V1_BUNDLES` — `false` で V1 バンドルを拒否
+- `ALLOW_V1_BUNDLES` — `false` で V1 バンドルをすべて拒否。`true`（既定）でも、受け入れるのはポリシーが古典のみのバンドルを受け入れる場合だけで、`hybrid_required` と `pq_only` では受け入れない
 - `DCP_DEMO_ENDPOINTS` — `off`（デフォルト）または `dcp-05-09`。後者は [DCP-05–09 のデモのエンドポイント](#dcp-0509-service-endpoints) を有効にし、RFC 6750 の b64token で 32 文字以上の `OPERATOR_TOKEN` を必要とします。ほかの値ではサーバーが停止します
 - `TRUST_PROXY`、`REGISTRATIONS_PER_HOUR`、`MAX_REGISTERED_KEYS`、`MAX_KEYS_PER_AGENT` — 上記を参照
 - `DCP_TRUSTED_PRINCIPALS_FILE`、`DCP_ADMISSION_PROFILE_FILE`、`DCP_REVOCATION_LIST_URL`、`DCP_REVOCATION_LIST_AUTHORIZATION`、`DCP_REVOCATION_TIMEOUT_MS` — `POST /v2/admit` のアドミッション。[ADMISSION.md](../../../docs/ADMISSION.md) を参照

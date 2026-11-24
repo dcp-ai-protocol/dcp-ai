@@ -33,7 +33,7 @@ Porta padrão: `3000`. Altere com `PORT=4000 node server/index.js`. Defina `OPER
 |--------|------|-------------|
 | GET | `/` , `/health` | Checagem de saúde: `{ ok, service, supported_versions, registered_agents, registered_keys }` |
 | GET | `/.well-known/dcp-capabilities.json` | Descoberta das capacidades do protocolo (algoritmos, funcionalidades, formatos de transmissão). É o que o servidor anuncia, não garantias checadas: lista `application/cbor`, mas os corpos só são lidos como JSON; `hsm_provider` é `false`, pois não há nenhum HSM; as funcionalidades do DCP-05 ao DCP-09 são `false`, e `demo_endpoints` descreve os endpoints demo abaixo |
-| POST | `/verify` | Verifica um bundle assinado (detecta V1 ou V2; a V2 é checada contra `VERIFIER_POLICY`) |
+| POST | `/verify` | Verifica um bundle assinado (detecta V1 ou V2) contra `VERIFIER_POLICY`. Um bundle V1 não tem assinatura pós-quântica, então só passa onde um bundle somente clássico passaria (veja `ALLOW_V1_BUNDLES`) |
 | POST | `/v2/admit` | Admissão em relação aos principais confiáveis do operador, e strict-v1 quando configurado (`docs/ADMISSION.md`). Do corpo, só lê `signed_bundle`. 501 quando não está configurada |
 | POST | `/anchor` | Esboço: retorna 501 (cada operador implementa) |
 
@@ -46,7 +46,7 @@ Porta padrão: `3000`. Altere com `PORT=4000 node server/index.js`. Defina `OPER
 |--------|------|-------------|
 | POST | `/v2/passport/register` | Registra um passaporte de agente autoassinado; um `agent_id` novo precisa do token do operador (veja [Modelo de confiança](#trust-model)) |
 | POST | `/v2/intent/declare` | Declara uma intenção de um agente registrado e recebe a decisão de política do servidor (não assinada); a `composite_sig` da intenção não é verificada |
-| POST | `/v2/audit/append` | Acrescenta um evento de auditoria à cadeia do agente |
+| POST | `/v2/audit/append` | Checa um evento de auditoria de um agente registrado e o conta. Ele precisa ser uma entrada de auditoria V2 (`schemas/v2/audit_entry.schema.json`), e `signature` uma assinatura composta sobre ele sob `DCP-AI.v2.AuditEvent` pelas chaves ativas do agente. O gateway não guarda eventos de auditoria nem compara `prev_hash` |
 | POST | `/v2/audit/compact` | Compacta a cadeia de auditoria com um resumo de Merkle |
 | POST | `/v2/bundle/verify` | Verificação completa de um bundle V2: schema, manifesto, assinatura composta Ed25519 + ML-DSA-65, vinculação de sessão e cadeia de auditoria (via `lib/verify.js` e `@dcp-ai/sdk`), contra `VERIFIER_POLICY`. Bundles V1 recebem 400 |
 
@@ -104,7 +104,7 @@ permanecem bloqueados.
 | `PORT` | `3000` | Porta HTTP de escuta |
 | `OPERATOR_TOKEN` | — | Token Bearer para os endpoints de operador e para registrar `agent_id`s novos. Sem definir: ambos ficam bloqueados |
 | `VERIFIER_MODE` | `hybrid_required` | Modo de verificação na inicialização: `classical_only`, `hybrid_preferred`, `hybrid_required` ou `pq_only`. Um valor inválido interrompe o servidor |
-| `ALLOW_V1_BUNDLES` | `true` | `false` faz `POST /verify` recusar bundles V1 (`pq_only` sempre recusa) |
+| `ALLOW_V1_BUNDLES` | `true` | `false` faz `POST /verify` recusar todos os bundles V1. Com `true`, ele aceita um bundle V1 só onde aceitaria um bundle somente clássico: o modo correspondente ao `risk_tier` do passaporte, elevado pelo nível de segurança da intenção, precisa ser `classical_only` ou `hybrid_preferred`. Por isso o padrão `hybrid_required` recusa bundles V1, e `pq_only` sempre recusa |
 | `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` ativa os endpoints demo do DCP-05 ao DCP-09, que então precisam do token do operador (pelo menos 32 caracteres); qualquer valor diferente de indefinido, `off` ou `dcp-05-09` impede o servidor de iniciar |
 | `TRUST_PROXY` | — | `true` só atrás de um proxy que acrescenta o IP do cliente a `X-Forwarded-For` (Fly, nginx). Os limites de taxa passam a usar o seu último salto; caso contrário, o endereço do socket, porque os clientes podem forjar o cabeçalho |
 | `REGISTRATIONS_PER_HOUR` | `20` | Chamadas a `POST /v2/passport/register` por cliente por hora; as demais recebem 429 |
@@ -131,12 +131,15 @@ obrigatórias, idade de chave de 365 dias), e `GET /v2/policy` a mostra.
 - Registrar um `agent_id` **novo** exige `Authorization: Bearer <OPERATOR_TOKEN>` (caso contrário, 401). Um passaporte
   é só autoassinado, e o RPR de um principal também, então, sem uma âncora de confiança, qualquer pessoa poderia
   reivindicar primeiro o `agent_id` de uma vítima e revogá-lo por emergência: o operador responde pelos agentes novos.
-  Registrá-lo de novo (por exemplo, para substituir o token de revogação de emergência) exige um passaporte cujo
+  Registrá-lo de novo exige um passaporte cujo
   `created_at` seja posterior ao registrado, porque os passaportes assinados são públicos e um antigo poderia ser
   reenviado, e que esteja assinado exatamente pelas chaves ativas do agente (registradas em seu nome, não revogadas,
   não expiradas), seja o que for que `VERIFIER_MODE` permita para agentes novos; caso contrário, 409. As entradas de
   chaves registradas são mantidas, então um passaporte novo não pode estender o `expires_at` de uma chave, e um
-  passaporte sem token mantém o registrado.
+  passaporte sem token mantém o registrado. Um passaporte com um token diferente só substitui o registrado se a
+  requisição também trouxer `current_revocation_secret`, o segredo do token registrado, ou o token do operador; caso
+  contrário, 403. O token é a saída do principal quando as chaves do agente estão comprometidas, então essas chaves
+  não devem substituí-lo sozinhas.
 - Um agente que perdeu todas as chaves ativas de uma família que registrou (por exemplo, porque a sua chave ML-DSA-65
   expirou) não pode se registrar de novo: a chave restante não deve substituir sozinha o token. A recuperação passa
   pelo token de revogação de emergência (revogar e depois registrar um `agent_id` novo) ou pelo operador, que ainda não
@@ -200,6 +203,8 @@ curl -s -X POST http://localhost:3000/verify \
     }
   }'
 ```
+
+O servidor aceita um bundle V1 só onde aceitaria um bundle somente clássico; por isso, com o padrão `hybrid_required`, esta requisição recebe `"verified": false`: para testá-la, inicie o servidor com `VERIFIER_MODE=classical_only` ou `VERIFIER_MODE=hybrid_preferred`. Sem `public_key_b64` no corpo, a assinatura é checada com a chave que o próprio bundle declara, e `warnings` informa isso: envie `public_key_b64` para checá-la com uma chave em que você confia.
 
 <a id="v2-passport-registration"></a>
 
@@ -377,7 +382,7 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
                     │  V1 Verification          │
                     │  V2 Composite Verification│
                     │  Key Registry (in-memory) │
-                    │  Audit Chains (in-memory) │
+                    │  Audit Event Checks       │
                     │  Policy Engine (Phase 3)  │
                     │  Advisory System           │
                     │  Governance Keys           │
@@ -388,8 +393,8 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 
 ## Limitações
 
-- **Armazenamento em memória**: todo o estado (passaportes, chaves, cadeias de auditoria, avisos) se perde ao reiniciar. Veja [Persistência](#persistence).
-- **Assinaturas fora da verificação de bundles**: a verificação de bundles, o registro de passaportes, a rotação de chaves e a autorização multipartes checam assinaturas Ed25519 e ML-DSA-65 / SLH-DSA reais. `/v2/advisory/publish` e `/v2/governance/register` não checam (o token do operador é a sua única proteção), nem `/v2/intent/declare` e `/v2/audit/*`, que também não precisam de token, ou os endpoints demo do DCP-05 ao DCP-09, desligados por padrão e só para o operador quando ativados (veja [Do DCP-05 ao DCP-09](#dcp-05-to-dcp-09)).
+- **Armazenamento em memória**: todo o estado (passaportes, chaves, contagens de eventos de auditoria, avisos) se perde ao reiniciar. Veja [Persistência](#persistence).
+- **Assinaturas fora da verificação de bundles**: a verificação de bundles, o registro de passaportes, a rotação de chaves, a autorização multipartes e `/v2/audit/append` checam assinaturas Ed25519 e ML-DSA-65 / SLH-DSA reais. `/v2/advisory/publish` e `/v2/governance/register` não checam (o token do operador é a sua única proteção), nem `/v2/intent/declare` e `/v2/audit/compact`, que também não precisam de token, ou os endpoints demo do DCP-05 ao DCP-09, desligados por padrão e só para o operador quando ativados (veja [Do DCP-05 ao DCP-09](#dcp-05-to-dcp-09)).
 - **Ancoragem**: `POST /anchor` retorna 501. Implemente com a sua blockchain (Ethereum, Bitcoin) ou o seu log de transparência.
 
 <a id="persistence"></a>

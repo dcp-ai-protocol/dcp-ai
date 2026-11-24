@@ -170,11 +170,15 @@ curl -X POST http://localhost:3003/v2/register \
 
 - Only the two signer keys (classical + PQ) are registered: listing someone else's public key
   registers nothing. Their `expires_at` drives the `expired` answer of `GET /v2/check/kid/:kid`.
-- Registering an `agent_id` again (for example to replace the token) needs a passport whose `created_at` is newer than the registered
+- Registering an `agent_id` again needs a passport whose `created_at` is newer than the registered
   one, since signed passports are public and an old one could be replayed, signed by exactly the
   agent's active classical and PQ keys (not revoked, not expired). The registered key entries are
   kept, so a new passport can neither extend a key's `expires_at` nor add keys, and a passport
   without a token keeps the registered one.
+- A passport with a different token replaces the registered one only when the request also carries
+  `current_revocation_secret`, the secret of the registered token, or the operator token; otherwise
+  403. The token is the principal's way out when the agent's keys are compromised, so those keys
+  alone must not replace it.
 - An agent that has lost its active classical or PQ key (expired, or revoked by kid) stays
   locked: its remaining key alone could otherwise pair itself with a new partner key and take the
   agent over. Recovery goes through the emergency revocation token (revoke, then register a new

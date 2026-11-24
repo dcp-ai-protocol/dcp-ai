@@ -70,7 +70,7 @@ DCP API 的正式定义：用于 HTTP/REST 的 OpenAPI 3.1 规范，以及用于
 
 | 方法 | 路径 | 说明 |
 |--------|------|-------------|
-| `POST /v2/passport/register` | 登记智能体护照和密钥（新的 `agent_id` 需要运营方令牌） | 请求：`{ signed_passport }`；复合自签名必须能通过验证 |
+| `POST /v2/passport/register` | 登记智能体护照和密钥（新的 `agent_id` 需要运营方令牌） | 请求：`{ signed_passport, current_revocation_secret? }`；复合自签名必须能通过验证，替换已登记的紧急撤销令牌需要该令牌的秘密值或运营方令牌 |
 | `GET /v2/keys/{kid}` | 查询密钥注册表 | 响应：`{ found, kid, key, agent_id }` |
 | `POST /v2/keys/rotate` | 带持有证明的密钥轮换 | 请求：`KeyRotationRecord`（`{ old_kid, new_key, timestamp, proof_of_possession, authorization_sig }`） |
 
@@ -91,7 +91,7 @@ DCP API 的正式定义：用于 HTTP/REST 的 OpenAPI 3.1 规范，以及用于
 
 | 方法 | 路径 | 说明 |
 |--------|------|-------------|
-| `POST /v2/audit/append` | 追加审计事件 | 请求：`{ audit_event }` |
+| `POST /v2/audit/append` | 检查已登记智能体签名的审计事件并计数（不保存任何事件） | 请求：`{ audit_event, signature }` |
 | `POST /v2/audit/compact` | 压缩审计轨迹 | 请求：`{ compaction }` |
 
 <a id="v2-revocation--emergency"></a>

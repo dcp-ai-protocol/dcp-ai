@@ -119,6 +119,13 @@ const tooLong = (...values) => values.some((v) => v !== undefined && (typeof v !
 const badDate = (v) => typeof v !== "string" || tooLong(v) || Number.isNaN(Date.parse(v));
 const sigEntry = (s) => s && { alg: s.alg, kid: s.kid, sig_b64: s.sig_b64 };
 
+// sha256(secret) is the registered token: the secret is 32 bytes, as 64 lowercase hex characters.
+function opensToken(secret, tokenHash) {
+  if (typeof secret !== "string" || !/^[0-9a-f]{64}$/.test(secret)) return false;
+  const digest = crypto.createHash("sha256").update(Buffer.from(secret, "hex")).digest("hex");
+  return digest === (tokenHash.startsWith("sha256:") ? tokenHash.slice(7) : tokenHash);
+}
+
 function send(res, statusCode, body) {
   res.setHeader("Content-Type", "application/json");
   res.writeHead(statusCode);
@@ -164,7 +171,7 @@ async function handle(req, res) {
       return send(res, 400, { error: "Missing signed_passport (V2 passport payload with created_at + composite_sig)" });
     }
     const token = passport.emergency_revocation_token;
-    if (token !== undefined && !/^sha256:[0-9a-f]{64}$/.test(token)) {
+    if (token !== undefined && (typeof token !== "string" || !/^sha256:[0-9a-f]{64}$/.test(token))) {
       return send(res, 400, { error: "emergency_revocation_token must be sha256:<64 hex chars>" });
     }
 
@@ -196,9 +203,9 @@ async function handle(req, res) {
     if (unusable) {
       return send(res, 409, { error: `Key ${unusable.kid} is revoked, expired or registered to another agent` });
     }
-    // Re-registration (e.g. a new token) must be newer than the registered passport (signed
-    // passports are public, so an old one can be replayed) and signed by exactly the agent's
-    // active classical and PQ keys. An agent that lost either one (expired or kid-revoked)
+    // Re-registration must be newer than the registered passport (signed passports are
+    // public, so an old one can be replayed) and signed by exactly the agent's active
+    // classical and PQ keys. An agent that lost either one (expired or kid-revoked)
     // stays locked: its remaining key alone could pair itself with a new partner key and
     // take the agent over. Recovery goes through the emergency token or the operator.
     if (existing) {
@@ -210,6 +217,14 @@ async function handle(req, res) {
       }
       if (!(Date.parse(passport.created_at) > Date.parse(existing.created_at))) {
         return send(res, 409, { error: "Re-registration needs a passport newer (created_at) than the registered one" });
+      }
+      // The emergency token is the principal's way out when these keys are compromised, so the
+      // keys alone do not replace it: that takes the registered token's secret, or the operator.
+      if (existing.token_hash && token !== undefined && token !== existing.token_hash &&
+          !opensToken(body.current_revocation_secret, existing.token_hash) && !isOperator(req)) {
+        return send(res, 403, {
+          error: "Replacing the emergency revocation token needs current_revocation_secret (the registered token's secret) or the operator token",
+        });
       }
     }
 
@@ -406,14 +421,7 @@ async function handle(req, res) {
       });
     }
 
-    // Verify: sha256(revocation_secret) == token_hash
-    const secretBytes = Buffer.from(revocation_secret, "hex");
-    const computedHash = crypto.createHash("sha256").update(secretBytes).digest("hex");
-    const expectedHash = agent.token_hash.startsWith("sha256:")
-      ? agent.token_hash.slice(7)
-      : agent.token_hash;
-
-    if (computedHash !== expectedHash) {
+    if (!opensToken(revocation_secret, agent.token_hash)) {
       console.log(`[emergency-revoke] FAILED attempt for agent ${agent_id} from ${ip}`);
       return send(res, 403, { error: "Invalid revocation secret" });
     }

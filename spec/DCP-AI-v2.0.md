@@ -663,7 +663,9 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
   `api/proto/dcp.proto` is a definition: no gRPC server or client here implements it.
 - **§17, backward compatibility.** The table describes outcomes, not one entry point. `verifySignedBundleV2` in the
   SDKs verifies V2 bundles only. `allow_v1_bundles` is read by the reference server and by the admission profile; the
-  root `verifySignedBundle` (`lib/verify.js`) sends V1 bundles to the V1 checks without reading it.
+  reference server's `POST /verify` takes a V1 bundle only where its policy would also take a classical-only bundle
+  (VERIFICATION.md V2-10), so the PASS of the table needs a mode that does; the root `verifySignedBundle`
+  (`lib/verify.js`) sends V1 bundles to the V1 checks without reading it.
 - **§18, pipeline.** From the releases of 05/11/2026 (`@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2, Go
   v2.13.0 and Rust `dcp-ai` 2.13.0), `verifySignedBundleV2` and its counterparts in every SDK run JSON Schema validation
   (step 2) themselves; earlier versions do not, and `lib/verify.js` and the server also run it before calling

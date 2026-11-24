@@ -4,7 +4,7 @@
 
 # Servicio de revocación
 
-> Traducción informativa de [la versión en inglés](../../../../services/revocation/README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../services/revocation/README.md), actualizada el 18/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Servicio HTTP para publicar y consultar revocaciones de agentes de DCP. Admite tanto V1 (a nivel de agente) como V2 (a nivel de kid, revocación de emergencia, seguimiento de certificados de corta duración). Expone un endpoint `.well-known` para consultas normalizadas.
 
@@ -180,11 +180,15 @@ curl -X POST http://localhost:3003/v2/register \
 
 - Solo se registran las dos claves firmantes (clásica + PQ): incluir la clave pública de otra persona no registra
   nada. Su `expires_at` determina la respuesta `expired` de `GET /v2/check/kid/:kid`.
-- Volver a registrar un `agent_id` (por ejemplo, para sustituir el token) requiere un pasaporte cuyo `created_at` sea
+- Volver a registrar un `agent_id` requiere un pasaporte cuyo `created_at` sea
   posterior al registrado, porque los pasaportes firmados son públicos y uno antiguo podría reenviarse, y que esté
   firmado exactamente por las claves clásica y PQ activas del agente (no revocadas, no caducadas). Las entradas de
   claves registradas se conservan, así que un pasaporte nuevo no puede ampliar el `expires_at` de una clave ni añadir
   claves, y un pasaporte sin token conserva el registrado.
+- Un pasaporte con un token distinto solo sustituye al registrado si la petición lleva además
+  `current_revocation_secret`, el secreto del token registrado, o el token del operador; si no, 403. El token es la
+  salida del principal cuando las claves del agente están comprometidas, así que esas claves no deben sustituirlo por
+  sí solas.
 - Un agente que ha perdido su clave clásica o PQ activa (caducada, o revocada por kid) queda bloqueado: si no, la clave
   que le queda podría emparejarse con una nueva clave compañera y apoderarse del agente. La recuperación pasa por el
   token de revocación de emergencia (revocar y después registrar un `agent_id` nuevo) o por el operador, que todavía no
