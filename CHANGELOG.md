@@ -1265,6 +1265,13 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Documentation
 
+- **Documents that described the DCP-04 handshake as authenticated now say what the specification's notice says**
+  (documentation only; no change to code, schemas or versions). The README and the documentation index no longer call
+  DCP-04 "authenticated" messaging; the security model (layer 8, §11 and its known limitations), the quick start (§7),
+  the technical architecture and the API reference state that neither the handshake nor verifying the counterparty's
+  bundle authenticates it, and point to the notice in [DCP-04 §3](spec/DCP-04.md#3-handshake-protocol), which is under
+  revision.
+
 - **Operational limits** (new [docs/OPERATIONAL_LIMITS.md](docs/OPERATIONAL_LIMITS.md); no code, default, profile or
   wire change). What bounds inputs, trust and revocation sources, concurrency, client disconnection and the Express
   verdict cache, which layer sets each limit, what the operator has to set, and a sample pilot configuration that is

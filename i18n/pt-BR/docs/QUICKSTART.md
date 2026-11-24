@@ -4,7 +4,7 @@
 
 # Guia de início rápido do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../docs/QUICKSTART.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/QUICKSTART.md), atualizada em 24/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este guia mostra como produzir e verificar evidências DCP com um SDK, e quais ferramentas são demonstrações.
 
@@ -444,6 +444,8 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 <a id="7-agent-to-agent-a2a-communication"></a>
 
 ## 7. Comunicação entre agentes (A2A)
+
+> Estas funções constroem as mensagens do handshake e cifram as mensagens de uma sessão. Elas não autenticam a contraparte, e verificar o bundle dela também não: o [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) está em revisão. É preciso estabelecer por outros meios quem é o interlocutor.
 
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';

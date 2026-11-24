@@ -11,7 +11,7 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol para agentes de IA
 
-> Tradução informativa da [versão em inglês](../../../scripts/docs-index.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../scripts/docs-index.md), atualizada em 24/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 > Uma camada portátil de prestação de contas para agentes de IA em redes abertas.
 
@@ -97,7 +97,7 @@ Identidade verificável criptograficamente, intenção legível por máquina, tr
 
     ---
 
-    Mensagens autenticadas entre agentes, descoberta, handshake, delegação, cadeias de confiança.
+    Mensagens entre agentes, descoberta, handshake (em revisão: como está especificado, não autentica as partes), delegação, cadeias de confiança.
 
     [Ler →](specs/DCP-04.md)
 

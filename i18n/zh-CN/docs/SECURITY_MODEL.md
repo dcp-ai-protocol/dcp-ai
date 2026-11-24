@@ -4,7 +4,7 @@
 
 # 安全模型
 
-> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 24/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 协议如何防范各种攻击，从伪造的 bundle 到协议分叉。
 
@@ -261,14 +261,14 @@ nonce 并不能阻止同一个 bundle 被再次出示：整个 bundle 会原样�
 **攻击：** 攻击者截获或劫持智能体间的通信会话。
 
 **防护：**
-- **相互验证 bundle：** 在建立会话之前，两个智能体互相验证对方的 bundle。
+- **相互验证 bundle：** 在建立会话之前，两个智能体互相验证对方的 bundle。这并不认证对方：已签名的 bundle 是公开的工件，而握手消息没有用智能体的密钥签名。[DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) 正在修订；需要通过其他途径确认对端是谁。
 - **混合 KEM 密钥交换：** 临时密钥提供前向保密。长期密钥被攻破不会泄露过去的会话密钥。SDK 把这一交换留给调用方。
 - **AES-256-GCM 加密：** 所有会话消息都用认证加密进行加密。
 - **单调递增的序号：** 防止会话内的重放和重排。
 - **定期更换密钥：** 会话会报告何时需要更换密钥（`needsRekeying`）；由调用方导出新密钥。
 - **吊销感知：** 规范要求在任一智能体被吊销时结束会话。SDK 不会在会话期间监视吊销：应用必须自行检查并关闭会话。
 
-**强度：** 当调用方执行混合交换和密钥更换时，提供后量子前向保密 + 认证加密。
+**强度：** 当调用方执行混合交换和密钥更换时，提供后量子前向保密 + 认证加密。不认证对方。
 
 <a id="12-lifecycle-state-manipulation-dcp-05"></a>
 
@@ -342,7 +342,8 @@ Layer 7: Security Tiers (V2.0)
   Risk-adaptive cryptographic requirements. High-risk = full PQ.
 
 Layer 8: A2A Security (DCP-04)
-  Mutual authentication + encrypted channels between agents.
+  Encrypted channels between agents. As specified, the handshake does not
+  authenticate them (DCP-04 §3 is under revision).
 
 Layer 9: Observability (V2.0)
   Telemetry, metrics, and alerting for anomalous behavior.
@@ -441,6 +442,7 @@ Layer 14: Delegation Control (DCP-09)
 | 2026 年 10 月 28 日之前发布的 V2 验证器不检查可选的次级审计链或次级 Merkle 根；自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起会检查存在的字段，不存在的不作要求 | 使用更早的版本时，只依赖实际执行的检查：主 SHA-256 承诺和签名，不要因验证成功就声称获得了 V2-11 中规定的额外保护。自这些版本起，验证成功覆盖的是存在的次级字段，而不是完整的次级链；实验性候选也复用这些检查（[STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
 | `agent_id` 的持久性使追踪成为可能 | 在高隐私场景中考虑轮换化名 |
 | BlindedRPR 暴露 `entity_type` 和 `jurisdiction` | 未来：基于 ZKP 的凭证出示 |
+| DCP-04 的握手按现有规范并不认证双方 | 不要依靠 A2A 会话来判断对端是谁；§3 正在修订（[说明](../spec/DCP-04.md#3-handshake-protocol)） |
 | 没有任何 SDK 执行 DCP-04 的 X25519 + ML-KEM-768 交换 | 由调用方导出 A2A 会话密钥。Python、Go、Rust 和 WASM 把 ML-KEM-768 作为原语公开；TypeScript 的 KEM 提供者是内部的 |
 | ML-DSA-87 未实现 | 该标识符在密钥模式中被保留；没有 SDK 能使用它（曾列出它的模拟 HSM 模式并不是实现，已于2026 年 11 月 6 日移除） |
 | 参考服务器的 DCP-05–09 端点是演示：默认关闭，启用后只凭运营方令牌，不验证签名 | 保持关闭，或只为运营方启用（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)） |

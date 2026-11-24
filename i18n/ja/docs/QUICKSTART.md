@@ -4,7 +4,7 @@
 
 # DCP-AI クイックスタートガイド
 
-> [英語版](../../../docs/QUICKSTART.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/QUICKSTART.md)の参考訳です（24/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドでは、SDK で DCP の証拠を作成・検証する方法と、どのツールがデモかを説明します。
 
@@ -438,6 +438,8 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 <a id="7-agent-to-agent-a2a-communication"></a>
 
 ## 7. エージェント間（A2A）通信
+
+> これらの関数は、ハンドシェイクのメッセージを構築し、セッションのメッセージを暗号化します。相手方を認証するものではなく、相手方のバンドルを検証しても認証にはなりません。[DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) は改訂中です。相手が誰であるかは、別の手段で確かめてください。
 
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';

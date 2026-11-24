@@ -4,7 +4,7 @@
 
 # Modelo de seguridad
 
-> Traducción informativa de [la versión en inglés](../../../docs/SECURITY_MODEL.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/SECURITY_MODEL.md), actualizada el 24/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Cómo protege el protocolo frente a los ataques, desde los bundles falsificados hasta las bifurcaciones del protocolo.
 
@@ -261,14 +261,14 @@ El nonce no impide que el mismo bundle vuelva a presentarse: un bundle completo 
 **Ataque:** un atacante intercepta o secuestra una sesión de comunicación entre agentes.
 
 **Protección:**
-- **Verificación mutua de bundles:** ambos agentes verifican el bundle del otro antes de establecer una sesión.
+- **Verificación mutua de bundles:** ambos agentes verifican el bundle del otro antes de establecer una sesión. Esto no autentica a la contraparte: un bundle firmado es un artefacto público, y los mensajes del handshake no van firmados con las claves de los agentes. [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) está en revisión; hay que establecer por otros medios quién es el interlocutor.
 - **Intercambio de claves con KEM híbrido:** las claves efímeras proporcionan secreto hacia adelante. Comprometer las claves de larga duración no revela las claves de sesión pasadas. Los SDK dejan este intercambio a quien llama.
 - **Cifrado AES-256-GCM:** todos los mensajes de la sesión se cifran con cifrado autenticado.
 - **Números de secuencia monótonos:** impiden la repetición y el reordenamiento dentro de una sesión.
 - **Cambio periódico de clave:** la sesión indica cuándo toca cambiar de clave (`needsRekeying`); quien llama deriva la clave nueva.
 - **Atención a la revocación:** la especificación termina una sesión cuando cualquiera de los agentes se revoca. Los SDK no vigilan la revocación durante una sesión: la aplicación debe comprobarla y cerrar la sesión.
 
-**Solidez:** secreto hacia adelante poscuántico + cifrado autenticado, cuando quien llama ejecuta el intercambio híbrido y el cambio de clave.
+**Solidez:** secreto hacia adelante poscuántico + cifrado autenticado, cuando quien llama ejecuta el intercambio híbrido y el cambio de clave. No autentica a la contraparte.
 
 <a id="12-lifecycle-state-manipulation-dcp-05"></a>
 
@@ -342,7 +342,8 @@ Layer 7: Security Tiers (V2.0)
   Risk-adaptive cryptographic requirements. High-risk = full PQ.
 
 Layer 8: A2A Security (DCP-04)
-  Mutual authentication + encrypted channels between agents.
+  Encrypted channels between agents. As specified, the handshake does not
+  authenticate them (DCP-04 §3 is under revision).
 
 Layer 9: Observability (V2.0)
   Telemetry, metrics, and alerting for anomalous behavior.
@@ -441,6 +442,7 @@ Los operadores que despliegan DCP DEBEN:
 | Los verificadores V2 publicados antes del 28/10/2026 no comprueban la cadena de auditoría secundaria opcional ni la raíz de Merkle secundaria; desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1 se comprueban los campos presentes y los ausentes no se exigen | Con las versiones anteriores, confía solo en las comprobaciones que realmente se hacen: los compromisos SHA-256 primarios y las firmas, y no atribuyas a un resultado satisfactorio la protección adicional especificada en V2-11. Desde esas versiones, un resultado satisfactorio cubre los campos secundarios presentes, no una cadena secundaria completa; el candidato experimental reutiliza estas comprobaciones ([STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | La persistencia del `agent_id` permite el rastreo | Considerar la rotación de seudónimos en escenarios de alta privacidad |
 | BlindedRPR expone `entity_type` y `jurisdiction` | Futuro: presentación de credenciales basada en ZKP |
+| El handshake de DCP-04 no autentica a las partes tal como está especificado | No confiar en una sesión A2A para saber quién es el interlocutor; §3 está en revisión ([aviso](../spec/DCP-04.md#3-handshake-protocol)) |
 | Ningún SDK ejecuta el intercambio X25519 + ML-KEM-768 de DCP-04 | Quien llama deriva la clave de sesión A2A. Python, Go, Rust y WASM exponen ML-KEM-768 como primitiva; los proveedores KEM de TypeScript son internos |
 | ML-DSA-87 no está implementado | El identificador está reservado en el esquema de claves; ningún SDK puede usarlo (el patrón HSM simulado que lo enumeraba no era una implementación y se retiró el 06/11/2026) |
 | Los endpoints de DCP-05–09 del servidor de referencia son una demo: apagados por defecto, solo con el token del operador cuando se activan, sin verificación de firmas | Déjalos apagados o actívalos solo para operadores ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |

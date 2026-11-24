@@ -417,6 +417,8 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 
 ## 7. Agent-to-Agent (A2A) Communication
 
+> These helpers build the handshake messages and encrypt the messages of a session. They do not authenticate the counterparty, and verifying its bundle does not either: [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) is under revision. Establish who the peer is by other means.
+
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';
 

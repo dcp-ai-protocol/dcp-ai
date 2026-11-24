@@ -86,7 +86,7 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 
     ---
 
-    Authenticated inter-agent messaging, discovery, handshake, delegation, trust chains.
+    Inter-agent messaging, discovery, handshake (under revision: as specified it does not authenticate the parties), delegation, trust chains.
 
     [Read →](specs/DCP-04.md)
 

@@ -1308,6 +1308,13 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Documentação
 
+- **Os documentos que descreviam o handshake do DCP-04 como autenticado agora dizem o que diz o aviso da
+  especificação** (apenas documentação; sem mudanças de código, esquemas ou versões). O README e o índice da
+  documentação não chamam mais de «autenticadas» as mensagens do DCP-04; o modelo de segurança (camada 8, §11 e as
+  suas limitações conhecidas), o guia de início rápido (§7), a arquitetura técnica e a referência da API dizem que nem
+  o handshake nem verificar o bundle da contraparte a autenticam, e remetem ao aviso do [DCP-04
+  §3](../../spec/DCP-04.md#3-handshake-protocol), que está em revisão.
+
 - **Limites operacionais** (novo [docs/OPERATIONAL_LIMITS.md](../../docs/OPERATIONAL_LIMITS.md); sem mudança de código, valores padrão, perfis ou wire). O que limita as entradas, as fontes de confiança e de revogação, a concorrência, a desconexão do cliente e o cache de veredictos do Express, qual camada define cada limite, o que o operador precisa definir, e uma configuração de exemplo para um piloto que não é um padrão nem normativa. Vinculado a partir de `docs/ADMISSION.md` e dos READMEs do Express e do FastAPI; o README do Express agora diz que `req.dcpAgent.mandateId` é o valor do manifesto, sem nenhuma cadeia de mandatos verificada.
 
 - `spec/profiles/admission/README.md` (perfil de admissão): precisões editoriais, sem mudar nenhum

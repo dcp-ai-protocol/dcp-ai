@@ -286,7 +286,7 @@ Agent A                                     Agent B
 
 Key components:
 - **Discovery**: `.well-known/dcp-agent-directory.json` per organization
-- **Handshake**: Mutual bundle verification + hybrid KEM (X25519 + ML-KEM-768) in the specification; the SDKs build the handshake messages, and the caller derives the session key (no SDK exports the hybrid exchange)
+- **Handshake**: Mutual bundle verification + hybrid KEM (X25519 + ML-KEM-768) in the specification; the SDKs build the handshake messages, and the caller derives the session key (no SDK exports the hybrid exchange). As specified, the handshake does not authenticate the parties ([DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) is under revision)
 - **Session**: AES-256-GCM encrypted messages with monotonic sequence numbers
 - **Rekeying**: the session reports when it is due (`needsRekeying`, every 1000 messages by default); the caller derives the new key
 - **Audit**: the specification has both agents record A2A interactions in their audit chains; the TypeScript session functions do not write audit entries themselves

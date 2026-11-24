@@ -5,7 +5,7 @@
 
 # Arquitetura técnica — DCP em escala global
 
-> Tradução informativa da [versão em inglês](../../../docs/TECHNICAL_ARCHITECTURE.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/TECHNICAL_ARCHITECTURE.md), atualizada em 24/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este documento é a planta técnica para implantar o Digital Citizenship Protocol no mundo todo. Ele descreve as camadas, os componentes e as escolhas tecnológicas que permitem a qualquer governo, organização ou desenvolvedor adotar o protocolo sem depender de nenhuma autoridade central nem dos autores do protocolo.
 
@@ -337,7 +337,7 @@ Agent A                                     Agent B
 
 Componentes principais:
 - **Descoberta**: `.well-known/dcp-agent-directory.json` por organização
-- **Handshake**: verificação mútua de bundles + KEM híbrido (X25519 + ML-KEM-768) na especificação; os SDKs constroem as mensagens do handshake, e quem chama deriva a chave de sessão (nenhum SDK exporta a troca híbrida)
+- **Handshake**: verificação mútua de bundles + KEM híbrido (X25519 + ML-KEM-768) na especificação; os SDKs constroem as mensagens do handshake, e quem chama deriva a chave de sessão (nenhum SDK exporta a troca híbrida). Como está especificado, o handshake não autentica as partes (o [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) está em revisão)
 - **Sessão**: mensagens criptografadas com AES-256-GCM e números de sequência monotônicos
 - **Renovação de chaves**: a sessão informa quando é a hora (`needsRekeying`, a cada 1000 mensagens por padrão); quem chama deriva a nova chave
 - **Auditoria**: a especificação faz os dois agentes registrarem as interações A2A nas suas cadeias de auditoria; as funções de sessão do TypeScript não gravam entradas de auditoria por conta própria

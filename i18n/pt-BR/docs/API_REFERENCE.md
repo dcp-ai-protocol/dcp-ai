@@ -4,7 +4,7 @@
 
 # Referência da API do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 18/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 24/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Referência do SDK TypeScript `@dcp-ai/sdk` como está em `main` (versão do pacote 2.4.0, protocolo DCP v2.0).
 
@@ -1056,6 +1056,8 @@ effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 
 Protocolo de sessão entre agentes, projetado em torno de uma troca de chaves híbrida X25519 + ML-KEM-768. Estas funções
 não realizam essa troca: quem chama a realiza e passa a chave de sessão resultante para `createSession`.
+
+Elas também não autenticam a contraparte, e verificar o bundle dela não o faz: o [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) está em revisão.
 
 ### `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)`
 
