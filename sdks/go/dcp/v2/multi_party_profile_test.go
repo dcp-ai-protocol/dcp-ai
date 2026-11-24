@@ -528,19 +528,30 @@ func (s mpaSetting) request(parameters map[string]interface{}) (map[string]inter
 	return v2.NewMultiPartyRequest(v2.MultiPartyRequestInput{Target: "agent:signed-here", Audience: "verifier:here", Parameters: parameters, IssuedAt: s.now, ValiditySeconds: 600})
 }
 
-// signedOver is a record whose two parties signed payload, whatever it holds: the signer signs what it is given.
+// signedOver is a record whose two parties signed payload, whatever it holds. The SDK's signer takes data of the
+// profile only, so the bytes are signed here: what a signer written by someone else may have signed.
 func (s mpaSetting) signedOver(t *testing.T, payload map[string]interface{}) []byte {
 	t.Helper()
+	entry := func(e v2.SignatureEntry) map[string]interface{} {
+		return map[string]interface{}{"alg": e.Alg, "kid": e.Kid, "sig_b64": e.SigB64}
+	}
 	var authorizations []map[string]interface{}
 	for _, p := range []struct {
 		party mpaTestParty
 		role  string
 	}{{s.owner, "owner"}, {s.admin, "org_admin"}} {
-		a, err := v2.CreatePartyAuthorization(s.reg, "revoke_agent", payload, p.party.id, p.role, p.party.classical, p.party.pq)
+		signed, err := v2.CanonicalizeV2(map[string]interface{}{"operation": "revoke_agent", "operation_payload": payload, "party_id": p.party.id, "role": p.role})
 		if err != nil {
 			t.Fatal(err)
 		}
-		authorizations = append(authorizations, a)
+		sig, err := v2.CompositeSign(s.reg, v2.CtxMultiPartyAuth, []byte(signed), p.party.classical, p.party.pq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		authorizations = append(authorizations, map[string]interface{}{
+			"party_id": p.party.id, "role": p.role,
+			"composite_sig": map[string]interface{}{"classical": entry(sig.Classical), "pq": entry(*sig.PQ), "binding": sig.Binding},
+		})
 	}
 	recordJSON, err := json.Marshal(v2.BuildMultiPartyAuthorization("revoke_agent", payload, authorizations, 0))
 	if err != nil {
@@ -810,6 +821,24 @@ func TestMultiPartyBoundsHowDeepThePayloadNests(t *testing.T) {
 	if r, err := s.evaluate(over, deepest); !mpaNotRepresentable(r, err) {
 		t.Fatalf("33 levels, in a record: %+v, %v", r, err)
 	}
+	// A nil slice or map is written null, and null is no level: under the last one it is taken as any nil is. An
+	// empty one is written [] or {}, one level too many.
+	under := func(leaf interface{}) map[string]interface{} {
+		for i := 0; i < 30; i++ {
+			leaf = map[string]interface{}{"in": leaf}
+		}
+		return map[string]interface{}{"limits": leaf}
+	}
+	for name, leaf := range map[string]interface{}{"nil": nil, "a nil slice": []interface{}(nil), "a nil map": map[string]interface{}(nil)} {
+		if payload, err := s.request(under(leaf)); err != nil || payload == nil {
+			t.Fatalf("%s under the last level: %v, %v", name, payload, err)
+		}
+	}
+	for name, leaf := range map[string]interface{}{"an empty slice": []interface{}{}, "an empty map": map[string]interface{}{}} {
+		if payload, err := s.request(under(leaf)); !mpaInvalidValue(err) || payload != nil {
+			t.Fatalf("%s under the last level: %v, %v", name, payload, err)
+		}
+	}
 }
 
 func TestMultiPartyARequiredPartiesNoBinary64HoldsIsNotAnIntegerOfTheSchema(t *testing.T) {
@@ -970,9 +999,34 @@ func TestMultiPartyWithNoClockGivenTheSystemClockDecides(t *testing.T) {
 func TestMultiPartyAPartySignsNothingItCannotSign(t *testing.T) {
 	reg := mpaRegistry()
 	party := newMpaParty(t, "human:owner")
-	// A payload dcp-jcs-v1 cannot represent.
-	if a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", map[string]interface{}{"ratio": 0.5}, party.id, "owner", party.classical, party.pq); err == nil || a != nil {
-		t.Fatalf("a payload that is not representable: %v, %v", a, err)
+	// A payload that is not data of the profile, as in the other SDKs. For bytes that are not UTF-8 encoding/json
+	// would write U+FFFD: the party would sign what it does not hold, and an executor that states U+FFFD would be
+	// authorized.
+	type quoted struct {
+		Path string `json:"path,string"`
+	}
+	deep := func(levels int) map[string]interface{} { // an object nested levels deep, itself the first
+		value := map[string]interface{}{}
+		for i := 1; i < levels; i++ {
+			value = map[string]interface{}{"in": value}
+		}
+		return value
+	}
+	for name, payload := range map[string]map[string]interface{}{
+		"a number that is not an integer":    {"ratio": 0.5},
+		"an integer no binary64 holds":       {"limit": int64(1)<<53 + 1},
+		"bytes that are not UTF-8":           {"parameters": map[string]interface{}{"path": "keys/\xff"}},
+		"bytes that are not UTF-8 in a name": {"k\xff": 1},
+		"a slice of strings":                 {"parameters": map[string]interface{}{"paths": []string{"keys/a"}}},
+		"a struct":                           {"parameters": quoted{Path: "keys/a"}},
+		"more levels than the profile nests": deep(33),
+	} {
+		if a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", payload, party.id, "owner", party.classical, party.pq); !mpaInvalidValue(err) || a != nil {
+			t.Fatalf("%s: %v, %v", name, a, err)
+		}
+	}
+	if a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", deep(32), party.id, "owner", party.classical, party.pq); err != nil || a == nil {
+		t.Fatalf("as many levels as the profile nests: %v, %v", a, err)
 	}
 	// A secret key that is not one.
 	broken := party.classical
