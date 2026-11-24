@@ -113,6 +113,24 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **Servidor e serviços de referência: correções posteriores às revisões do endurecimento e da rota multipartes**
+  (código-fonte em `main`, em nenhuma versão publicada; sem mudança de versão). **Mudanças de aceitação.**
+  `POST /v2/audit/append` e `POST /v2/passport/register` só aceitam uma assinatura sem metade pós-quântica enquanto o
+  modo do verificador for `classical_only` ou `hybrid_preferred` e nenhum aviso aplicado tiver retirado o seu
+  algoritmo: depois de um aviso que revogava `ed25519`, um agente com uma única chave Ed25519 continuava acrescentando
+  eventos de auditoria. Nas duas rotas é recusada uma assinatura cuja metade pós-quântica usa um algoritmo que um
+  aviso aplicado retirou. `POST /v2/advisory/auto-apply` responde `policy_modified: true` e registra a mudança quando
+  volta a pôr o modo em `pq_only` depois de o operador ter definido outro manualmente. Um corpo que é o valor JSON
+  `null` recebe 400 em vez de 500, no servidor e nos serviços de ancoragem, log de transparência e revogação, e um
+  bundle V1 cuja chave tem outro tamanho ou não é base64 recebe `verified: false` em vez de 500. **Documentação.** O
+  README do servidor diz o que `POST /v2/multi-party/authorize` não lê (nenhuma política de verificação, aviso ou
+  modo), que o seu arquivo de principais confiáveis também liga `POST /v2/admit` sem token, e que quem a chama tem o
+  token do operador; o guia do operador lista `DCP_MULTI_PARTY_POLICY_FILE` e diz que um aviso não muda nada até ser
+  aplicado; o documento OpenAPI lista 413 e 429 para a rota e um `pq` que pode ser null. **Testes.** As suítes cobrem
+  o que as revisões encontraram sem teste na rota, entre isso um número fora do intervalo do perfil (400 quando
+  declarado, 403 em um registro), e o arnês de testes tenta a próxima porta que o sistema oferece sem gastar uma
+  tentativa do serviço.
+
 - **`mpa-v1`: todo número da carga assinada é um inteiro de -(2^53 - 1) a 2^53 - 1** (código-fonte em `main`, em
   nenhuma versão publicada; sem mudança de versão). O perfil compara `parameters` por meio de `dcp-jcs-v1`, e os SDKs
   não escreviam o mesmo texto para um inteiro que um binary64 não guarda exatamente: os SDKs de TypeScript e Go o

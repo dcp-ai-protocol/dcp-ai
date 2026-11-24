@@ -18,7 +18,7 @@
 #   GET  /v2/keys/:kid                  — Key registry lookup
 #   POST /v2/keys/rotate                — Key rotation with PoP
 #   POST /v2/emergency-revoke           — Panic button revocation
-#   POST /v2/multi-party/authorize      — Multi-party M-of-N auth
+#   POST /v2/multi-party/authorize      — Multi-party authorization (mpa-v1): only with a policy file, operator token
 #   POST /v2/advisory/publish           — Publish algorithm advisory
 #   GET  /v2/advisory/check             — Check active advisories
 #   GET  /.well-known/dcp-capabilities.json

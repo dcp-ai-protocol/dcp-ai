@@ -113,6 +113,24 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Seguridad
 
+- **Servidor y servicios de referencia: correcciones posteriores a las revisiones del endurecimiento y de la ruta
+  multiparte** (código fuente en `main`, en ninguna versión publicada; sin cambio de versión). **Cambios de
+  aceptación.** `POST /v2/audit/append` y `POST /v2/passport/register` solo admiten una firma sin mitad poscuántica
+  mientras el modo del verificador sea `classical_only` o `hybrid_preferred` y ningún aviso aplicado haya retirado su
+  algoritmo: tras un aviso que revocaba `ed25519`, un agente con una sola clave Ed25519 seguía añadiendo eventos de
+  auditoría. En las dos rutas se rechaza una firma cuya mitad poscuántica usa un algoritmo que un aviso aplicado ha
+  retirado. `POST /v2/advisory/auto-apply` responde `policy_modified: true` y registra el cambio cuando vuelve a poner
+  el modo en `pq_only` después de que el operador hubiera fijado otro a mano. Un cuerpo que es el valor JSON `null`
+  recibe 400 en lugar de 500, en el servidor y en los servicios de anclaje, registro de transparencia y revocación, y
+  un bundle V1 cuya clave tiene otro tamaño o no es base64 recibe `verified: false` en lugar de 500.
+  **Documentación.** El README del servidor dice lo que `POST /v2/multi-party/authorize` no lee (ninguna política de
+  verificación, aviso ni modo), que su archivo de principales de confianza enciende también `POST /v2/admit` sin
+  token, y que quien la llama tiene el token del operador; la guía del operador lista `DCP_MULTI_PARTY_POLICY_FILE` y
+  dice que un aviso no cambia nada hasta que se aplica; el documento OpenAPI lista 413 y 429 para la ruta y un `pq`
+  que puede ser null. **Pruebas.** Las suites cubren lo que las revisiones encontraron sin probar en la ruta, entre
+  ello un número fuera del rango del perfil (400 si se declara, 403 en un registro), y el arnés de pruebas prueba el
+  siguiente puerto que ofrece el sistema sin gastar un intento del servicio.
+
 - **`mpa-v1`: todo número de la carga firmada es un entero de -(2^53 - 1) a 2^53 - 1** (código fuente en `main`, en
   ninguna versión publicada; sin cambio de versión). El perfil compara `parameters` mediante `dcp-jcs-v1`, y los SDK
   no escribían el mismo texto para un entero que un binary64 no guarda exacto: los SDK de TypeScript y Go lo

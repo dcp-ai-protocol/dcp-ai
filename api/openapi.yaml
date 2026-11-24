@@ -1086,9 +1086,10 @@ paths:
         The parties of each target, their roles, the
         threshold, the audience and the keys of the parties are the operator's configuration: a role or a
         `required_parties` written in the record decides nothing, and an identity registered through
-        `/v2/passport/register` is not a party. Nothing is executed and no state is kept, so the same request
-        gets the same answer every time: a caller whose operation is not idempotent consumes `request_id`
-        and executes atomically.
+        `/v2/passport/register` is not a party. Nothing is executed and no state is kept: the same request
+        gets the same answer until the request expires, for as long as the operator's trust set does not
+        change, so a caller whose operation is not idempotent consumes `request_id` and executes atomically.
+        Members of the body other than `authorization` and `expected` are ignored.
       security:
         - BearerAuth: []
       requestBody:
@@ -1109,6 +1110,7 @@ paths:
                   type: object
                   description: What the caller is about to carry out. The authorization must be for exactly this.
                   required: [operation, target, parameters]
+                  additionalProperties: false
                   properties:
                     operation:
                       type: string
@@ -1152,7 +1154,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Not authorized. The same body as 200, with `authorized` false and the codes in `errors`
+          description: >-
+            Not authorized. The same body as 200, with `authorized` false and the codes in `errors`. A body
+            without `authorization`, or with one that is not a record of the profile, is answered here
+            (`MPA_SCHEMA_INVALID`), not with 400
           content:
             application/json:
               schema:
@@ -1163,8 +1168,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: The body is larger than 1 MB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded. The limit on POST requests is applied before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: The operator's trusted principals cannot be loaded
+          description: The operator's trusted principals cannot be loaded. Nothing is evaluated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authorized:
+                    type: boolean
+                    enum: [false]
+                  error:
+                    type: string
 
   /v2/advisory/publish:
     post:
@@ -1606,7 +1633,8 @@ components:
             sig_b64:
               type: string
         pq:
-          type: object
+          type: [object, "null"]
+          description: null, not omitted, in a signature whose binding is `classical_only`
           properties:
             alg:
               type: string

@@ -154,6 +154,26 @@ let VERIFIER_POLICY = {
 
 const VERIFIER_MODES = ["classical_only", "pq_only", "hybrid_required", "hybrid_preferred"];
 
+/**
+ * Whether this gateway still takes, from an agent, a signature with no post-quantum half: its mode allows one and no
+ * advisory has withdrawn the classical algorithm. The signature checks of the gateway read their algorithms from the
+ * SDK's default policy, which no advisory changes.
+ */
+function takesClassicalOnly(alg) {
+  return ["classical_only", "hybrid_preferred"].includes(VERIFIER_POLICY.default_mode) &&
+    VERIFIER_POLICY.accepted_classical_algs.includes(alg) &&
+    !(VERIFIER_POLICY.advisory_rejected_algs || []).includes(alg);
+}
+
+/**
+ * Whether the post-quantum half of a signature, when it has one, uses an algorithm the policy still takes: an
+ * advisory that withdraws ML-DSA-65 reaches the hybrid signatures made with it.
+ */
+function takesPqHalf(sig) {
+  const alg = sig?.pq?.alg;
+  return alg === undefined || (VERIFIER_POLICY.accepted_pq_algs.includes(alg) && !(VERIFIER_POLICY.advisory_rejected_algs || []).includes(alg));
+}
+
 function setVerifierMode(mode) {
   VERIFIER_POLICY.default_mode = mode;
   VERIFIER_POLICY.risk_overrides = { high: mode, medium: mode, low: mode };
@@ -772,8 +792,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     const sig = signed_passport.composite_sig;
-    const allowClassicalOnly = ["classical_only", "hybrid_preferred"].includes(VERIFIER_POLICY.default_mode);
-    if (!(await verifyCompositeSig(DCP_CONTEXTS.AgentPassport, passport, sig, passport.keys, { allowClassicalOnly }))) {
+    const allowClassicalOnly = takesClassicalOnly(sig?.classical?.alg);
+    if (!takesPqHalf(sig) || !(await verifyCompositeSig(DCP_CONTEXTS.AgentPassport, passport, sig, passport.keys, { allowClassicalOnly }))) {
       return send(res, 403, { error: "Passport signature does not verify against the passport's own keys" });
     }
 
@@ -936,8 +956,8 @@ const server = http.createServer(async (req, res) => {
     // Revoked and expired keys are not active, so a revoked agent has none to sign with. One classical key is
     // enough only for an agent that never registered a post-quantum one: its entries today do not say that.
     const activeKeys = keysOf(agentId).filter(isActiveKey).map((entry) => entry.key);
-    const allowClassicalOnly = !pqAgents.has(agentId);
-    if (!(await verifyCompositeSig(DCP_CONTEXTS.AuditEvent, audit_event, signature, activeKeys, { allowClassicalOnly }))) {
+    const allowClassicalOnly = !pqAgents.has(agentId) && takesClassicalOnly(signature?.classical?.alg);
+    if (!takesPqHalf(signature) || !(await verifyCompositeSig(DCP_CONTEXTS.AuditEvent, audit_event, signature, activeKeys, { allowClassicalOnly }))) {
       return send(res, 403, { error: "signature does not verify against the agent's active registered keys" });
     }
 
@@ -1475,8 +1495,13 @@ const server = http.createServer(async (req, res) => {
     // Auto-switch to pq_only if all classical algorithms removed: the mode of every risk tier, as
     // POST /v2/policy/mode sets it, and with it no V1 bundles. Changing default_mode alone left the risk
     // tiers on the mode they had.
+    let forcedMode = false;
     if (VERIFIER_POLICY.accepted_classical_algs.length === 0 &&
         VERIFIER_POLICY.accepted_pq_algs.length > 0) {
+      // A change of policy also when no algorithm was removed this time: the operator set another mode by hand
+      // since, and it is put back. It is answered and recorded as one.
+      forcedMode = [VERIFIER_POLICY.default_mode, ...Object.values(VERIFIER_POLICY.risk_overrides || {})].some((mode) => mode !== "pq_only");
+      if (forcedMode) policyModified = true;
       setVerifierMode("pq_only");
       warnings.push("All classical algorithms deprecated/revoked. Auto-switched to pq_only mode.");
     }
@@ -1487,6 +1512,7 @@ const server = http.createServer(async (req, res) => {
         removed_classical: removedClassical,
         removed_pq: removedPq,
         added_replacements: addedReplacements,
+        ...(forcedMode && { forced_mode: "pq_only" }),
         timestamp: new Date().toISOString(),
         policy_hash: computePolicyHash(),
       });

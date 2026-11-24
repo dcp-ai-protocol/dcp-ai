@@ -5,7 +5,7 @@
 
 # Guia do operador — executar um serviço de verificação
 
-> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 23/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 24/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este guia é para **terceiros** que queiram executar um serviço de «agente verificado»: uma API HTTP que verifica Signed Bundles do DCP (e, opcionalmente, ancora hashes numa blockchain). O protocolo **não** exige nenhum servidor central; a verificação sempre pode ser feita localmente com `dcp verify-bundle`. Este serviço é **opcional** e executado por escolha do operador.
 
@@ -188,12 +188,13 @@ Os limites contam por IP de cliente. Atrás de um proxy que acrescenta o IP do c
 ### Variáveis de ambiente (serviço de verificação)
 
 - `PORT` — porta HTTP (padrão `3000`)
-- `OPERATOR_TOKEN` — token bearer para os endpoints de administração (política, avisos, governança) e para registrar `agent_id` novos; sem defini-lo, eles continuam bloqueados
+- `OPERATOR_TOKEN` — token bearer para os endpoints de administração (política, avisos, governança), para registrar `agent_id` novos e para `POST /v2/multi-party/authorize`; sem defini-lo, eles continuam bloqueados
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
 - `ALLOW_V1_BUNDLES` — `false` rejeita todos os bundles V1; `true` (o padrão) aceita um só onde a política aceitaria um bundle somente clássico, ou seja, não com `hybrid_required` nem com `pq_only`
 - `DCP_DEMO_ENDPOINTS` — `off` (o padrão) ou `dcp-05-09`, que ativa os [endpoints demo do DCP-05–09](#dcp-0509-service-endpoints) e precisa de um `OPERATOR_TOKEN` de pelo menos 32 caracteres b64token da RFC 6750; qualquer outro valor impede o servidor de iniciar
 - `TRUST_PROXY`, `REGISTRATIONS_PER_HOUR`, `MAX_REGISTERED_KEYS`, `MAX_KEYS_PER_AGENT` — veja acima
 - `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE`, `DCP_REVOCATION_LIST_URL`, `DCP_REVOCATION_LIST_AUTHORIZATION`, `DCP_REVOCATION_TIMEOUT_MS` — admissão para `POST /v2/admit`, veja [ADMISSION.md](../../../docs/ADMISSION.md)
+- `DCP_MULTI_PARTY_POLICY_FILE` — o conjunto de políticas do operador para `POST /v2/multi-party/authorize` (perfil `mpa-v1`); precisa de `DCP_TRUSTED_PRINCIPALS_FILE` e de um `OPERATOR_TOKEN` de pelo menos 32 caracteres. Sem defini-lo, a rota não existe. Veja o [README do servidor](../server/README.md)
 - `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS` e `PQ_CHECKPOINT_INTERVAL` aparecem nas configurações de implantação, mas ainda não são lidas
 
 Para as variáveis de ambiente de `anchor`, `transparency-log` e `revocation`, veja os respectivos README em [`services/`](../../../services/) ou o `fly.toml` de cada serviço em [`deploy/fly/`](../../../deploy/fly/).
@@ -239,7 +240,7 @@ Os verificadores recebem uma `VerifierPolicy` ([`schemas/v2/verifier_policy.sche
 }
 ```
 
-`risk_overrides` é indexado pelo `risk_tier` do passaporte. O servidor não tem arquivo de política: `VERIFIER_MODE` e `ALLOW_V1_BUNDLES` a definem na inicialização, `POST /v2/policy/mode` com `{ "mode": "<mode>" }` (token do operador) troca o modo em tempo de execução, os avisos aceitos são acrescentados a `advisory_rejected_algs` e `GET /v2/policy` retorna a política atual e o hash dela. Uma troca de modo define `default_mode` e todas as entradas de `risk_overrides` para esse modo. Para embutir um verificador com a sua própria política, passe uma política completa ao SDK: uma parcial é aceita, mas os campos que você omitir não são preenchidos com valores padrão (veja [MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md), etapa 8).
+`risk_overrides` é indexado pelo `risk_tier` do passaporte. O servidor não tem arquivo de política: `VERIFIER_MODE` e `ALLOW_V1_BUNDLES` a definem na inicialização, `POST /v2/policy/mode` com `{ "mode": "<mode>" }` (token do operador) troca o modo em tempo de execução, os avisos são acrescentados a `advisory_rejected_algs` quando o operador os aplica com `POST /v2/advisory/auto-apply` (um aviso publicado não muda nada até então) e `GET /v2/policy` retorna a política atual e o hash dela. Uma troca de modo define `default_mode` e todas as entradas de `risk_overrides` para esse modo. Para embutir um verificador com a sua própria política, passe uma política completa ao SDK: uma parcial é aceita, mas os campos que você omitir não são preenchidos com valores padrão (veja [MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md), etapa 8).
 
 Modos de verificação:
 - `classical_only` — Apenas assinaturas Ed25519 são exigidas (compatibilidade com a V1)

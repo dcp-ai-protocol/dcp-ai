@@ -154,12 +154,13 @@ The limits count per client IP. Behind a proxy that appends the client IP to `X-
 ### Environment variables (verification service)
 
 - `PORT` — HTTP port (default `3000`)
-- `OPERATOR_TOKEN` — bearer token for the admin endpoints (policy, advisories, governance) and for registering new `agent_id`s; unset keeps them locked
+- `OPERATOR_TOKEN` — bearer token for the admin endpoints (policy, advisories, governance), for registering new `agent_id`s and for `POST /v2/multi-party/authorize`; unset keeps them locked
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
 - `ALLOW_V1_BUNDLES` — `false` rejects every V1 bundle; `true` (the default) accepts one only where the policy would accept a classical-only bundle, so not under `hybrid_required` or `pq_only`
 - `DCP_DEMO_ENDPOINTS` — `off` (the default) or `dcp-05-09`, which enables the [DCP-05–09 demo endpoints](#dcp-0509-service-endpoints) and needs an `OPERATOR_TOKEN` of at least 32 RFC 6750 b64token characters; any other value stops the server
 - `TRUST_PROXY`, `REGISTRATIONS_PER_HOUR`, `MAX_REGISTERED_KEYS`, `MAX_KEYS_PER_AGENT` — see above
 - `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE`, `DCP_REVOCATION_LIST_URL`, `DCP_REVOCATION_LIST_AUTHORIZATION`, `DCP_REVOCATION_TIMEOUT_MS` — admission for `POST /v2/admit`, see [ADMISSION.md](ADMISSION.md)
+- `DCP_MULTI_PARTY_POLICY_FILE` — the operator's policy set for `POST /v2/multi-party/authorize` (the `mpa-v1` profile); needs `DCP_TRUSTED_PRINCIPALS_FILE` and an `OPERATOR_TOKEN` of at least 32 characters. Unset, the route does not exist. See the [server README](../server/README.md)
 - `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS` and `PQ_CHECKPOINT_INTERVAL` appear in the deploy configs but are not read yet
 
 For `anchor`, `transparency-log`, and `revocation` env variables see their respective README files under [`services/`](../services/) or the per-service `fly.toml` in [`deploy/fly/`](../deploy/fly/).
@@ -199,7 +200,7 @@ The verifiers take a `VerifierPolicy` ([`schemas/v2/verifier_policy.schema.json`
 }
 ```
 
-`risk_overrides` is keyed by the passport's `risk_tier`. The server has no policy file: `VERIFIER_MODE` and `ALLOW_V1_BUNDLES` set it at startup, `POST /v2/policy/mode` with `{ "mode": "<mode>" }` (operator token) switches the mode at runtime, accepted advisories add to `advisory_rejected_algs`, and `GET /v2/policy` returns the current policy and its hash. A switch of mode sets `default_mode` and every `risk_overrides` entry to that mode. To embed a verifier with your own policy, pass a full policy to the SDK: a partial one is accepted, but the fields you leave out are not filled with defaults (see [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md), Step 8).
+`risk_overrides` is keyed by the passport's `risk_tier`. The server has no policy file: `VERIFIER_MODE` and `ALLOW_V1_BUNDLES` set it at startup, `POST /v2/policy/mode` with `{ "mode": "<mode>" }` (operator token) switches the mode at runtime, advisories add to `advisory_rejected_algs` when the operator applies them with `POST /v2/advisory/auto-apply` (a published advisory changes nothing until then), and `GET /v2/policy` returns the current policy and its hash. A switch of mode sets `default_mode` and every `risk_overrides` entry to that mode. To embed a verifier with your own policy, pass a full policy to the SDK: a partial one is accepted, but the fields you leave out are not filled with defaults (see [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md), Step 8).
 
 Verification modes:
 - `classical_only` — Only Ed25519 signatures required (V1 compatibility)
