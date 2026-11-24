@@ -54,7 +54,7 @@ Under `mpa-v1`, `operation_payload` has exactly two members. Schema: [`multi_par
 - `request` has exactly these six members. `request_id` is 1 to 128 characters; `target` and `audience` are 1 to 256. Lengths count Unicode code points.
 - `target` names the object of the operation as the operator's policy names it. `audience` names the verifier that may act on the authorization.
 - `parameters` is an object: the operation's own parameters, empty when it has none.
-- Every number in `operation_payload` is an integer from -(2^53 - 1) to 2^53 - 1: the integers a binary64 holds exactly. Past that range, an implementation that reads JSON numbers as binary64 and one that reads them exactly write different `dcp-jcs-v1` texts for the same record, and a signature over one integer would stand for its neighbours. A larger value, such as a 64-bit identifier, goes in a string.
+- Every number in `operation_payload`, read as the nearest binary64, is an integer from -(2^53 - 1) to 2^53 - 1: the integers a binary64 holds exactly. `1.0` and `1e2` are such integers, and so is a literal a binary64 cannot tell from one. Past that range, an implementation that reads JSON numbers as binary64 and one that reads them exactly write different `dcp-jcs-v1` texts for the same record, and a signature over one integer would stand for its neighbours. A larger value, such as a 64-bit identifier, goes in a string.
 
 What a party signs is unchanged: `UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`. The classical signature covers those bytes and the post-quantum one covers them followed by the classical signature.
 

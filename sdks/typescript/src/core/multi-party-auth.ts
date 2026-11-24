@@ -104,11 +104,14 @@ function printable(value: unknown): string {
   return typeof value === 'object' ? (Array.isArray(value) ? 'an array' : 'an object') : String(value);
 }
 
-/** An object that is only its named members: what JSON.parse, a literal or Object.create(null) makes. */
+/**
+ * An object that is only its named members: what JSON.parse, a literal or Object.create(null) makes, in this realm or
+ * in another (its prototype is the end of the chain, or there is none).
+ */
 function isPlain(v: unknown): v is Record<string, unknown> {
   if (!isObject(v)) return false;
-  const proto: unknown = Object.getPrototypeOf(v);
-  return (proto === null || proto === Object.prototype) && Object.getOwnPropertySymbols(v).length === 0;
+  const proto: object | null = Object.getPrototypeOf(v);
+  return (proto === null || Object.getPrototypeOf(proto) === null) && Object.getOwnPropertySymbols(v).length === 0;
 }
 
 const RANGE = '-(2^53 - 1) to 2^53 - 1';
@@ -141,11 +144,15 @@ function canonical(value: unknown): string | undefined {
   }
 }
 
+/** What snapshot leaves where an object was more than its members. No check takes it for data of any kind. */
+const NOT_DATA = Symbol('not JSON data');
+
 /**
- * `value` with arrays and objects of its own: the JSON it is, read once. Anything else is kept as it is, an object
- * that is more than its members included, so that what judges the copy still sees what it was. Plain loops, one
- * frame a level, so that it reaches at least as deep as canonicalization does; a hole stays a hole, so that an array
- * is never made larger than it was.
+ * `value` with arrays and objects of its own: the JSON it is, read once, with nothing of the caller's left to read
+ * again. An object that is more than its members (a Set, a Date, an instance, one with an own symbol) is not copied
+ * member by member, which would make an empty object of most; NOT_DATA takes its place, so that what judges the
+ * copy refuses it. Plain loops, one frame a level, so that it reaches at least as deep as canonicalization does; a
+ * hole stays a hole, so that an array is never made larger than it was.
  */
 function snapshot(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -153,7 +160,8 @@ function snapshot(value: unknown): unknown {
     for (let i = 0; i < copy.length; i += 1) if (i in value) copy[i] = snapshot(value[i]);
     return copy;
   }
-  if (!isPlain(value)) return value;
+  if (!isObject(value)) return value;
+  if (!isPlain(value)) return NOT_DATA;
   const copy: Record<string, unknown> = Object.create(null); // no prototype: "__proto__" is a member like any other
   for (const key of Object.keys(value)) copy[key] = snapshot(value[key]);
   return copy;

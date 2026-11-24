@@ -125,7 +125,7 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
   `Map`, um `RegExp` ou um `Date` em `parameters` era comparado como `{}`, de modo que declará-lo coincidia com um
   objeto vazio assinado; esses valores, as instâncias de classes, `undefined` e os arrays esparsos agora são recusados
   da mesma forma. O [perfil](../../spec/profiles/multi-party/README.md) fixa o intervalo em §2.2, §3 e §4.
-  `dcp-jcs-v1`, os bytes assinados e os esquemas não mudam; há cinco casos novos em
+  `dcp-jcs-v1`, os bytes assinados e os esquemas não mudam; há oito casos novos em
   `tests/interop/v2/multi_party_vectors.json`. Foi encontrado pela revisão independente do perfil.
 
 - **Servidor de referência: `POST /v2/audit/append` checa o evento e a assinatura dele, e não guarda eventos**

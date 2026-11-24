@@ -68,7 +68,7 @@ Bajo `mpa-v1`, `operation_payload` tiene exactamente dos miembros. Esquema: [`mu
 - `request` tiene exactamente estos seis miembros. `request_id` tiene de 1 a 128 caracteres; `target` y `audience`, de 1 a 256. Las longitudes cuentan puntos de código Unicode.
 - `target` nombra el objeto de la operación tal como lo nombra la política del operador. `audience` nombra al verificador que puede actuar con la autorización.
 - `parameters` es un objeto: los parámetros propios de la operación, vacío cuando no tiene ninguno.
-- Todo número de `operation_payload` es un entero de -(2^53 - 1) a 2^53 - 1: los enteros que un binary64 guarda exactos. Fuera de ese rango, una implementación que lee los números de JSON como binary64 y otra que los lee exactos escriben textos `dcp-jcs-v1` distintos para el mismo registro, y una firma sobre un entero valdría para sus vecinos. Un valor mayor, como un identificador de 64 bits, va en una cadena.
+- Todo número de `operation_payload`, leído como el binary64 más cercano, es un entero de -(2^53 - 1) a 2^53 - 1: los enteros que un binary64 guarda exactos. `1.0` y `1e2` son enteros de esos, y también lo es un literal que un binary64 no distingue de uno de ellos. Fuera de ese rango, una implementación que lee los números de JSON como binary64 y otra que los lee exactos escriben textos `dcp-jcs-v1` distintos para el mismo registro, y una firma sobre un entero valdría para sus vecinos. Un valor mayor, como un identificador de 64 bits, va en una cadena.
 
 Lo que firma una parte no cambia: `UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`. La firma clásica cubre esos bytes y la poscuántica los cubre seguidos de la firma clásica.
 

@@ -119,7 +119,7 @@
   64 ビットの識別子のようにこれより大きい値は、文字列に入れます。
   TypeScript の SDK は、さらに JSON のデータだけを受け付けます。`parameters` の中の `Set`、`Map`、`RegExp`、`Date` は `{}` として比較されていたため、それを示すと署名された空のオブジェクトと一致していました。これらの値、クラスのインスタンス、`undefined`、疎な配列は、同じように拒否されるようになりました。
   [プロファイル](../../spec/profiles/multi-party/README.md)は、この範囲を §2.2、§3、§4 に定めています。
-  `dcp-jcs-v1`、署名されるバイト列、スキーマは変わりません。`tests/interop/v2/multi_party_vectors.json` にケースが 5 つ加わりました。
+  `dcp-jcs-v1`、署名されるバイト列、スキーマは変わりません。`tests/interop/v2/multi_party_vectors.json` にケースが 8 つ加わりました。
   プロファイルの独立したレビューで見つかりました。
 
 - **リファレンスサーバー：`POST /v2/audit/append` がイベントとその署名を確認し、イベントを保存しなくなりました**

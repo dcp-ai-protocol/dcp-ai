@@ -1,5 +1,5 @@
 {
-  "_description": "Cross-SDK vectors for the opt-in mpa-v1 profile of multi-party authorization (spec/profiles/multi-party). Every evaluator MUST return each case's expect for records[record], under policy_sets[policy_set] and trust_sets[trust_set], for the operation, target and parameters in expected, at now_ms. expect.codes is the set of codes, sorted; no order among them is compared. Phases, each stopping the next when it adds a code: (1) structure, first failure only: the record conforms to multi_party_authorization.schema.json (MPA_SCHEMA_INVALID); operation_payload has a request member (MPA_REQUEST_MISSING) and conforms to multi_party_request.schema.json with RFC 3339 instants (MPA_REQUEST_INVALID); every number in it is an integer from -(2^53 - 1) to 2^53 - 1, the integers a binary64 holds exactly, so it is representable in dcp-jcs-v1 and every implementation writes the same text for it (MPA_NOT_REPRESENTABLE); at most 16 authorizations (MPA_TOO_MANY_AUTHORIZATIONS). (2) binding, every code: operation, request.target and the canonical form of parameters equal the expected ones (MPA_OPERATION_MISMATCH, MPA_TARGET_MISMATCH, MPA_PARAMETERS_MISMATCH); request.audience equals the policy set audience (MPA_AUDIENCE_MISMATCH); issued_at is not later than now plus 30 seconds (MPA_NOT_YET_VALID); expires_at is later than now (MPA_EXPIRED); expires_at is later than issued_at by at most max_validity_seconds (MPA_VALIDITY_INVALID); the policy set has a subject for request.target (MPA_TARGET_UNKNOWN) that lists the operation (MPA_OPERATION_NOT_ALLOWED). (3) parties, every code: each party_id is a party of the subject (MPA_PARTY_UNKNOWN, and nothing else for that entry), appears once (MPA_PARTY_DUPLICATE), signed the role the operator gives it (MPA_ROLE_MISMATCH), and that role is allowed for the operation (MPA_ROLE_NOT_ALLOWED). (4) verification, every code: binding pq_over_classical with a classical algorithm in the classical slot and a post-quantum one in the other (MPA_HYBRID_REQUIRED); each kid is a key of that party in the trust set with that algorithm (MPA_KEY_NOT_ANCHORED), not revoked (MPA_KEY_REVOKED), not expired (MPA_KEY_EXPIRED: status expired, or expires_at before now) and already valid (MPA_KEY_NOT_YET_VALID: not_before after now), the first of these per key; both signatures are canonical base64 and verify, the classical one over UTF8(context) || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role}) and the post-quantum one over those bytes followed by the classical signature (MPA_SIGNATURE_INVALID). parties_counted is the number of authorizations with no code in this phase. (5) decision: parties_counted is at least the required_parties of the policy (MPA_THRESHOLD_NOT_MET) and every required role is held by a counted party (MPA_REQUIRED_ROLE_MISSING). authorized is true only when no phase added a code. The required_parties of the record never counts. verification is not_evaluated when phase 4 was not reached; required_parties is null when no operation rule was found. config_cases: loading policy_set MUST fail with expect_code, or succeed when it is null; a set with several problems is not among the cases. trust_config_cases: loading trust_set with the principal trust set loader MUST fail with expect_code. Bounds (request_id 128, target and audience 256) count Unicode code points. Groups: controls are authorized; structure, binding, parties, signatures and threshold are refused by that phase; in binding, parties and threshold every signature verifies on its own; limits sit exactly on a bound, get past the structure phase and are refused by a later one. The evaluation is strict: an authorization that fails refuses the record even when the others meet the threshold.",
+  "_description": "Cross-SDK vectors for the opt-in mpa-v1 profile of multi-party authorization (spec/profiles/multi-party). Every evaluator MUST return each case's expect for records[record], under policy_sets[policy_set] and trust_sets[trust_set], for the operation, target and parameters in expected, at now_ms. expect.codes is the set of codes, sorted; no order among them is compared. Phases, each stopping the next when it adds a code: (1) structure, first failure only: the record conforms to multi_party_authorization.schema.json (MPA_SCHEMA_INVALID); operation_payload has a request member (MPA_REQUEST_MISSING) and conforms to multi_party_request.schema.json with RFC 3339 instants (MPA_REQUEST_INVALID); every number in it, read as the nearest binary64, is an integer from -(2^53 - 1) to 2^53 - 1, the integers a binary64 holds exactly, so it is representable in dcp-jcs-v1 and every implementation writes the same text for it (MPA_NOT_REPRESENTABLE); at most 16 authorizations (MPA_TOO_MANY_AUTHORIZATIONS). (2) binding, every code: operation, request.target and the canonical form of parameters equal the expected ones (MPA_OPERATION_MISMATCH, MPA_TARGET_MISMATCH, MPA_PARAMETERS_MISMATCH); request.audience equals the policy set audience (MPA_AUDIENCE_MISMATCH); issued_at is not later than now plus 30 seconds (MPA_NOT_YET_VALID); expires_at is later than now (MPA_EXPIRED); expires_at is later than issued_at by at most max_validity_seconds (MPA_VALIDITY_INVALID); the policy set has a subject for request.target (MPA_TARGET_UNKNOWN) that lists the operation (MPA_OPERATION_NOT_ALLOWED). (3) parties, every code: each party_id is a party of the subject (MPA_PARTY_UNKNOWN, and nothing else for that entry), appears once (MPA_PARTY_DUPLICATE), signed the role the operator gives it (MPA_ROLE_MISMATCH), and that role is allowed for the operation (MPA_ROLE_NOT_ALLOWED). (4) verification, every code: binding pq_over_classical with a classical algorithm in the classical slot and a post-quantum one in the other (MPA_HYBRID_REQUIRED); each kid is a key of that party in the trust set with that algorithm (MPA_KEY_NOT_ANCHORED), not revoked (MPA_KEY_REVOKED), not expired (MPA_KEY_EXPIRED: status expired, or expires_at before now) and already valid (MPA_KEY_NOT_YET_VALID: not_before after now), the first of these per key; both signatures are canonical base64 and verify, the classical one over UTF8(context) || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role}) and the post-quantum one over those bytes followed by the classical signature (MPA_SIGNATURE_INVALID). parties_counted is the number of authorizations with no code in this phase. (5) decision: parties_counted is at least the required_parties of the policy (MPA_THRESHOLD_NOT_MET) and every required role is held by a counted party (MPA_REQUIRED_ROLE_MISSING). authorized is true only when no phase added a code. The required_parties of the record never counts. verification is not_evaluated when phase 4 was not reached; required_parties is null when no operation rule was found. config_cases: loading policy_set MUST fail with expect_code, or succeed when it is null; a set with several problems is not among the cases. trust_config_cases: loading trust_set with the principal trust set loader MUST fail with expect_code. Bounds (request_id 128, target and audience 256) count Unicode code points. Groups: controls are authorized; structure, binding, parties, signatures and threshold are refused by that phase; in binding, parties and threshold every signature verifies on its own; limits sit exactly on a bound, get past the structure phase and are refused by a later one. The evaluation is strict: an authorization that fails refuses the record even when the others meet the threshold.",
   "_security_notice": "The keys are derived from fixed strings in the generator. Test material only.",
   "_generator": "tests/interop/v2/generate-multi-party-vectors.mjs",
   "profile": "mpa-v1",
@@ -762,6 +762,60 @@
               "alg": "ml-dsa-65",
               "kid": "87247124e518569affc177fecb687df4",
               "sig_b64": "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"
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
+    "decimal_point_at_the_limit": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "ceiling_with_a_point": 9007199254740991.0
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "d20f3f528f85731864447b52bb57ac94",
+              "sig_b64": "Bj+dxa8FZ6WGqwrYRMx4najFsANpWJOyjqKqeJ8tOP8NijflOZCNnquhJTrVCob5njLyrejNDpDDwsi97WyLBg=="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "1e116502470144406375edef2ccf0dfa",
+              "sig_b64": "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"
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "30cfe820cabb4789d8c73605d41e7546",
+              "sig_b64": "C0N6H0GBB+3GTu7CdBNPGBnY/EBMLJyaruFtey+v3GiszmX2dWm0qsgTYi7c37RALJ2ebtVnv6DLGQ5ljh7tDw=="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "87247124e518569affc177fecb687df4",
+              "sig_b64": "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"
             },
             "binding": "pq_over_classical"
           }
@@ -2297,6 +2351,369 @@
             "pq": {
               "alg": "ml-dsa-65",
               "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
+    "decimal_point_past_the_limit": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "amount_with_a_point": 9007199254740992.0
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:alice",
+          "role": "owner",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "d20f3f528f85731864447b52bb57ac94",
+              "sig_b64": "1F/isvWsnW4K+GKiRDQnrBt/7SXDkCUeNECcYYvEZ4xjqGiA+ecJJh3t0IKXsALmR5oyFBMrJvxtiNEizvRYDA=="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "1e116502470144406375edef2ccf0dfa",
+              "sig_b64": "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"
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:bob",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "30cfe820cabb4789d8c73605d41e7546",
+              "sig_b64": "NIEjo4meh01Y7atkvKv+9ImB5STEfrRE8nkxWCMThd16XaPmru9vzN5v802ViSR5YVwzn5UDtypJRyat0YafBA=="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "87247124e518569affc177fecb687df4",
+              "sig_b64": "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"
+            },
+            "binding": "pq_over_classical"
+          }
+        }
+      ]
+    },
+    "seventeen_authorizations_and_2_to_the_53": {
+      "type": "multi_party_authorization",
+      "operation": "revoke_agent",
+      "operation_payload": {
+        "request": {
+          "profile": "mpa-v1",
+          "request_id": "mpa:6f1c0a52d3b84e7f9a1c2d3e4f506172",
+          "target": "agent:acme-bot",
+          "audience": "verifier:acme-gateway",
+          "issued_at": "2026-11-18T00:00:00Z",
+          "expires_at": "2026-11-18T00:30:00Z"
+        },
+        "parameters": {
+          "amount": 9007199254740992
+        }
+      },
+      "required_parties": 2,
+      "authorizations": [
+        {
+          "party_id": "human:party-01",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000001",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000002",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-02",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000003",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000004",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-03",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000005",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000006",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-04",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000007",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000008",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-05",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000009",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "0000000000000000000000000000000a",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-06",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "0000000000000000000000000000000b",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "0000000000000000000000000000000c",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-07",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "0000000000000000000000000000000d",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "0000000000000000000000000000000e",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-08",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "0000000000000000000000000000000f",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000010",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-09",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000011",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000012",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-10",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000013",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000014",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-11",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000015",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000016",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-12",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000017",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000018",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-13",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000019",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "0000000000000000000000000000001a",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-14",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "0000000000000000000000000000001b",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "0000000000000000000000000000001c",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-15",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "0000000000000000000000000000001d",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "0000000000000000000000000000001e",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-16",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "0000000000000000000000000000001f",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000020",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "binding": "pq_over_classical"
+          }
+        },
+        {
+          "party_id": "human:party-17",
+          "role": "org_admin",
+          "composite_sig": {
+            "classical": {
+              "alg": "ed25519",
+              "kid": "00000000000000000000000000000021",
+              "sig_b64": "AAAAAAAAAAA="
+            },
+            "pq": {
+              "alg": "ml-dsa-65",
+              "kid": "00000000000000000000000000000022",
               "sig_b64": "AAAAAAAAAAA="
             },
             "binding": "pq_over_classical"
@@ -7295,6 +7712,31 @@
       }
     },
     {
+      "name": "decimal_point_at_the_limit",
+      "group": "controls",
+      "rule": "2^53 - 1 written 9007199254740991.0: the integer a binary64 reads, and the one the parties signed",
+      "record": "decimal_point_at_the_limit",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "ceiling_with_a_point": 9007199254740991.0
+        }
+      },
+      "expect": {
+        "authorized": true,
+        "structure": "valid",
+        "verification": "verified",
+        "parties_counted": 2,
+        "required_parties": 2,
+        "codes": []
+      }
+    },
+    {
       "name": "integers_at_the_limit",
       "group": "controls",
       "rule": "Parameters with 2^53 - 1 and -(2^53 - 1), the largest integers of the profile",
@@ -9475,6 +9917,60 @@
       "group": "structure",
       "rule": "The digits of 2^53 + 1: read as a binary64 they are 2^53, read exactly they are not, and neither is in the range",
       "record": "integer_no_binary64_holds",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_NOT_REPRESENTABLE"
+        ]
+      }
+    },
+    {
+      "name": "decimal_point_past_the_limit",
+      "group": "structure",
+      "rule": "2^53 written 9007199254740992.0, signed by both parties: a decimal point does not move the limit",
+      "record": "decimal_point_past_the_limit",
+      "policy_set": "base",
+      "trust_set": "base",
+      "now": "2026-11-18T00:10:00Z",
+      "now_ms": 1794960600000,
+      "expected": {
+        "operation": "revoke_agent",
+        "target": "agent:acme-bot",
+        "parameters": {
+          "reason": "key_compromise"
+        }
+      },
+      "expect": {
+        "authorized": false,
+        "structure": "invalid",
+        "verification": "not_evaluated",
+        "parties_counted": null,
+        "required_parties": null,
+        "codes": [
+          "MPA_NOT_REPRESENTABLE"
+        ]
+      }
+    },
+    {
+      "name": "number_out_of_range_before_too_many",
+      "group": "structure",
+      "rule": "Seventeen authorizations and 2^53 in parameters: the first failure in the order of the phase is the number",
+      "record": "seventeen_authorizations_and_2_to_the_53",
       "policy_set": "base",
       "trust_set": "base",
       "now": "2026-11-18T00:10:00Z",

@@ -115,7 +115,7 @@
   更大的值（例如 64 位标识符）放在字符串中。
   此外，TypeScript SDK 只接受 JSON 数据：`parameters` 中的 `Set`、`Map`、`RegExp` 或 `Date` 原先被当作 `{}` 比较，因此声明这样的值会与已签名的空对象相符；这些值、类的实例、`undefined` 和稀疏数组现在同样被拒绝。
   [配置文件](../../spec/profiles/multi-party/README.md)在 §2.2、§3 和 §4 中规定了该范围。
-  `dcp-jcs-v1`、被签名的字节和模式都不变；`tests/interop/v2/multi_party_vectors.json` 新增五个用例。
+  `dcp-jcs-v1`、被签名的字节和模式都不变；`tests/interop/v2/multi_party_vectors.json` 新增八个用例。
   该问题由对该配置文件的独立评审发现。
 
 - **参考服务器：`POST /v2/audit/append` 会检查事件及其签名，并且不再保存事件**（仅 `main` 上的源代码，不在任何已发布

@@ -3,6 +3,7 @@
  * tests/interop/v2/multi_party_vectors.json through the public API, and what the vectors cannot express.
  */
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
   AdmissionConfigError,
@@ -156,6 +157,60 @@ describe('multi-party authorization: what the vectors cannot express', () => {
     const r = await pending;
     expect([r.authorized, r.verification, r.parties_counted, codes(r)]).toEqual([false, 'failed', 1, ['MPA_SIGNATURE_INVALID']]);
     expect(r.parties.map((p) => [p.party_id, p.verified])).toEqual([['human:alice', true], ['human:bob', false]]);
+  });
+
+  it('keeps nothing of the caller to read again: a record that is more than its members is not a record', async () => {
+    const c = byName('two_of_three');
+    // An object with an own symbol, an instance or one with a prototype of its own is not what JSON.parse makes. It is
+    // not copied member by member, so it is not judged at all: its accessors could answer one thing to a check and
+    // another to the next, and the caller could change it while the signatures are verified.
+    const kinds: Array<[string, (members: object) => object]> = [
+      ['with an own symbol', (members) => Object.assign(members, { [Symbol('any')]: true })],
+      ['an instance', (members) => Object.assign(new (class Authorization {})(), members)],
+      ['with a prototype of its own', (members) => Object.assign(Object.create({ inherited: true }), members)],
+    ];
+    const invalid = (r: MultiPartyEvaluation) => [r.authorized, r.structure, r.verification, codes(r)];
+    for (const [what, make] of kinds) {
+      // The record itself, with an accessor that shows the signed parameters only once the comparison is over...
+      let reads = 0;
+      const good = clone(V.records[c.record]);
+      const { operation_payload: signed, ...rest } = good;
+      const record = make(rest);
+      Object.defineProperty(record, 'operation_payload', {
+        enumerable: true,
+        get: () => ((reads += 1) <= 3 ? { request: signed.request, parameters: { reason: 'administrative' } } : signed),
+      });
+      const stated = { ...c, expected: { ...c.expected, parameters: { reason: 'administrative' } } };
+      expect(invalid(await evaluate(stated, registry, record)), what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_SCHEMA_INVALID']]);
+      expect(reads, what).toBe(0);
+      // ...changed by the caller while the evaluation waits...
+      const changed = make(clone(V.records[c.record])) as { authorizations: unknown[] };
+      const pending = evaluate(c, registry, changed);
+      changed.authorizations.length = 0;
+      expect(invalid(await pending), what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_SCHEMA_INVALID']]);
+      // ...and one of its authorizations: the second entry would be the owner to the party checks and the administrator,
+      // who did sign, to the signature check.
+      const entries = clone(V.records[c.record]);
+      entries.authorizations[1] = make(entries.authorizations[1]);
+      expect(invalid(await evaluate(c, registry, entries)), what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_SCHEMA_INVALID']]);
+    }
+    // A plain object with an accessor is read once, and what it gave then is what is judged.
+    let reads = 0;
+    const { operation_payload: signed, ...rest } = clone(V.records[c.record]);
+    const plain = Object.defineProperty(rest, 'operation_payload', { enumerable: true, get: () => ((reads += 1), signed) });
+    const r = await evaluate(c, registry, plain);
+    expect([r.authorized, codes(r), reads]).toEqual([true, [], 1]);
+  });
+
+  it('takes JSON read in another realm as the JSON it is', async () => {
+    const c = byName('two_of_three');
+    const foreign = (value: unknown) => runInNewContext('JSON.parse(text)', { text: JSON.stringify(value) });
+    const record = foreign(V.records[c.record]);
+    expect(Object.getPrototypeOf(record)).not.toBe(Object.prototype);
+    const r = await evaluate({ ...c, expected: foreign(c.expected) }, registry, record);
+    expect([r.authorized, codes(r)]).toEqual([true, []]);
+    const built = createMultiPartyRequest({ target: 'agent:x', audience: 'verifier:y', validitySeconds: 60, parameters: foreign({ limits: [1, { daily: 2 }] }) });
+    expect(built.parameters).toEqual({ limits: [1, { daily: 2 }] });
   });
 
   it('what is signed is what was compared with what the executor expects', async () => {

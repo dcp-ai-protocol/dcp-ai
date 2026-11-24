@@ -125,7 +125,7 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   JSON: un `Set`, un `Map`, un `RegExp` o un `Date` en `parameters` se comparaba como `{}`, de modo que declararlo
   coincidía con un objeto vacío firmado; esos valores, las instancias de clases, `undefined` y los arrays con huecos
   se rechazan ahora de la misma forma. El [perfil](../../spec/profiles/multi-party/README.md) fija el rango en §2.2,
-  §3 y §4. `dcp-jcs-v1`, los bytes firmados y los esquemas no cambian; hay cinco casos nuevos en
+  §3 y §4. `dcp-jcs-v1`, los bytes firmados y los esquemas no cambian; hay ocho casos nuevos en
   `tests/interop/v2/multi_party_vectors.json`. Lo encontró la revisión independiente del perfil.
 
 - **Servidor de referencia: `POST /v2/audit/append` comprueba el evento y su firma, y no guarda eventos** (código

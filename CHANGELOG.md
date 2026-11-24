@@ -103,7 +103,7 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   string. The TypeScript SDK also takes JSON data only: a `Set`, a `Map`, a `RegExp` or a `Date` in `parameters` was
   compared as `{}`, so stating one matched a signed empty object; those, class instances, `undefined` and sparse
   arrays are now refused the same way. The [profile](spec/profiles/multi-party/README.md) states the range in §2.2, §3
-  and §4. `dcp-jcs-v1`, the signed bytes and the schemas do not change; five cases are new in
+  and §4. `dcp-jcs-v1`, the signed bytes and the schemas do not change; eight cases are new in
   `tests/interop/v2/multi_party_vectors.json`. Found by the independent review of the profile.
 
 - **Reference server: `POST /v2/audit/append` checks the event and its signature, and keeps no events** (source on

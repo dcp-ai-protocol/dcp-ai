@@ -68,7 +68,7 @@ Sob `mpa-v1`, `operation_payload` tem exatamente dois membros. Schema: [`multi_p
 - `request` tem exatamente estes seis membros. `request_id` tem de 1 a 128 caracteres; `target` e `audience`, de 1 a 256. Os comprimentos contam pontos de código Unicode.
 - `target` nomeia o objeto da operação como a política do operador o nomeia. `audience` nomeia o verificador que pode agir com a autorização.
 - `parameters` é um objeto: os parâmetros próprios da operação, vazio quando ela não tem nenhum.
-- Todo número de `operation_payload` é um inteiro de -(2^53 - 1) a 2^53 - 1: os inteiros que um binary64 guarda exatamente. Fora desse intervalo, uma implementação que lê os números de JSON como binary64 e outra que os lê exatamente escrevem textos `dcp-jcs-v1` diferentes para o mesmo registro, e uma assinatura sobre um inteiro valeria para os seus vizinhos. Um valor maior, como um identificador de 64 bits, vai em uma string.
+- Todo número de `operation_payload`, lido como o binary64 mais próximo, é um inteiro de -(2^53 - 1) a 2^53 - 1: os inteiros que um binary64 guarda exatamente. `1.0` e `1e2` são inteiros desses, e também o é um literal que um binary64 não distingue de um deles. Fora desse intervalo, uma implementação que lê os números de JSON como binary64 e outra que os lê exatamente escrevem textos `dcp-jcs-v1` diferentes para o mesmo registro, e uma assinatura sobre um inteiro valeria para os seus vizinhos. Um valor maior, como um identificador de 64 bits, vai em uma string.
 
 O que uma parte assina não muda: `UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`. A assinatura clássica cobre esses bytes e a pós-quântica os cobre seguidos da assinatura clássica.
 
