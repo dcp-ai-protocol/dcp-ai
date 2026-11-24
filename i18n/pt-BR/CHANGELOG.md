@@ -4,7 +4,7 @@
 
 # Registro de alterações
 
-> Tradução informativa da [versão em inglês](../../CHANGELOG.md), atualizada em 23/11/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](../../CHANGELOG.md), atualizada em 24/11/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
 
 **Versões publicadas (26/10/2026).** Estão publicados npm (13 pacotes, incluindo `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` e Rust `dcp-ai` 2.11.0, com as correções do verificador, a admissão e as APIs experimentais opt-in; `dcp-jcs-v1` continua sendo o padrão normativo. Veja [Versões publicadas](../../docs/README.md#published-versions). As entradas abaixo mantêm seu histórico de desenvolvimento; `[Unreleased]` não significa que essas funcionalidades não estejam publicadas. As seis publicações de correção de 28/10/2026 estão em [sua própria seção](#2026-10-28-sha3-patch-releases). As cinco publicações de 05/11/2026 estão na [delas](#2026-11-05-auditable-releases), e as seis de 09/11/2026, na [delas](#2026-11-09-six-releases).
 
@@ -112,6 +112,21 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 <a id="security"></a>
 
 ### Segurança
+
+- **`mpa-v1`: todo número da carga assinada é um inteiro de -(2^53 - 1) a 2^53 - 1** (código-fonte em `main`, em
+  nenhuma versão publicada; sem mudança de versão). O perfil compara `parameters` por meio de `dcp-jcs-v1`, e os SDKs
+  não escreviam o mesmo texto para um inteiro que um binary64 não guarda exatamente: os SDKs de TypeScript e Go o
+  arredondavam, o de Python escrevia todos os dígitos e o de Rust fazia isso até 64 bits. Com o SDK de Go, um registro
+  cujas partes assinaram `1234567890123456789` ficava autorizado para um executor que declarava `1234567890123456790`,
+  e um SDK podia autorizar um registro que outro recusava. Agora, nos quatro SDKs, um registro com um número fora
+  desse intervalo em `operation_payload` recebe `MPA_NOT_REPRESENTABLE` antes de qualquer assinatura ser lida, e os
+  construtores da requisição e `expected.parameters` o recusam com `CONFIG_INVALID_VALUE`. Um valor maior, como um
+  identificador de 64 bits, vai em uma string. O SDK de TypeScript, além disso, só aceita dados JSON: um `Set`, um
+  `Map`, um `RegExp` ou um `Date` em `parameters` era comparado como `{}`, de modo que declará-lo coincidia com um
+  objeto vazio assinado; esses valores, as instâncias de classes, `undefined` e os arrays esparsos agora são recusados
+  da mesma forma. O [perfil](../../spec/profiles/multi-party/README.md) fixa o intervalo em §2.2, §3 e §4.
+  `dcp-jcs-v1`, os bytes assinados e os esquemas não mudam; há oito casos novos em
+  `tests/interop/v2/multi_party_vectors.json`. Foi encontrado pela revisão independente do perfil.
 
 - **Servidor de referência: `POST /v2/audit/append` checa o evento e a assinatura dele, e não guarda eventos**
   (código-fonte na `main`, não está em nenhuma versão publicada; sem mudança de versão). O endpoint aceitava de

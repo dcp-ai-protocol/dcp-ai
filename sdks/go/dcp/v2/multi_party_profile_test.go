@@ -491,6 +491,107 @@ func TestMultiPartyWhatTheSDKSignsTheSDKAuthorizes(t *testing.T) {
 	}
 }
 
+func TestMultiPartyTakesTheIntegersABinary64HoldsExactlyAndNoOtherNumber(t *testing.T) {
+	reg := mpaRegistry()
+	owner, admin := newMpaParty(t, "human:owner"), newMpaParty(t, "human:admin")
+	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	policyJSON, _ := json.Marshal(map[string]interface{}{
+		"policy_set_version": "here.1", "profile": "mpa-v1", "audience": "verifier:here", "max_validity_seconds": 600,
+		"subjects": []interface{}{map[string]interface{}{
+			"target":     "agent:signed-here",
+			"parties":    []interface{}{map[string]interface{}{"party_id": owner.id, "role": "owner"}, map[string]interface{}{"party_id": admin.id, "role": "org_admin"}},
+			"operations": map[string]interface{}{"revoke_agent": map[string]interface{}{"required_parties": 2, "allowed_roles": []string{"owner", "org_admin"}, "required_roles": []string{"owner"}}},
+		}},
+	})
+	trustJSON, _ := json.Marshal(map[string]interface{}{"trust_set_version": "here.1", "principals": []interface{}{owner.trusted, admin.trusted}})
+	policy, err := v2.NewMultiPartyPolicyStore(policyJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trust, err := v2.NewPrincipalTrustStore(trustJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := func(parameters map[string]interface{}) (map[string]interface{}, error) {
+		return v2.NewMultiPartyRequest(v2.MultiPartyRequestInput{Target: "agent:signed-here", Audience: "verifier:here", Parameters: parameters, IssuedAt: now, ValiditySeconds: 600})
+	}
+	// A record whose two parties signed payload, whatever it holds: the signer signs what it is given.
+	signedOver := func(payload map[string]interface{}) []byte {
+		t.Helper()
+		var authorizations []map[string]interface{}
+		for _, p := range []struct {
+			party mpaTestParty
+			role  string
+		}{{owner, "owner"}, {admin, "org_admin"}} {
+			a, err := v2.CreatePartyAuthorization(reg, "revoke_agent", payload, p.party.id, p.role, p.party.classical, p.party.pq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			authorizations = append(authorizations, a)
+		}
+		recordJSON, err := json.Marshal(v2.BuildMultiPartyAuthorization("revoke_agent", payload, authorizations, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return recordJSON
+	}
+	evaluate := func(record []byte, parameters map[string]interface{}) (*v2.MultiPartyEvaluation, error) {
+		return v2.EvaluateMultiPartyAuthorization(reg, record, v2.MultiPartyOptions{
+			Policy: policy, Trust: trust, Now: now.Add(time.Second),
+			Expected: v2.MultiPartyExpected{Operation: "revoke_agent", Target: "agent:signed-here", Parameters: parameters},
+		})
+	}
+	notRepresentable := func(r *v2.MultiPartyEvaluation, err error) bool {
+		return err == nil && !r.Authorized && r.Structure == "invalid" && r.Verification == "not_evaluated" && reflect.DeepEqual(mpaCodes(r), []string{"MPA_NOT_REPRESENTABLE"})
+	}
+
+	// The largest integers of the profile are built, signed, stated and authorized.
+	const largest = int64(1)<<53 - 1
+	within := map[string]interface{}{"ceiling": largest, "floor": -largest}
+	atTheLimit, err := request(within)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, err := evaluate(signedOver(atTheLimit), within); err != nil || !r.Authorized || len(r.Errors) != 0 {
+		t.Fatalf("the largest integers: %+v, %v", r, err)
+	}
+
+	for name, parameters := range map[string]map[string]interface{}{
+		"2^53":                    {"amount": largest + 1},
+		"-(2^53)":                 {"amount": -largest - 1},
+		"an identifier in uint64": {"new_key_id": uint64(1234567890123456789)},
+		"10^21 as a float64":      {"amount": 1e21},
+		"2^53 as a float64":       {"amount": float64(largest + 1)},
+		"2^53 as a json.Number":   {"amount": json.Number("9007199254740992")},
+		"2^53 inside an array":    {"limits": []interface{}{1, map[string]interface{}{"amount": largest + 1}}},
+	} {
+		var cfg *v2.MultiPartyConfigError
+		// One more is not a request the SDK builds...
+		if payload, err := request(parameters); !errors.As(err, &cfg) || cfg.Code != "CONFIG_INVALID_VALUE" || payload != nil {
+			t.Fatalf("%s, built: %v, %v", name, payload, err)
+		}
+		// ...nor parameters an executor can state...
+		cfg = nil
+		if r, err := evaluate(signedOver(atTheLimit), parameters); !errors.As(err, &cfg) || cfg.Code != "CONFIG_INVALID_VALUE" || r != nil {
+			t.Fatalf("%s, stated: %+v, %v", name, r, err)
+		}
+		// ...and a record that holds one decides nothing, whoever signed it: 2^53 and 2^53 + 1 are one number
+		// to whoever reads JSON numbers as binary64, so a signature over one would stand for the other.
+		over := signedOver(map[string]interface{}{"request": atTheLimit["request"], "parameters": parameters})
+		if r, err := evaluate(over, within); !notRepresentable(r, err) {
+			t.Fatalf("%s, in a record: %+v, %v", name, r, err)
+		}
+	}
+	// The digits of the record are what is judged: 2^53 + 1 written where 2^53 - 1 was signed.
+	rewritten := bytes.Replace(signedOver(atTheLimit), []byte(`"ceiling":9007199254740991`), []byte(`"ceiling":9007199254740993`), 1)
+	if !bytes.Contains(rewritten, []byte("9007199254740993")) {
+		t.Fatal("the record was not rewritten")
+	}
+	if r, err := evaluate(rewritten, within); !notRepresentable(r, err) {
+		t.Fatalf("a record rewritten to 2^53 + 1: %+v, %v", r, err)
+	}
+}
+
 func TestMultiPartyRefusesToBuildARequestTheProfileWouldNotAccept(t *testing.T) {
 	base := v2.MultiPartyRequestInput{Target: "agent:x", Audience: "verifier:y", ValiditySeconds: 60}
 	for name, change := range map[string]func(*v2.MultiPartyRequestInput){

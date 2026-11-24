@@ -54,6 +54,7 @@ Under `mpa-v1`, `operation_payload` has exactly two members. Schema: [`multi_par
 - `request` has exactly these six members. `request_id` is 1 to 128 characters; `target` and `audience` are 1 to 256. Lengths count Unicode code points.
 - `target` names the object of the operation as the operator's policy names it. `audience` names the verifier that may act on the authorization.
 - `parameters` is an object: the operation's own parameters, empty when it has none.
+- Every number in `operation_payload`, read as the nearest binary64, is an integer from -(2^53 - 1) to 2^53 - 1: the integers a binary64 holds exactly. `1.0` and `1e2` are such integers, and so is a literal a binary64 cannot tell from one. Past that range, an implementation that reads JSON numbers as binary64 and one that reads them exactly write different `dcp-jcs-v1` texts for the same record, and a signature over one integer would stand for its neighbours. A larger value, such as a 64-bit identifier, goes in a string.
 
 What a party signs is unchanged: `UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`. The classical signature covers those bytes and the post-quantum one covers them followed by the classical signature.
 
@@ -108,7 +109,7 @@ The two are loaded separately. A party of the policy that the trust set does not
 
 ## 3. What the executor states
 
-The executor gives the operation, the target and the parameters it is about to carry out. They must be an operation of the list, a target of 1 to 256 characters and an object representable in `dcp-jcs-v1`. Otherwise the call is refused as a configuration error (`CONFIG_INVALID_VALUE`) and gives no result. The authorization must be for exactly those.
+The executor gives the operation, the target and the parameters it is about to carry out. They must be an operation of the list, a target of 1 to 256 characters and an object of JSON data whose numbers are integers in the range of §2.2. Otherwise the call is refused as a configuration error (`CONFIG_INVALID_VALUE`) and gives no result. The authorization must be for exactly those.
 
 ## 4. Evaluation
 
@@ -119,7 +120,7 @@ Five phases. A phase that adds a code stops the next ones, so no signature of a 
 | 1. Structure | The record conforms to its schema | `MPA_SCHEMA_INVALID` |
 | | `operation_payload` has a `request` member | `MPA_REQUEST_MISSING` |
 | | `operation_payload` conforms to §2.2, with RFC 3339 instants | `MPA_REQUEST_INVALID` |
-| | `operation_payload` is representable in `dcp-jcs-v1` | `MPA_NOT_REPRESENTABLE` |
+| | `operation_payload` is representable in `dcp-jcs-v1` and every number in it is in the range of §2.2 | `MPA_NOT_REPRESENTABLE` |
 | | At most 16 authorizations | `MPA_TOO_MANY_AUTHORIZATIONS` |
 | 2. Binding | `operation` is the one the executor states | `MPA_OPERATION_MISMATCH` |
 | | `request.target` is the one the executor states | `MPA_TARGET_MISMATCH` |

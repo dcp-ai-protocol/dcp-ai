@@ -3,6 +3,7 @@
  * tests/interop/v2/multi_party_vectors.json through the public API, and what the vectors cannot express.
  */
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
   AdmissionConfigError,
@@ -156,6 +157,60 @@ describe('multi-party authorization: what the vectors cannot express', () => {
     const r = await pending;
     expect([r.authorized, r.verification, r.parties_counted, codes(r)]).toEqual([false, 'failed', 1, ['MPA_SIGNATURE_INVALID']]);
     expect(r.parties.map((p) => [p.party_id, p.verified])).toEqual([['human:alice', true], ['human:bob', false]]);
+  });
+
+  it('keeps nothing of the caller to read again: a record that is more than its members is not a record', async () => {
+    const c = byName('two_of_three');
+    // An object with an own symbol, an instance or one with a prototype of its own is not what JSON.parse makes. It is
+    // not copied member by member, so it is not judged at all: its accessors could answer one thing to a check and
+    // another to the next, and the caller could change it while the signatures are verified.
+    const kinds: Array<[string, (members: object) => object]> = [
+      ['with an own symbol', (members) => Object.assign(members, { [Symbol('any')]: true })],
+      ['an instance', (members) => Object.assign(new (class Authorization {})(), members)],
+      ['with a prototype of its own', (members) => Object.assign(Object.create({ inherited: true }), members)],
+    ];
+    const invalid = (r: MultiPartyEvaluation) => [r.authorized, r.structure, r.verification, codes(r)];
+    for (const [what, make] of kinds) {
+      // The record itself, with an accessor that shows the signed parameters only once the comparison is over...
+      let reads = 0;
+      const good = clone(V.records[c.record]);
+      const { operation_payload: signed, ...rest } = good;
+      const record = make(rest);
+      Object.defineProperty(record, 'operation_payload', {
+        enumerable: true,
+        get: () => ((reads += 1) <= 3 ? { request: signed.request, parameters: { reason: 'administrative' } } : signed),
+      });
+      const stated = { ...c, expected: { ...c.expected, parameters: { reason: 'administrative' } } };
+      expect(invalid(await evaluate(stated, registry, record)), what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_SCHEMA_INVALID']]);
+      expect(reads, what).toBe(0);
+      // ...changed by the caller while the evaluation waits...
+      const changed = make(clone(V.records[c.record])) as { authorizations: unknown[] };
+      const pending = evaluate(c, registry, changed);
+      changed.authorizations.length = 0;
+      expect(invalid(await pending), what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_SCHEMA_INVALID']]);
+      // ...and one of its authorizations: the second entry would be the owner to the party checks and the administrator,
+      // who did sign, to the signature check.
+      const entries = clone(V.records[c.record]);
+      entries.authorizations[1] = make(entries.authorizations[1]);
+      expect(invalid(await evaluate(c, registry, entries)), what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_SCHEMA_INVALID']]);
+    }
+    // A plain object with an accessor is read once, and what it gave then is what is judged.
+    let reads = 0;
+    const { operation_payload: signed, ...rest } = clone(V.records[c.record]);
+    const plain = Object.defineProperty(rest, 'operation_payload', { enumerable: true, get: () => ((reads += 1), signed) });
+    const r = await evaluate(c, registry, plain);
+    expect([r.authorized, codes(r), reads]).toEqual([true, [], 1]);
+  });
+
+  it('takes JSON read in another realm as the JSON it is', async () => {
+    const c = byName('two_of_three');
+    const foreign = (value: unknown) => runInNewContext('JSON.parse(text)', { text: JSON.stringify(value) });
+    const record = foreign(V.records[c.record]);
+    expect(Object.getPrototypeOf(record)).not.toBe(Object.prototype);
+    const r = await evaluate({ ...c, expected: foreign(c.expected) }, registry, record);
+    expect([r.authorized, codes(r)]).toEqual([true, []]);
+    const built = createMultiPartyRequest({ target: 'agent:x', audience: 'verifier:y', validitySeconds: 60, parameters: foreign({ limits: [1, { daily: 2 }] }) });
+    expect(built.parameters).toEqual({ limits: [1, { daily: 2 }] });
   });
 
   it('what is signed is what was compared with what the executor expects', async () => {
@@ -344,6 +399,106 @@ describe('multi-party authorization: signing', () => {
     // Issued an hour ago for a minute: over.
     const stale = await evaluated(Date.now() - 3_600_000);
     expect([stale.authorized, codes(stale)]).toEqual([false, ['MPA_EXPIRED']]);
+  });
+
+  /** Two parties, the operator's files for them, and what one evaluation of `parameters` gives. */
+  async function setting() {
+    const [owner, admin] = [await party('human:owner'), await party('human:admin')];
+    const now = Date.parse('2026-11-18T12:00:00Z');
+    const request = { target: 'agent:signed-here', audience: 'verifier:here', issuedAt: now, validitySeconds: 600 };
+    const options = (parameters: unknown) => ({
+      policy: {
+        policy_set_version: 'here.1',
+        profile: 'mpa-v1',
+        audience: 'verifier:here',
+        max_validity_seconds: 600,
+        subjects: [{
+          target: 'agent:signed-here',
+          parties: [{ party_id: owner.id, role: 'owner' }, { party_id: admin.id, role: 'org_admin' }],
+          operations: { revoke_agent: { required_parties: 2, allowed_roles: ['owner', 'org_admin'], required_roles: ['owner'] } },
+        }],
+      },
+      trust: { trust_set_version: 'here.1', principals: [owner.trusted, admin.trusted] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expected: { operation: 'revoke_agent' as const, target: 'agent:signed-here', parameters: parameters as any },
+      now: now + 1000,
+    });
+    /** A record whose two parties signed `payload`, whatever it holds: the signer signs what it is given. */
+    const signedOver = async (payload: Parameters<typeof createPartyAuthorization>[2]) => buildMultiPartyAuthorization('revoke_agent', payload, [
+      await createPartyAuthorization(registry, 'revoke_agent', payload, owner.id, 'owner', owner.keys),
+      await createPartyAuthorization(registry, 'revoke_agent', payload, admin.id, 'org_admin', admin.keys),
+    ]);
+    const configCode = async (run: () => unknown) => {
+      try {
+        await run();
+      } catch (e) {
+        return e instanceof MultiPartyConfigError ? e.code : `another error: ${String(e)}`;
+      }
+      return 'no error';
+    };
+    return { request, options, signedOver, configCode };
+  }
+
+  it('takes the integers a binary64 holds exactly, from -(2^53 - 1) to 2^53 - 1, and no other number', async () => {
+    const { request, options, signedOver, configCode } = await setting();
+    const MAX = Number.MAX_SAFE_INTEGER;
+
+    // The largest integers of the profile are built, signed, stated and authorized.
+    const largest = { ceiling: MAX, floor: -MAX };
+    const atTheLimit = createMultiPartyRequest({ ...request, parameters: largest });
+    const within = await evaluateMultiPartyAuthorization(clone(await signedOver(atTheLimit)), registry, options(largest));
+    expect([within.authorized, codes(within)]).toEqual([true, []]);
+
+    for (const parameters of [{ amount: MAX + 1 }, { amount: -MAX - 1 }, { amount: 1e21 }, { limits: [1, { amount: MAX + 1 }] }]) {
+      const what = JSON.stringify(parameters);
+      // One more is not a request the SDK builds...
+      expect(await configCode(() => createMultiPartyRequest({ ...request, parameters })), what).toBe('CONFIG_INVALID_VALUE');
+      // ...nor parameters an executor can state...
+      const record = clone(await signedOver(atTheLimit));
+      expect(await configCode(() => evaluateMultiPartyAuthorization(record, registry, options(parameters))), what).toBe('CONFIG_INVALID_VALUE');
+      // ...and a record that holds one decides nothing, whoever signed it: 2^53 and 2^53 + 1 are one number to
+      // whoever reads JSON numbers as binary64, so a signature over one would stand for the other.
+      const over = await signedOver({ request: atTheLimit.request, parameters });
+      const refused = await evaluateMultiPartyAuthorization(clone(over), registry, options(largest));
+      expect([refused.authorized, refused.structure, refused.verification, codes(refused)], what).toEqual([false, 'invalid', 'not_evaluated', ['MPA_NOT_REPRESENTABLE']]);
+    }
+  });
+
+  it('compares JSON data only: a Set, a Map, a Date or an instance is not a value of parameters', async () => {
+    const { request, options, signedOver, configCode } = await setting();
+    const plain = createMultiPartyRequest({ ...request, parameters: { scopes: {} } });
+    class Limit {
+      daily = 10;
+    }
+    const notJson: Array<[string, Record<string, unknown>]> = [
+      ['a Set', { scopes: new Set(['read', 'write', 'admin']) }],
+      ['a Map', { scopes: new Map([['daily', 1_000_000]]) }],
+      ['a Date', { scopes: new Date(0) }],
+      ['a RegExp', { scopes: /.*/ }],
+      ['an instance', { scopes: new Limit() }],
+      ['an array with a hole', { scopes: [1, , 3] }], // eslint-disable-line no-sparse-arrays
+      ['undefined in an array', { scopes: [undefined] }],
+      ['an undefined member', { scopes: {}, more: undefined }],
+      ['a BigInt', { scopes: 10n }],
+      ['a function', { scopes: () => 1 }],
+      ['a symbol', { scopes: Symbol('all') }],
+      ['a member under a symbol', { scopes: { [Symbol('all')]: true } }],
+    ];
+    for (const [what, parameters] of notJson) {
+      // Not a request the SDK builds...
+      expect(await configCode(() => createMultiPartyRequest({ ...request, parameters })), what).toBe('CONFIG_INVALID_VALUE');
+      // ...and not parameters an executor can state: canonicalized, most of these are {}, what the parties signed here.
+      const record = clone(await signedOver(plain));
+      expect(await configCode(() => evaluateMultiPartyAuthorization(record, registry, options(parameters))), what).toBe('CONFIG_INVALID_VALUE');
+      // A record that holds one, never sent as JSON, is not representable either: the structure phase refuses it
+      // before any signature is read.
+      const inProcess = { ...(await signedOver(plain)), operation_payload: { request: plain.request, parameters } };
+      const refused = await evaluateMultiPartyAuthorization(inProcess, registry, options({ scopes: {} }));
+      expect([refused.authorized, refused.structure, codes(refused)], what).toEqual([false, 'invalid', ['MPA_NOT_REPRESENTABLE']]);
+    }
+    // The control: the same record with plain data is authorized.
+    const control = await evaluateMultiPartyAuthorization(clone(await signedOver(plain)), registry, options({ scopes: {} }));
+    expect([control.authorized, codes(control)]).toEqual([true, []]);
   });
 
   it('refuses to build a request the profile would not accept', () => {

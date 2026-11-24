@@ -29,8 +29,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"maps"
+	"math"
 	"regexp"
 	"slices"
 	"time"
@@ -349,8 +351,8 @@ func NewMultiPartyRequest(in MultiPartyRequestInput) (map[string]interface{}, er
 	if parameters == nil {
 		parameters = map[string]interface{}{}
 	}
-	if _, err := CanonicalizeV2(parameters); err != nil {
-		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Parameters must be representable in dcp-jcs-v1")
+	if _, err := mpaCanonical(parameters); err != nil {
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Parameters must be JSON data with integers within %s", mpaRange)
 	}
 	issued := in.IssuedAt
 	if issued.IsZero() {
@@ -368,6 +370,57 @@ func NewMultiPartyRequest(in MultiPartyRequestInput) (map[string]interface{}, er
 		},
 		"parameters": parameters,
 	}, nil
+}
+
+// mpaLargestInteger is 2^53 - 1. Past it a binary64, which is what dcp-jcs-v1
+// reads a number into, no longer holds every integer, and two SDKs would write
+// two different texts for the same signed number.
+const mpaLargestInteger = 1<<53 - 1
+
+const mpaRange = "-(2^53 - 1) to 2^53 - 1"
+
+// mpaProfileData reports whether a value read by decodeJSONValue holds, at
+// every depth, only numbers the profile compares: integers within mpaRange.
+func mpaProfileData(v interface{}) bool {
+	switch val := v.(type) {
+	case json.Number:
+		if n, err := val.Int64(); err == nil {
+			return n >= -mpaLargestInteger && n <= mpaLargestInteger
+		}
+		f, err := val.Float64() // "1e2" and "1.0" are integers of the profile; a text past int64 is not
+		return err == nil && f == math.Trunc(f) && math.Abs(f) <= mpaLargestInteger
+	case []interface{}:
+		for _, member := range val {
+			if !mpaProfileData(member) {
+				return false
+			}
+		}
+	case map[string]interface{}:
+		for _, member := range val {
+			if !mpaProfileData(member) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// mpaCanonical is CanonicalizeV2 for a value the caller built, refused when it
+// holds a number outside mpaRange: an int64, a uint64 or a float64 past it is
+// read from its exact digits, before any rounding.
+func mpaCanonical(v interface{}) (string, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	decoded, err := decodeJSONValue(data)
+	if err != nil {
+		return "", err
+	}
+	if !mpaProfileData(decoded) {
+		return "", fmt.Errorf("a number outside %s", mpaRange)
+	}
+	return CanonicalizeV2(v)
 }
 
 func mpaSignedBytes(operation, operationPayload, partyID, role interface{}) ([]byte, error) {
@@ -563,6 +616,9 @@ func mpaStructure(recordJSON []byte) (map[string]interface{}, string) {
 	if !mpaConformsToRequest(payload) {
 		return nil, "MPA_REQUEST_INVALID"
 	}
+	if !mpaProfileData(payload) {
+		return nil, "MPA_NOT_REPRESENTABLE"
+	}
 	if _, err := CanonicalizeV2(payload); err != nil {
 		return nil, "MPA_NOT_REPRESENTABLE"
 	}
@@ -616,9 +672,9 @@ func EvaluateMultiPartyAuthorization(registry *AlgorithmRegistry, recordJSON []b
 	if expected.Parameters == nil {
 		expected.Parameters = map[string]interface{}{}
 	}
-	expectedParameters, err := CanonicalizeV2(expected.Parameters)
+	expectedParameters, err := mpaCanonical(expected.Parameters)
 	if err != nil {
-		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Expected.Parameters must be representable in dcp-jcs-v1")
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "Expected.Parameters must be JSON data with integers within %s", mpaRange)
 	}
 	now := opts.Now
 	if now.IsZero() {

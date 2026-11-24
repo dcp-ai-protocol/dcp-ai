@@ -92,6 +92,20 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **`mpa-v1`: every number in the signed payload is an integer from -(2^53 - 1) to 2^53 - 1** (source on `main`, not
+  in a published version; no version bump). The profile compares `parameters` through `dcp-jcs-v1`, and the SDKs did
+  not write the same text for an integer a binary64 does not hold exactly: the TypeScript and Go SDKs rounded it, the
+  Python SDK wrote every digit, and the Rust SDK did so up to 64 bits. With the Go SDK, a record whose parties signed
+  `1234567890123456789` was authorized for an executor that stated `1234567890123456790`, and one SDK could authorize
+  a record that another refused. Now, in the four SDKs, a record with a number outside that range in
+  `operation_payload` gets `MPA_NOT_REPRESENTABLE` before any signature is read, and the request builders and
+  `expected.parameters` refuse one with `CONFIG_INVALID_VALUE`. A larger value, such as a 64-bit identifier, goes in a
+  string. The TypeScript SDK also takes JSON data only: a `Set`, a `Map`, a `RegExp` or a `Date` in `parameters` was
+  compared as `{}`, so stating one matched a signed empty object; those, class instances, `undefined` and sparse
+  arrays are now refused the same way. The [profile](spec/profiles/multi-party/README.md) states the range in §2.2, §3
+  and §4. `dcp-jcs-v1`, the signed bytes and the schemas do not change; eight cases are new in
+  `tests/interop/v2/multi_party_vectors.json`. Found by the independent review of the profile.
+
 - **Reference server: `POST /v2/audit/append` checks the event and its signature, and keeps no events** (source on
   `main`, not in a published version; no version bump). The endpoint took any JSON as an audit event from anyone, one
   without `agent_id` included, and kept every body in memory with no limit, so requests alone could exhaust the

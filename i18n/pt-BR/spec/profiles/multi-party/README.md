@@ -4,7 +4,7 @@
 
 # Perfil de autorização multipartes: `mpa-v1`
 
-> Tradução informativa da [especificação em inglês](../../../../../spec/profiles/multi-party/README.md), atualizada em 20/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../../../spec/profiles/multi-party/README.md), atualizada em 24/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Estado:** Rascunho, v1
 **Escopo:** Se uma autorização multipartes autoriza uma operação sobre um alvo, para um verificador, sob uma política que o operador fixou
@@ -68,6 +68,7 @@ Sob `mpa-v1`, `operation_payload` tem exatamente dois membros. Schema: [`multi_p
 - `request` tem exatamente estes seis membros. `request_id` tem de 1 a 128 caracteres; `target` e `audience`, de 1 a 256. Os comprimentos contam pontos de código Unicode.
 - `target` nomeia o objeto da operação como a política do operador o nomeia. `audience` nomeia o verificador que pode agir com a autorização.
 - `parameters` é um objeto: os parâmetros próprios da operação, vazio quando ela não tem nenhum.
+- Todo número de `operation_payload`, lido como o binary64 mais próximo, é um inteiro de -(2^53 - 1) a 2^53 - 1: os inteiros que um binary64 guarda exatamente. `1.0` e `1e2` são inteiros desses, e também o é um literal que um binary64 não distingue de um deles. Fora desse intervalo, uma implementação que lê os números de JSON como binary64 e outra que os lê exatamente escrevem textos `dcp-jcs-v1` diferentes para o mesmo registro, e uma assinatura sobre um inteiro valeria para os seus vizinhos. Um valor maior, como um identificador de 64 bits, vai em uma string.
 
 O que uma parte assina não muda: `UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`. A assinatura clássica cobre esses bytes e a pós-quântica os cobre seguidos da assinatura clássica.
 
@@ -128,7 +129,7 @@ Os dois são carregados separadamente. Uma parte da política que o conjunto de 
 
 ## 3. O que o executor declara
 
-O executor dá a operação, o alvo e os parâmetros que está prestes a realizar. Eles têm de ser uma operação da lista, um alvo de 1 a 256 caracteres e um objeto representável em `dcp-jcs-v1`. Caso contrário, a chamada é recusada como erro de configuração (`CONFIG_INVALID_VALUE`) e não dá nenhum resultado. A autorização tem de ser exatamente para isso.
+O executor dá a operação, o alvo e os parâmetros que está prestes a realizar. Eles têm de ser uma operação da lista, um alvo de 1 a 256 caracteres e um objeto de dados JSON cujos números sejam inteiros do intervalo de §2.2. Caso contrário, a chamada é recusada como erro de configuração (`CONFIG_INVALID_VALUE`) e não dá nenhum resultado. A autorização tem de ser exatamente para isso.
 
 <a id="4-evaluation"></a>
 
@@ -141,7 +142,7 @@ Cinco fases. Uma fase que acrescenta um código interrompe as seguintes, então 
 | 1. Estrutura | O registro está em conformidade com o seu schema | `MPA_SCHEMA_INVALID` |
 | | `operation_payload` tem um membro `request` | `MPA_REQUEST_MISSING` |
 | | `operation_payload` está em conformidade com o §2.2, com instantes RFC 3339 | `MPA_REQUEST_INVALID` |
-| | `operation_payload` é representável em `dcp-jcs-v1` | `MPA_NOT_REPRESENTABLE` |
+| | `operation_payload` é representável em `dcp-jcs-v1` e todos os seus números estão no intervalo de §2.2 | `MPA_NOT_REPRESENTABLE` |
 | | No máximo 16 autorizações | `MPA_TOO_MANY_AUTHORIZATIONS` |
 | 2. Vínculo | `operation` é a que o executor declara | `MPA_OPERATION_MISMATCH` |
 | | `request.target` é o que o executor declara | `MPA_TARGET_MISMATCH` |

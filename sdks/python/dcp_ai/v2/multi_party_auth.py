@@ -209,10 +209,34 @@ def _bounded(value: Any, maximum: int) -> bool:
     return isinstance(value, str) and 1 <= len(value) <= maximum
 
 
+_LARGEST_INTEGER = 2**53 - 1
+_RANGE = "-(2^53 - 1) to 2^53 - 1"
+
+
+def _is_profile_data(value: Any) -> bool:
+    """Whether the numbers of `value` are numbers of the profile (§ 3): the integers from
+    -(2^53 - 1) to 2^53 - 1. dcp-jcs-v1 takes larger ones, and what it makes of them is not one
+    thing: this SDK writes every digit, others write the nearest binary64, which is also what
+    most parsers read. Two numbers would be signed, compared and verified as one. What is not
+    JSON at all is left for the canonicalization to refuse."""
+    if isinstance(value, bool):
+        return True
+    if isinstance(value, int):
+        return -_LARGEST_INTEGER <= value <= _LARGEST_INTEGER
+    if isinstance(value, float):
+        return value.is_integer() and abs(value) <= _LARGEST_INTEGER
+    if isinstance(value, dict):
+        return all(_is_profile_data(member) for member in value.values())
+    if isinstance(value, (list, tuple)):
+        return all(_is_profile_data(member) for member in value)
+    return True
+
+
 def _canonical(value: Any) -> str | None:
-    """The dcp-jcs-v1 form, or None when the value is not representable."""
+    """The dcp-jcs-v1 form, or None when the value is not data of the profile or is not
+    representable."""
     try:
-        return canonicalize_v2(value)
+        return canonicalize_v2(value) if _is_profile_data(value) else None
     except Exception:
         return None
 
@@ -422,7 +446,7 @@ def create_multi_party_request(
     if not _is_integer(issued_at_ms):
         _fail("CONFIG_INVALID_VALUE", "issued_at_ms must be an integer number of milliseconds")
     if not isinstance(parameters, dict) or _canonical(parameters) is None:
-        _fail("CONFIG_INVALID_VALUE", "parameters must be an object representable in dcp-jcs-v1")
+        _fail("CONFIG_INVALID_VALUE", f"parameters must be an object of JSON data with integers within {_RANGE}")
     issued = int(issued_at_ms)
     return {
         "request": {
@@ -569,7 +593,7 @@ def _valid_expected(expected: Any) -> tuple[str, str, str]:
         _fail("CONFIG_INVALID_VALUE", "expected.target must be a string of 1 to 256 characters")
     parameters = _canonical(expected.get("parameters")) if isinstance(expected.get("parameters"), dict) else None
     if parameters is None:
-        _fail("CONFIG_INVALID_VALUE", "expected.parameters must be an object representable in dcp-jcs-v1")
+        _fail("CONFIG_INVALID_VALUE", f"expected.parameters must be an object of JSON data with integers within {_RANGE}")
     return operation, target, parameters
 
 
