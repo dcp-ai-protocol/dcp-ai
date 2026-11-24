@@ -4,7 +4,7 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（18/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（24/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.4.0、プロトコル DCP v2.0）のリファレンスです。
 
@@ -1055,6 +1055,8 @@ effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 
 X25519 + ML-KEM-768 のハイブリッドな鍵交換を前提に設計された、エージェント間のセッションプロトコルです。これらの関数はその
 交換を行いません。呼び出し側が交換を行い、得られたセッション鍵を `createSession` に渡します。
+
+これらの関数は相手方の認証も行いません。相手方のバンドルを検証しても認証にはなりません。[DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) は改訂中です。
 
 ### `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)`
 

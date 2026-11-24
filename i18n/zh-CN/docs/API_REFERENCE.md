@@ -4,7 +4,7 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 24/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.4.0，协议 DCP v2.0）的参考文档。
 
@@ -1052,6 +1052,8 @@ effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 
 围绕 X25519 + ML-KEM-768 混合密钥交换设计的智能体间会话协议。这些函数并不执行该交换：由调用方执行交换，并把得到的会话密钥传给
 `createSession`。
+
+这些函数也不认证对方，验证对方的 bundle 同样不能认证：[DCP-04 §3](../../../spec/DCP-04.md#3-handshake-protocol) 正在修订。
 
 ### `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)`
 

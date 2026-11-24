@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 的 TypeScript SDK
 
-> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 24/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量子混合密码学（Ed25519 + ML-DSA-65）、复合签名、自适应安全等级、智能体间（A2A）通信、内置可观测性和面向生产的加固，创建、签署并验证 Citizenship Bundle。
 
@@ -294,6 +294,8 @@ console.log(result.verified, result.errors); // true []
 <a id="a2a-protocol-dcp-04"></a>
 
 ### A2A 协议（DCP-04）
+
+这些函数用于构建 `A2A_HELLO` 和 `A2A_WELCOME` 消息并加密会话消息。它们并不认证对方，验证对方的 bundle 也不能认证：[DCP-04 §3](../../../../spec/DCP-04.md#3-handshake-protocol) 正在修订。
 
 | 函数 | 说明 |
 |----------|-------------|
@@ -584,6 +586,8 @@ SDK 导出的主要类型：
 <a id="a2a-protocol"></a>
 
 ## A2A 协议
+
+这些函数用于构建 `A2A_HELLO` 和 `A2A_WELCOME` 消息并加密会话消息。它们并不认证对方，验证对方的 bundle 也不能认证：[DCP-04 §3](../../../../spec/DCP-04.md#3-handshake-protocol) 正在修订。
 
 智能体间的加密通信：
 

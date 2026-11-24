@@ -1282,6 +1282,16 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Documentation
 
+- **Documents that described the DCP-04 handshake as authenticated now say what the specification's notice says**
+  (documentation only; no change to code, schemas or versions). The README and the documentation index no longer call
+  DCP-04 "authenticated" messaging or communication. The security model (the hybrid KEM, layer 8, §11 and its known
+  limitations), the quick start (§7), the technical architecture, the API reference, the TypeScript SDK README, the EU
+  AI Act mapping and the early adopters FAQ state that neither the handshake nor verifying the counterparty's bundle
+  authenticates it. The security model adds that, as specified, there is no protection against a man-in-the-middle or
+  impersonation; and where they describe the functions, the documents say that, of the four handshake messages, the
+  SDKs' A2A helpers build only `A2A_HELLO` and `A2A_WELCOME` and do not verify the bundles they carry. Each points to
+  the notice in [DCP-04 §3](spec/DCP-04.md#3-handshake-protocol), which is under revision.
+
 - **Operational limits** (new [docs/OPERATIONAL_LIMITS.md](docs/OPERATIONAL_LIMITS.md); no code, default, profile or
   wire change). What bounds inputs, trust and revocation sources, concurrency, client disconnection and the Express
   verdict cache, which layer sets each limit, what the operator has to set, and a sample pilot configuration that is

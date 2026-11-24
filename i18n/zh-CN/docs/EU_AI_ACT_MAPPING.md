@@ -5,7 +5,7 @@
 
 # DCP-AI 与欧盟《人工智能法》— 日志记录、人工监督和记录保存义务的对应
 
-> 本文是[英文版](../../../docs/EU_AI_ACT_MAPPING.md)的参考译文，更新于 18/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/EU_AI_ACT_MAPPING.md)的参考译文，更新于 24/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
@@ -59,7 +59,7 @@ DCP 的角色附着在一个智能体实例以及为它负责的个人或组织�
 | **责任委托人** | `schemas/v2/responsible_principal_record.schema.json`：`human_id`、`legal_name`、`entity_type`（`natural_person` 或 `organization`）、`jurisdiction`、`liability_mode`（`owner_responsible`）、`override_rights`、`binding_keys` | **部署者**，或部署者根据第 26 条第 (2) 款指派负责人工监督的自然人 | RPR 指明谁为智能体的行为负责。当 `entity_type` 为 `organization` 时，通常就是部署者本身；为 `natural_person` 时，通常是部署者内部持有 `override_rights` 的人。 |
 | **智能体** | `schemas/v2/agent_passport.schema.json`：`agent_id`、`keys`、`principal_binding_reference`、`capabilities`、`risk_tier`、`status` | **人工智能系统**（或其组成部分） | DCP 智能体是一个已部署的实例，拥有自己的密钥和生命周期状态。底层模型或框架的提供者不出现在任何 DCP 构件中。 |
 | **运营方**（验证服务、策略引擎、透明日志、锚定服务或撤销服务的运营方） | `server/`、`services/`、验证器策略（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md)） | 通常是**部署者**；当提供者把这一关卡作为系统的一部分交付时，可能是**提供者**；也可能是第三方 | 运营方决定验证器策略、审计数据的保留和锚定频率。第 5 节的若干条目由运营方负责。 |
-| **对方智能体**（DCP-04、DCP-09） | `interaction_record.counterparty_agent_id`、委托授权书 | 另一个人工智能系统，可能属于另一个部署者 | 交互记录让每一方都拿到对方授权的证据。 |
+| **对方智能体**（DCP-04、DCP-09） | `interaction_record.counterparty_agent_id`、委托授权书 | 另一个人工智能系统，可能属于另一个部署者 | 交互记录让每一方都拿到对方所声明的授权：按现有规范，DCP-04 握手并不认证对方（[§3](../../../spec/DCP-04.md#3-handshake-protocol)，修订中）。 |
 
 对本对应关系的两点影响：
 
@@ -123,7 +123,7 @@ DCP-AI 规范用“human”和“principal”称呼由 RPR 绑定的人。本文
 |---------|------------------------|---------------|----------|-----------------------------------|
 | [第 27 条第 (1) 款 (e)–(f) 项](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_27) | 基本权利影响评估（公共机构、公共服务提供者、附件 III 第 5(b) 和 (c) 点）描述已实施的人工监督措施，以及风险发生时将采取的措施，包括内部治理和投诉机制。 | 具体、可记录的监督措施：RPR 的 `override_rights`、带 `escalate` 的意图关卡、Human Confirmation、感知阈值、建议声明、生命周期控制、紧急撤销。内部治理和升级：DCP-07 的三层模型（直接协商、情境仲裁、人工申诉，§5），以及 `createDispute`、`escalateDispute`、`resolveDispute`、`createObjection`；DCP-08 的违规报告（`reportViolation`）。 | `partial` | 评估本身（流程、受影响的人、风险，第 27 条第 (1) 款 (a)–(d) 项）由部署者负责。DCP-07 和 DCP-08 是智能体与其委托人之间的机制；它们不是受影响自然人的投诉渠道（第 6 节）。Omnibus 修订了第 27 条第 (4)–(5) 款，允许交叉引用 GDPR 的数据保护影响评估。 |
 | [第 86 条](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_86) | 获得解释的权利（见 3.3 行）。 | **人工申诉**（DCP-07 §5.3）：争议的任何一方都可以随时升级到责任委托人；人工决定在协议内具有终局性，并记录为仲裁裁决（`schemas/v2/arbitration_resolution.schema.json`）。**争议记录**（`schemas/v2/dispute_record.schema.json`：`dispute_type`、包括 `human_appeal` 的 `escalation_level`、`status`、`evidence_hashes`）。**叙述层**（DCP-09 §7.4）：通俗语言的摘要、附带推理的关键决定、未决问题、需要委托人采取的行动。 | `partial` | 这些机制为部署者自己的人员提供一条有记录的路径，用来复审智能体的决定。受影响者依第 86 条享有的权利是在协议之外向部署者行使的。 |
-| [第 26 条第 (11) 款](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_26)、[第 50 条第 (1) 款](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_50) | 对自然人作出决定或协助作出决定的附件 III 系统的部署者应告知这些人；提供者确保与人工智能系统交互的人被告知这一点，除非这一点显而易见。 | Agent Passport 是一份已签名、可验证的声明，表明行为者是绑定到某个具名委托人的人工智能智能体，可以出示给任何对方（`presentFull`、`presentCompact`、`presentReference`；对其他智能体使用 DCP-04 握手）。 | `partial` | 向自然人的披露（UI、措辞、“at the latest at the time of the first interaction”的时机，第 50 条第 (5) 款）由提供者和部署者负责。DCP 提供支持该披露的可验证证明；它本身并不进行披露。 |
+| [第 26 条第 (11) 款](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_26)、[第 50 条第 (1) 款](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_50) | 对自然人作出决定或协助作出决定的附件 III 系统的部署者应告知这些人；提供者确保与人工智能系统交互的人被告知这一点，除非这一点显而易见。 | Agent Passport 是一份已签名、可验证的声明，表明行为者是绑定到某个具名委托人的人工智能智能体，可以出示给任何对方（`presentFull`、`presentCompact`、`presentReference`；对其他智能体使用 DCP-04 握手）。在握手中出示它并不能证明出示者就是该智能体：按现有规范，握手并不认证双方（[§3](../../../spec/DCP-04.md#3-handshake-protocol)，修订中）。 | `partial` | 向自然人的披露（UI、措辞、“at the latest at the time of the first interaction”的时机，第 50 条第 (5) 款）由提供者和部署者负责。DCP 提供支持该披露的可验证证明；它本身并不进行披露。 |
 | [第 50 条第 (2) 款](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_50)、[第 50 条第 (4) 款](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1689#art_50) | 对合成内容进行机器可读的标记；披露深度伪造以及关于公共利益事项的人工智能生成文本。 | 无。`evidence.evidence_hash` 可以绑定一个构件所声明的字节；它既不能证明该构件确实被生成过，也不能证明它被标记过。 | `out of scope` | 内容标记和检测是另外的技术措施。 |
 
 <a id="35-incident-reporting-and-post-market-monitoring"></a>
