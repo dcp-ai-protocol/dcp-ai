@@ -182,6 +182,77 @@ test("POST /verify refuses a V1 bundle once an advisory has withdrawn its algori
   });
 });
 
+test("an advisory that withdraws Ed25519 reaches audit/append, and every forced change of mode is recorded", async () => {
+  const { base: url, proc } = await startService(SERVER, { VERIFIER_MODE: "classical_only", OPERATOR_TOKEN });
+  try {
+    // An agent whose only key is Ed25519, registered while the policy took such an agent.
+    const tango = await newAgent("agent:tango-001");
+    const classicalOnly = { classical: tango.keys.classical };
+    const passport = { ...tango.passport, keys: tango.passport.keys.filter((key) => key.kid === tango.keys.classical.kid) };
+    assert.equal((await registerNew(url, await signPassport(passport, classicalOnly))).status, 201);
+    let n = 0;
+    const append = async () => {
+      const audit_event = {
+        dcp_version: "2.0", audit_id: `audit:${String(++n).padStart(4, "0")}`, session_nonce: "ab".repeat(32), prev_hash: "GENESIS",
+        hash_alg: "sha256", timestamp: "2026-11-18T00:00:00Z", agent_id: "agent:tango-001", human_id: "human:test-owner",
+        intent_id: "intent:0001", intent_hash: `sha256:${"0".repeat(64)}`, policy_decision: "approved", outcome: "sent",
+        evidence: { tool: null, result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+      };
+      return postTo(url, "/v2/audit/append", { audit_event, signature: await sign(DCP_CONTEXTS.AuditEvent, audit_event, classicalOnly) });
+    };
+    assert.equal((await append()).status, 201);
+
+    const advisory = {
+      type: "algorithm_advisory", advisory_id: "DCP-ADV-0003", severity: "critical", affected_algorithms: ["ed25519"], action: "revoke",
+      replacement_algorithms: [], effective_date: "2026-01-01T00:00:00Z", grace_period_days: 0, description: "test advisory",
+      issued_at: "2026-01-01T00:00:00Z", issuer: "governance:test",
+      composite_sig: { classical: { alg: "ed25519", kid: "0".repeat(32), sig_b64: "A".repeat(88) }, pq: null, binding: "classical_only" },
+    };
+    assert.equal((await postTo(url, "/v2/advisory/publish", { advisory }, asOperator)).status, 201);
+    const policy = async () => (await fetch(`${url}/v2/policy`)).json();
+    const autoApply = async () => (await postTo(url, "/v2/advisory/auto-apply", {}, asOperator)).body;
+    const recorded = (await policy()).policy_history_length;
+    assert.equal((await autoApply()).policy_modified, true);
+    assert.deepEqual([(await policy()).mode, (await policy()).policy_history_length], ["pq_only", recorded + 1]);
+    // The signature the gateway took a moment ago is one Ed25519 signature: the policy no longer takes that.
+    const refused = await append();
+    assert.equal(refused.status, 403);
+    assert.match(refused.body.error, /does not verify/);
+
+    // Nothing left to change: applying the advisories again modifies nothing and records nothing.
+    assert.equal((await autoApply()).policy_modified, false);
+    assert.equal((await policy()).policy_history_length, recorded + 1);
+    // The operator puts the mode back by hand. With no classical algorithm left the next auto-apply forces pq_only
+    // again, and says so: it is a change of policy like the first.
+    assert.equal((await postTo(url, "/v2/policy/mode", { mode: "classical_only" }, asOperator)).status, 200);
+    assert.equal((await append()).status, 403); // the mode alone does not bring Ed25519 back
+    const forced = await autoApply();
+    assert.deepEqual([forced.policy_modified, (await policy()).mode, (await policy()).policy_history_length], [true, "pq_only", recorded + 3]);
+  } finally {
+    proc.kill();
+  }
+});
+
+test("a body or a V1 key that is not what it should be gets an answer, not a 500", async () => {
+  // The JSON value null is not a body: every route reads members of it.
+  const raw = (path, body) => fetch(`${classical}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body });
+  for (const path of ["/verify", "/v2/bundle/verify", "/v2/passport/register", "/v2/audit/append", "/v2/keys/rotate"]) {
+    for (const body of ["null", "7", '"text"', "true"]) {
+      assert.equal((await raw(path, body)).status, 400, `${path} ${body}`);
+    }
+  }
+  // A V1 bundle declares its own key. One of another size, or that is not base64, is a signature that does not
+  // verify: the Ed25519 code throws on it.
+  for (const key of [Buffer.alloc(31).toString("base64"), Buffer.alloc(33).toString("base64"), "not base64!"]) {
+    const bundle = forgedV1();
+    bundle.signature.signer.public_key_b64 = key;
+    const declared = await postTo(classical, "/verify", { signed_bundle: bundle });
+    assert.deepEqual([declared.status, declared.body.verified], [200, false], key);
+    const pinned = await postTo(classical, "/verify", { signed_bundle: forgedV1(), public_key_b64: key });
+    assert.deepEqual([pinned.status, pinned.body.verified], [200, false], key);
+  }
+});
+
 test("POST /verify warns when a V1 signature was checked against the key the bundle declares", async () => {
   const forged = forgedV1();
   const selfDeclared = await postTo(classical, "/verify", { signed_bundle: forged });
@@ -605,10 +676,13 @@ const mpaPolicy = (parties) => ({
     operations: { revoke_agent: { required_parties: 2, allowed_roles: ["owner", "org_admin"], required_roles: ["owner"] } },
   }],
 });
+const temporary = []; // directories this suite made, removed when it ends
+after(() => temporary.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
 const writeJson = async (prefix, files) => {
   const os = await import("node:os");
   const path = await import("node:path");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  temporary.push(dir);
   return Object.fromEntries(Object.entries(files).map(([name, value]) => {
     const file = path.join(dir, `${name}.json`);
     fs.writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
@@ -667,6 +741,20 @@ test("multi-party authorization: the operator's parties, roles and threshold dec
     };
     const byOwner = await by(owner, "human:owner", "owner");
     const byAdmin = await by(admin, "human:admin", "org_admin");
+
+    // A number a double does not hold is not a parameter of the profile. As JSON text, 2^53 + 1 reads here as 2^53:
+    // stated, it is the caller's mistake, and in a record it decides nothing, whoever signed it.
+    const raw = async (text) => {
+      const res = await fetch(`${url}/v2/multi-party/authorize`, { method: "POST", headers: { "content-type": "application/json", ...asMpaOperator }, body: text });
+      return { status: res.status, body: await res.json() };
+    };
+    const valid = JSON.stringify({ authorization: buildMultiPartyAuthorization("revoke_agent", payload, [byOwner, byAdmin]), expected });
+    assert.deepEqual([(await raw(valid)).status, valid.split('"reason":"key_compromise"').length], [200, 3]);
+    const inTheRecord = await raw(valid.replace('"reason":"key_compromise"', '"reason":9007199254740993'));
+    assert.deepEqual([inTheRecord.status, inTheRecord.body.errors.map((e) => e.code)], [403, ["MPA_NOT_REPRESENTABLE"]]);
+    const statedAt = valid.lastIndexOf('"reason":"key_compromise"');
+    const stated = await raw(`${valid.slice(0, statedAt)}"reason":9007199254740993${valid.slice(statedAt + '"reason":"key_compromise"'.length)}`);
+    assert.deepEqual([stated.status, stated.body.code], [400, "CONFIG_INVALID_VALUE"]);
 
     const ok = await submit([byOwner, byAdmin]);
     assert.deepEqual([ok.status, ok.authorized, ok.required, ok.counted, ok.codes], [200, true, 2, 2, []], ok.text);
@@ -758,6 +846,155 @@ test("multi-party authorization: the server refuses to start with an unusable po
   proc.kill();
 });
 
+test("multi-party authorization: admission and a long token do not make the endpoint", async () => {
+  const files = await writeJson("dcp-multi-party-", { trust: { trust_set_version: "v1", principals: [] } });
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN: MPA_OPERATOR_TOKEN, DCP_TRUSTED_PRINCIPALS_FILE: files.trust });
+  try {
+    const anything = { authorization: {}, expected: { operation: "revoke_agent", target: MPA_TARGET, parameters: {} } };
+    for (const headers of [{}, asMpaOperator]) {
+      const answer = await postTo(url, "/v2/multi-party/authorize", anything, headers);
+      assert.deepEqual([answer.status, answer.body], [404, { error: "Not found" }]);
+    }
+    assert.equal((await capabilities(url)).multi_party_auth, false);
+  } finally {
+    proc.kill();
+  }
+});
+
+test("multi-party authorization: a request brings no threshold, policy set, trust set or clock of its own", async () => {
+  const [owner, admin, contact, eve] = await Promise.all(
+    ["party:owner-02", "party:admin-02", "party:contact-02", "party:eve-02"].map((id) => newAgent(id)));
+  const parties = [{ party_id: "human:owner", role: "owner" }, { party_id: "human:admin", role: "org_admin" }, { party_id: "human:contact", role: "recovery_contact" }];
+  const everyRole = ["owner", "org_admin", "recovery_contact"];
+  const THREE = "agent:carol-0001"; // a target for which the operator asks for three parties
+  const policy = mpaPolicy(parties);
+  policy.subjects.push({ target: THREE, parties, operations: { revoke_agent: { required_parties: 3, allowed_roles: everyRole, required_roles: ["owner"] } } });
+  const files = await writeJson("dcp-multi-party-", {
+    trust: { trust_set_version: "trust-of-the-operator", principals: [trustedParty("human:owner", owner), trustedParty("human:admin", admin), trustedParty("human:contact", contact)] },
+    policy,
+  });
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN: MPA_OPERATOR_TOKEN, DCP_TRUSTED_PRINCIPALS_FILE: files.trust, DCP_MULTI_PARTY_POLICY_FILE: files.policy });
+  try {
+    const parameters = { reason: "key_compromise" };
+    // One record per call. `signers` are [agent, party_id, role]; `extra` is whatever else the request carries.
+    const ask = async (target, signers, { issuedAt = Date.now(), required = 2, extra = {} } = {}) => {
+      const payload = createMultiPartyRequest({ target, audience: MPA_AUDIENCE, parameters, validitySeconds: 300, issuedAt });
+      const authorizations = await Promise.all(signers.map(([{ keys }, party_id, role]) => createPartyAuthorization(registry, "revoke_agent", payload, party_id, role, keys)));
+      const body = { authorization: buildMultiPartyAuthorization("revoke_agent", payload, authorizations, required), expected: { operation: "revoke_agent", target, parameters }, ...extra };
+      const answer = await postTo(url, "/v2/multi-party/authorize", body, asMpaOperator);
+      return {
+        status: answer.status, authorized: answer.body.authorized, required: answer.body.required_parties, counted: answer.body.parties_counted,
+        versions: [answer.body.policy_set_version, answer.body.trust_set_version],
+        codes: [...new Set((answer.body.errors ?? []).map((e) => e.code))].sort(),
+      };
+    };
+    const byOwner = [owner, "human:owner", "owner"];
+    const byAdmin = [admin, "human:admin", "org_admin"];
+    const byContact = [contact, "human:contact", "recovery_contact"];
+    const operators = ["test-1", "trust-of-the-operator"];
+
+    // The threshold is the operator's: two valid parties where it asks for three, in a record that says it needs two.
+    assert.deepEqual(await ask(THREE, [byOwner, byAdmin, byContact], { required: 3 }), { status: 200, authorized: true, required: 3, counted: 3, versions: operators, codes: [] });
+    assert.deepEqual(await ask(THREE, [byOwner, byAdmin], { required: 2 }), { status: 403, authorized: false, required: 3, counted: 2, versions: operators, codes: ["MPA_THRESHOLD_NOT_MET"] });
+
+    // A policy set in the request is not the operator's: this one would let the two who signed authorize.
+    const lenient = { ...policy, policy_set_version: "from-the-request", subjects: [{ target: MPA_TARGET, parties, operations: { revoke_agent: { required_parties: 2, allowed_roles: everyRole, required_roles: ["org_admin"] } } }] };
+    const withoutOwner = await ask(MPA_TARGET, [byAdmin, byContact]);
+    assert.deepEqual([withoutOwner.status, withoutOwner.codes, withoutOwner.versions], [403, ["MPA_ROLE_NOT_ALLOWED"], operators]);
+    assert.deepEqual(await ask(MPA_TARGET, [byAdmin, byContact], { extra: { policy: lenient } }), withoutOwner);
+
+    // Nor is a trust set: this one names the keys that signed as the owner's.
+    const impostor = [eve, "human:owner", "owner"];
+    const forged = await ask(MPA_TARGET, [impostor, byAdmin]);
+    assert.deepEqual([forged.status, forged.codes, forged.versions], [403, ["MPA_KEY_NOT_ANCHORED"], operators]);
+    const trustOfTheRequest = { trust_set_version: "from-the-request", principals: [trustedParty("human:owner", eve), trustedParty("human:admin", admin)] };
+    assert.deepEqual(await ask(MPA_TARGET, [impostor, byAdmin], { extra: { trust: trustOfTheRequest } }), forged);
+
+    // Nor a clock: an expired request stays expired, whatever time the request says it is.
+    const issuedAt = Date.now() - 900_000;
+    const expired = await ask(MPA_TARGET, [byOwner, byAdmin], { issuedAt });
+    assert.deepEqual([expired.status, expired.codes], [403, ["MPA_EXPIRED"]]);
+    assert.deepEqual(await ask(MPA_TARGET, [byOwner, byAdmin], { issuedAt, extra: { now: issuedAt + 1000 } }), expired);
+  } finally {
+    proc.kill();
+  }
+});
+
+test("multi-party authorization: the whole token, and before the body is read", async () => {
+  const http = await import("node:http");
+  const files = await writeJson("dcp-multi-party-", {
+    trust: { trust_set_version: "v1", principals: [] },
+    policy: mpaPolicy([{ party_id: "human:owner", role: "owner" }, { party_id: "human:admin", role: "org_admin" }]),
+  });
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN: MPA_OPERATOR_TOKEN, DCP_TRUSTED_PRINCIPALS_FILE: files.trust, DCP_MULTI_PARTY_POLICY_FILE: files.policy });
+  // A client that would keep the connection open: what closes it is the server's own header.
+  const agent = new http.Agent({ keepAlive: true });
+  const send = (headers, body) => new Promise((resolve, reject) => {
+    const req = http.request(`${url}/v2/multi-party/authorize`, { method: "POST", agent, headers: { "content-type": "application/json", ...headers } }, (res) => {
+      res.resume();
+      res.on("end", () => resolve([res.statusCode, res.headers["www-authenticate"], res.headers.connection]));
+    });
+    req.on("error", reject);
+    req.end(body);
+  });
+  try {
+    // Without the token the body is not looked at: this is not the 400 of a body that is not JSON.
+    for (const body of ["{", "", JSON.stringify({ authorization: {}, expected: {} })]) {
+      assert.deepEqual(await send({}, body), [401, "Bearer", "close"], JSON.stringify(body));
+    }
+    // The control: with the token, that body is read and refused for what it is.
+    assert.equal((await send(asMpaOperator, "{"))[0], 400);
+    // A token that begins like the operator's, or differs from it in its length, its case or its last character.
+    for (const token of [MPA_OPERATOR_TOKEN.slice(0, 8), MPA_OPERATOR_TOKEN.slice(0, -1), `${MPA_OPERATOR_TOKEN}0`, `${MPA_OPERATOR_TOKEN.slice(0, -1)}X`, MPA_OPERATOR_TOKEN.toUpperCase()]) {
+      assert.equal((await send({ authorization: `Bearer ${token}` }, "{}"))[0], 401, token);
+    }
+  } finally {
+    agent.destroy();
+    proc.kill();
+  }
+});
+
+test("multi-party authorization: the trust set is the file as it is now", async () => {
+  const [owner, admin] = await Promise.all(["party:owner-03", "party:admin-03"].map((id) => newAgent(id)));
+  const trustSet = (version, ownerStatus) => JSON.stringify({
+    trust_set_version: version,
+    principals: [
+      { human_id: "human:owner", keys: trustedParty("human:owner", owner).keys.map((key) => ({ ...key, status: ownerStatus })) },
+      trustedParty("human:admin", admin),
+    ],
+  });
+  const files = await writeJson("dcp-multi-party-", {
+    trust: trustSet("first", "active"),
+    policy: mpaPolicy([{ party_id: "human:owner", role: "owner" }, { party_id: "human:admin", role: "org_admin" }]),
+  });
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN: MPA_OPERATOR_TOKEN, DCP_TRUSTED_PRINCIPALS_FILE: files.trust, DCP_MULTI_PARTY_POLICY_FILE: files.policy });
+  try {
+    const expected = { operation: "revoke_agent", target: MPA_TARGET, parameters: {} };
+    const payload = createMultiPartyRequest({ target: MPA_TARGET, audience: MPA_AUDIENCE, validitySeconds: 300 });
+    const authorization = buildMultiPartyAuthorization("revoke_agent", payload, [
+      await createPartyAuthorization(registry, "revoke_agent", payload, "human:owner", "owner", owner.keys),
+      await createPartyAuthorization(registry, "revoke_agent", payload, "human:admin", "org_admin", admin.keys),
+    ]);
+    // The same record every time: only the operator's file changes.
+    const decide = async () => {
+      const { status, body } = await postTo(url, "/v2/multi-party/authorize", { authorization, expected }, asMpaOperator);
+      return [status, body.authorized, body.trust_set_version, [...new Set((body.errors ?? []).map((e) => e.code))].sort()];
+    };
+    assert.deepEqual(await decide(), [200, true, "first", []]);
+    // The operator withdraws the owner's keys: the record stops counting, with no restart.
+    fs.writeFileSync(files.trust, trustSet("second", "revoked"));
+    assert.deepEqual(await decide(), [403, false, "second", ["MPA_KEY_REVOKED"]]);
+    // A file that no longer loads decides nothing: not the last one that did.
+    fs.writeFileSync(files.trust, "{");
+    const broken = await postTo(url, "/v2/multi-party/authorize", { authorization, expected }, asMpaOperator);
+    assert.deepEqual([broken.status, broken.body], [503, { authorized: false, error: "Trusted principals unavailable" }]);
+    fs.writeFileSync(files.trust, trustSet("third", "active"));
+    assert.deepEqual(await decide(), [200, true, "third", []]);
+  } finally {
+    proc.kill();
+  }
+});
+
 test("VERIFIER_MODE and ALLOW_V1_BUNDLES are read from the environment", async () => {
   assert.equal((await postTo(classical, "/verify", { signed_bundle: v1Bundle() })).body.verified, true);
 
@@ -812,6 +1049,7 @@ test("admission: strict-v1 against the operator's trust set, revocation list and
   const listUrl = `http://127.0.0.1:${listServer.address().port}/.well-known/dcp-revocations.json`;
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-admission-"));
+  temporary.push(dir);
   const trustFile = path.join(dir, "trust.json");
   const profileFile = path.join(dir, "profile.json");
   fs.writeFileSync(trustFile, JSON.stringify(trustSet("v1", principal.rpr)));
@@ -872,6 +1110,7 @@ test("admission: the server refuses to start with a contradictory or invalid con
   const os = await import("node:os");
   const path = await import("node:path");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-admission-bad-"));
+  temporary.push(dir);
   const write = (name, value) => {
     const file = path.join(dir, name);
     fs.writeFileSync(file, JSON.stringify(value));

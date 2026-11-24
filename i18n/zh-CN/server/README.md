@@ -4,7 +4,7 @@
 
 # DCP 参考网关
 
-> 本文是[英文版](../../../server/README.md)的参考译文，更新于 20/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../server/README.md)的参考译文，更新于 24/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 实现 Digital Citizenship Protocol 的 V1、V2 和第 3 阶段（PQ 优先）的 HTTP 验证服务。**内存存储**：不需要外部数据库，重启后什么都不会保留（参见[持久化](#persistence)）。设计为可由任何第三方运行；协议不需要中央服务器。
 
@@ -48,7 +48,7 @@ node server/index.js
 |--------|------|-------------|
 | POST | `/v2/passport/register` | 登记自签名的智能体护照；新的 `agent_id` 需要运营方令牌（参见[信任模型](#trust-model)） |
 | POST | `/v2/intent/declare` | 声明已登记智能体的意图，并获得服务器的（未签名的）策略决定；意图的 `composite_sig` 不会被验证 |
-| POST | `/v2/audit/append` | 检查已登记智能体的审计事件并计数。事件必须是 V2 审计条目（`schemas/v2/audit_entry.schema.json`），`signature` 必须是该智能体的有效密钥在 `DCP-AI.v2.AuditEvent` 下对它所作的复合签名。网关不保存审计事件，也不比较 `prev_hash` |
+| POST | `/v2/audit/append` | 检查已登记智能体的审计事件并计数。事件必须是 V2 审计条目（`schemas/v2/audit_entry.schema.json`），`signature` 必须是该智能体的有效密钥在 `DCP-AI.v2.AuditEvent` 下对它所作的复合签名。网关不保存审计事件，也不比较 `prev_hash`。从未登记过后量子密钥的代理，只有在模式为 `classical_only` 或 `hybrid_preferred`、且没有已应用的通告撤回该算法时，才能仅用经典密钥签名 |
 | POST | `/v2/audit/compact` | 用 Merkle 摘要压缩审计链 |
 | POST | `/v2/bundle/verify` | 完整的 V2 bundle 验证：schema、清单、Ed25519 + ML-DSA-65 复合签名、会话绑定和审计链（通过 `lib/verify.js` 和 `@dcp-ai/sdk`），依据 `VERIFIER_POLICY`。V1 bundle 返回 400 |
 
@@ -105,7 +105,7 @@ node server/index.js
 | `PORT` | `3000` | HTTP 监听端口 |
 | `OPERATOR_TOKEN` | — | 用于运营方端点和登记新 `agent_id` 的 Bearer 令牌。未设置：两者都保持锁定 |
 | `VERIFIER_MODE` | `hybrid_required` | 启动时的验证模式：`classical_only`、`hybrid_preferred`、`hybrid_required` 或 `pq_only`。无效值会使服务器停止 |
-| `ALLOW_V1_BUNDLES` | `true` | 设为 `false` 时 `POST /verify` 拒绝所有 V1 bundle。为 `true` 时，也只有在会接受仅经典签名 bundle 的情况下才接受 V1 bundle：护照 `risk_tier` 对应的模式经意图的安全层级提升后，必须是 `classical_only` 或 `hybrid_preferred`。因此默认的 `hybrid_required` 会拒绝 V1 bundle，`pq_only` 总是拒绝 |
+| `ALLOW_V1_BUNDLES` | `true` | 设为 `false` 时 `POST /verify` 拒绝所有 V1 bundle。为 `true` 时，也只有在会接受仅经典签名 bundle 的情况下才接受 V1 bundle：护照 `risk_tier` 对应的模式经意图的安全层级提升后，必须是 `classical_only` 或 `hybrid_preferred`。因此默认的 `hybrid_required` 会拒绝 V1 bundle，`pq_only` 总是拒绝。此外，策略还必须仍然接受 `ed25519`：撤回它的通告一旦通过 `POST /v2/advisory/auto-apply` 应用，V1 bundle 就不再被接受；若不再剩下任何经典算法，策略会变为 `pq_only` |
 | `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` 启用 DCP-05 至 DCP-09 演示端点，此时它们需要运营方令牌（至少 32 个字符）；除未设置、`off` 或 `dcp-05-09` 之外的任何值都会让服务器停止 |
 | `TRUST_PROXY` | — | 仅在会把客户端 IP 追加到 `X-Forwarded-For` 的代理（Fly、nginx）之后设为 `true`。此时限流以其最后一跳为准；否则以套接字地址为准，因为客户端可以伪造该请求头 |
 | `REGISTRATIONS_PER_HOUR` | `20` | 每个客户端每小时的 `POST /v2/passport/register` 调用次数；超出的会得到 429 |
@@ -149,6 +149,7 @@ node server/index.js
   `/v2/passport/register` 登记的身份也不是参与方。应答就是该配置文件的评估结果：只有 `authorized` 为真时才是 200，否则是
   带有同一结果及其代码的 403，`expected` 缺失或不可用时是 400。服务器不执行任何操作，也不保存状态：同一请求每次得到
   相同的应答，因此操作不是幂等的调用方应以原子方式消费 `request_id` 并执行。
+- **多方授权路由不读取的内容**：该路由不接收任何验证策略：算法通告、验证器模式以及在本网关被吊销的密钥都不会改变它的应答。每个参与方的两个签名始终都是必需的，参与方的密钥只能通过可信委托人文件中的 `status` 撤回。这个文件 `DCP_TRUSTED_PRINCIPALS_FILE` 同时会开启不需要令牌的 `POST /v2/admit`：任何人都可以从那里读到 `trust_set_version`，得知某个标识符是否是运营方的委托人，并让用某个参与方的密钥签名的 bundle 被接纳。调用该路由的一方持有运营方令牌，而这个令牌还能切换验证器模式、发布通告并开启演示端点：只应由运营方自己的执行方持有。
 - **运营方端点**只由 `OPERATOR_TOKEN` 保护。通告的 `composite_sig` 只做结构检查：`@dcp-ai/sdk` 目前还没有
   `AlgorithmAdvisory` 上下文标签，因此由运营方为通告担保。
 - 密钥注册表在达到 `MAX_REGISTERED_KEYS` 个密钥（10,000）后会拒绝新智能体和轮换（507），而不是逐出旧密钥，因为被逐出的

@@ -4,7 +4,7 @@
 
 # Gateway de referência do DCP
 
-> Tradução informativa da [versão em inglês](../../../server/README.md), atualizada em 20/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../server/README.md), atualizada em 24/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Serviço HTTP de verificação que implementa a V1, a V2 e a fase 3 (PQ primeiro) do Digital Citizenship Protocol. **Armazenamento em memória**: não precisa de nenhum banco de dados externo, e nada sobrevive a uma reinicialização (veja [Persistência](#persistence)). Projetado para ser executado por qualquer terceiro; o protocolo não exige um servidor central.
 
@@ -46,7 +46,7 @@ Porta padrão: `3000`. Altere com `PORT=4000 node server/index.js`. Defina `OPER
 |--------|------|-------------|
 | POST | `/v2/passport/register` | Registra um passaporte de agente autoassinado; um `agent_id` novo precisa do token do operador (veja [Modelo de confiança](#trust-model)) |
 | POST | `/v2/intent/declare` | Declara uma intenção de um agente registrado e recebe a decisão de política do servidor (não assinada); a `composite_sig` da intenção não é verificada |
-| POST | `/v2/audit/append` | Checa um evento de auditoria de um agente registrado e o conta. Ele precisa ser uma entrada de auditoria V2 (`schemas/v2/audit_entry.schema.json`), e `signature` uma assinatura composta sobre ele sob `DCP-AI.v2.AuditEvent` pelas chaves ativas do agente. O gateway não guarda eventos de auditoria nem compara `prev_hash` |
+| POST | `/v2/audit/append` | Checa um evento de auditoria de um agente registrado e o conta. Ele precisa ser uma entrada de auditoria V2 (`schemas/v2/audit_entry.schema.json`), e `signature` uma assinatura composta sobre ele sob `DCP-AI.v2.AuditEvent` pelas chaves ativas do agente. O gateway não guarda eventos de auditoria nem compara `prev_hash`. Um agente que nunca registrou uma chave pós-quântica assina apenas com a sua chave clássica somente enquanto o modo for `classical_only` ou `hybrid_preferred` e nenhum aviso aplicado tiver retirado esse algoritmo |
 | POST | `/v2/audit/compact` | Compacta a cadeia de auditoria com um resumo de Merkle |
 | POST | `/v2/bundle/verify` | Verificação completa de um bundle V2: schema, manifesto, assinatura composta Ed25519 + ML-DSA-65, vinculação de sessão e cadeia de auditoria (via `lib/verify.js` e `@dcp-ai/sdk`), contra `VERIFIER_POLICY`. Bundles V1 recebem 400 |
 
@@ -104,7 +104,7 @@ permanecem bloqueados.
 | `PORT` | `3000` | Porta HTTP de escuta |
 | `OPERATOR_TOKEN` | — | Token Bearer para os endpoints de operador e para registrar `agent_id`s novos. Sem definir: ambos ficam bloqueados |
 | `VERIFIER_MODE` | `hybrid_required` | Modo de verificação na inicialização: `classical_only`, `hybrid_preferred`, `hybrid_required` ou `pq_only`. Um valor inválido interrompe o servidor |
-| `ALLOW_V1_BUNDLES` | `true` | `false` faz `POST /verify` recusar todos os bundles V1. Com `true`, ele aceita um bundle V1 só onde aceitaria um bundle somente clássico: o modo correspondente ao `risk_tier` do passaporte, elevado pelo nível de segurança da intenção, precisa ser `classical_only` ou `hybrid_preferred`. Por isso o padrão `hybrid_required` recusa bundles V1, e `pq_only` sempre recusa |
+| `ALLOW_V1_BUNDLES` | `true` | `false` faz `POST /verify` recusar todos os bundles V1. Com `true`, ele aceita um bundle V1 só onde aceitaria um bundle somente clássico: o modo correspondente ao `risk_tier` do passaporte, elevado pelo nível de segurança da intenção, precisa ser `classical_only` ou `hybrid_preferred`. Por isso o padrão `hybrid_required` recusa bundles V1, e `pq_only` sempre recusa. A política também precisa continuar aceitando `ed25519`: um aviso que o retira, uma vez aplicado com `POST /v2/advisory/auto-apply`, encerra os bundles V1 e, sem nenhum algoritmo clássico restante, deixa a política em `pq_only` |
 | `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` ativa os endpoints demo do DCP-05 ao DCP-09, que então precisam do token do operador (pelo menos 32 caracteres); qualquer valor diferente de indefinido, `off` ou `dcp-05-09` impede o servidor de iniciar |
 | `TRUST_PROXY` | — | `true` só atrás de um proxy que acrescenta o IP do cliente a `X-Forwarded-For` (Fly, nginx). Os limites de taxa passam a usar o seu último salto; caso contrário, o endereço do socket, porque os clientes podem forjar o cabeçalho |
 | `REGISTRATIONS_PER_HOUR` | `20` | Chamadas a `POST /v2/passport/register` por cliente por hora; as demais recebem 429 |
@@ -160,6 +160,7 @@ obrigatórias, idade de chave de 365 dias), e `GET /v2/policy` a mostra.
   `authorized` é verdadeiro, 403 com o mesmo resultado e os seus códigos caso contrário, e 400 quando `expected` falta
   ou não é utilizável. O servidor não executa nada e não guarda estado: a mesma requisição recebe sempre a mesma
   resposta, então quem chama, se a sua operação não é idempotente, consome `request_id` e executa de forma atômica.
+- **O que a rota multipartes não lê.** Ela não recebe nenhuma política de verificação: um aviso de algoritmo, o modo do verificador e uma chave revogada neste gateway não mudam a resposta. As duas assinaturas de cada parte são sempre exigidas, e a chave de uma parte só é retirada pelo seu `status` no arquivo de principais confiáveis. Esse arquivo, `DCP_TRUSTED_PRINCIPALS_FILE`, também liga `POST /v2/admit`, que não pede token: qualquer um pode ler ali o `trust_set_version`, saber se um identificador é um dos principais do operador e conseguir que um bundle assinado com as chaves de uma parte seja admitido. Quem chama a rota tem o token do operador, que também troca o modo do verificador, publica avisos e abre os endpoints de demonstração: só o executor do próprio operador deveria tê-lo.
 - Os **endpoints de operador** são protegidos só por `OPERATOR_TOKEN`. A `composite_sig` dos avisos é checada só
   estruturalmente: `@dcp-ai/sdk` ainda não tem tag de contexto para `AlgorithmAdvisory`, então o operador responde pelos
   avisos.

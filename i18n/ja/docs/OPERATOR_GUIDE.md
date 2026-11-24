@@ -5,7 +5,7 @@
 
 # オペレーターガイド — 検証サービスの運用
 
-> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（23/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（24/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドは、「エージェント検証済み」サービス、つまり DCP の Signed Bundle を検証する（オプションでハッシュをブロックチェーンにアンカーする）HTTP API を運用したい**第三者**のためのものです。プロトコルは中央のサーバーを**必要としません**。検証はいつでも `dcp verify-bundle` でローカルに行えます。このサービスは**オプション**であり、オペレーターの判断で運用されます。
 
@@ -188,12 +188,13 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ### 環境変数（検証サービス）
 
 - `PORT` — HTTP のポート（既定値 `3000`）
-- `OPERATOR_TOKEN` — 管理用エンドポイント（ポリシー、勧告、ガバナンス）と新しい `agent_id` の登録のための bearer トークン。未設定ならそれらはロックされたまま
+- `OPERATOR_TOKEN` — 管理用エンドポイント（ポリシー、勧告、ガバナンス）、新しい `agent_id` の登録、`POST /v2/multi-party/authorize` のための bearer トークン。未設定ならそれらはロックされたまま
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
 - `ALLOW_V1_BUNDLES` — `false` で V1 バンドルをすべて拒否。`true`（既定）でも、受け入れるのはポリシーが古典のみのバンドルを受け入れる場合だけで、`hybrid_required` と `pq_only` では受け入れない
 - `DCP_DEMO_ENDPOINTS` — `off`（デフォルト）または `dcp-05-09`。後者は [DCP-05–09 のデモのエンドポイント](#dcp-0509-service-endpoints) を有効にし、RFC 6750 の b64token で 32 文字以上の `OPERATOR_TOKEN` を必要とします。ほかの値ではサーバーが停止します
 - `TRUST_PROXY`、`REGISTRATIONS_PER_HOUR`、`MAX_REGISTERED_KEYS`、`MAX_KEYS_PER_AGENT` — 上記を参照
 - `DCP_TRUSTED_PRINCIPALS_FILE`、`DCP_ADMISSION_PROFILE_FILE`、`DCP_REVOCATION_LIST_URL`、`DCP_REVOCATION_LIST_AUTHORIZATION`、`DCP_REVOCATION_TIMEOUT_MS` — `POST /v2/admit` のアドミッション。[ADMISSION.md](../../../docs/ADMISSION.md) を参照
+- `DCP_MULTI_PARTY_POLICY_FILE` — `POST /v2/multi-party/authorize`（`mpa-v1` のプロファイル）のためのオペレーターのポリシーセット。`DCP_TRUSTED_PRINCIPALS_FILE` と 32 文字以上の `OPERATOR_TOKEN` が必要。未設定ならこのルートは存在しない。[サーバーの README](../server/README.md) を参照
 - `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS`、`PQ_CHECKPOINT_INTERVAL` はデプロイの設定に現れるが、まだ読み込まれない
 
 `anchor`、`transparency-log`、`revocation` の環境変数については、[`services/`](../../../services/) にあるそれぞれの README か、[`deploy/fly/`](../../../deploy/fly/) にあるサービスごとの `fly.toml` を参照してください。
@@ -239,7 +240,7 @@ DCP v2.0 では、ポスト量子のハイブリッド暗号、適応型のセ�
 }
 ```
 
-`risk_overrides` のキーはパスポートの `risk_tier` です。サーバーにはポリシーファイルがありません。`VERIFIER_MODE` と `ALLOW_V1_BUNDLES` が起動時にそれを決め、`{ "mode": "<mode>" }` を付けた `POST /v2/policy/mode`（オペレーターのトークン）が実行時にモードを切り替え、受け入れられた勧告は `advisory_rejected_algs` に追加され、`GET /v2/policy` が現在のポリシーとそのハッシュを返します。モードを切り替えると、`default_mode` と `risk_overrides` のすべてのエントリがそのモードになります。独自のポリシーで検証器を組み込むには、SDK に完全なポリシーを渡してください。部分的なポリシーも受け付けられますが、省略したフィールドは既定値で埋められません（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md) のステップ 8 を参照）。
+`risk_overrides` のキーはパスポートの `risk_tier` です。サーバーにはポリシーファイルがありません。`VERIFIER_MODE` と `ALLOW_V1_BUNDLES` が起動時にそれを決め、`{ "mode": "<mode>" }` を付けた `POST /v2/policy/mode`（オペレーターのトークン）が実行時にモードを切り替え、勧告は、オペレーターが `POST /v2/advisory/auto-apply` で適用したときに `advisory_rejected_algs` に追加され（公開されただけの勧告は、それまで何も変えません）、`GET /v2/policy` が現在のポリシーとそのハッシュを返します。モードを切り替えると、`default_mode` と `risk_overrides` のすべてのエントリがそのモードになります。独自のポリシーで検証器を組み込むには、SDK に完全なポリシーを渡してください。部分的なポリシーも受け付けられますが、省略したフィールドは既定値で埋められません（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md) のステップ 8 を参照）。
 
 検証モード：
 - `classical_only` — Ed25519 の署名のみが必要（V1 との互換性）
