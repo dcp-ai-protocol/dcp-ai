@@ -251,7 +251,7 @@ export function createMultiPartyPolicyStore(policySet: unknown): MultiPartyPolic
   if (isMultiPartyPolicyStore(policySet)) return policySet;
   if (!isObject(policySet)) return fail('CONFIG_INVALID_VALUE', 'the policy set must be an object');
   unknownField(policySet, ['policy_set_version', 'profile', 'audience', 'max_validity_seconds', 'subjects'], 'policy set');
-  if (typeof policySet.policy_set_version !== 'string' || policySet.policy_set_version === '') {
+  if (typeof policySet.policy_set_version !== 'string' || policySet.policy_set_version === '' || UNPAIRED.test(policySet.policy_set_version)) {
     fail('CONFIG_INVALID_VALUE', 'policy_set_version must be a non-empty string');
   }
   if (policySet.profile !== MPA_V1) fail('CONFIG_INVALID_VALUE', `profile must be ${MPA_V1}`);
@@ -503,7 +503,7 @@ const SIG_B64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 function isSignaturePart(v: unknown): boolean {
   return (
-    isObject(v) && hasOnly(v, ['alg', 'kid', 'sig_b64']) && typeof v.alg === 'string' && typeof v.kid === 'string' && KID.test(v.kid) &&
+    isObject(v) && hasOnly(v, ['alg', 'kid', 'sig_b64']) && typeof v.alg === 'string' && !UNPAIRED.test(v.alg) && typeof v.kid === 'string' && KID.test(v.kid) &&
     typeof v.sig_b64 === 'string' && v.sig_b64.length >= 8 && v.sig_b64.length <= 66476 && SIG_B64.test(v.sig_b64)
   );
 }

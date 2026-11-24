@@ -610,9 +610,15 @@ describe('multi-party authorization: signing', () => {
     elsewhere.authorizations[1].party_id = 'human:\ud800';
     const notARecord = await evaluateMultiPartyAuthorization(clone(elsewhere), registry, options({ path: 'keys/a' }));
     expect([notARecord.authorized, notARecord.structure, codes(notARecord)]).toEqual([false, 'invalid', ['MPA_SCHEMA_INVALID']]);
+    // So is the name of an algorithm: every string of a record is text.
+    const named = clone(await signedOver(plain));
+    named.authorizations[1].composite_sig.classical.alg = 'ed25519\ud800';
+    const alsoNot = await evaluateMultiPartyAuthorization(clone(named), registry, options({ path: 'keys/a' }));
+    expect([alsoNot.authorized, alsoNot.structure, codes(alsoNot)]).toEqual([false, 'invalid', ['MPA_SCHEMA_INVALID']]);
     // The operator's policy set is text too.
     const policy = options({}).policy;
     for (const change of [
+      (p: typeof policy) => { p.policy_set_version = 'here.\ud800'; },
       (p: typeof policy) => { p.audience = 'verifier:\ud800'; },
       (p: typeof policy) => { p.subjects[0].target = 'agent:\udc00'; },
       (p: typeof policy) => { p.subjects[0].parties[0].party_id = 'human:\ud800'; },

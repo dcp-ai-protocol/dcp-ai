@@ -617,6 +617,13 @@ func TestMultiPartyTakesTheIntegersABinary64HoldsExactlyAndNoOtherNumber(t *test
 	}
 }
 
+// mpaLabel names a map member with text of its own making: the encoder never sees the bytes it holds.
+type mpaLabel struct{ Name string }
+
+func (l mpaLabel) MarshalText() ([]byte, error) {
+	return bytes.ToValidUTF8([]byte(l.Name), []byte("?")), nil
+}
+
 func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 	s := newMpaSetting(t)
 	// The control: a character outside the BMP is text like any other, written as it is or as an escaped pair.
@@ -676,6 +683,29 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 		if r, err := s.evaluate(signed, parameters); !mpaInvalidValue(err) || r != nil {
 			t.Fatalf("%s, stated: %+v, %v", name, r, err)
 		}
+	}
+	// A Go value is read as it is, not only as encoding/json writes it: a field encoded as a string inside a string
+	// hides the mark of the bytes that were replaced.
+	type quoted struct {
+		Path string `json:"path,string"`
+	}
+	for name, parameters := range map[string]map[string]interface{}{
+		"a field encoded as a quoted string": {"scope": quoted{Path: "keys/\xff"}},
+		"a pointer to such a struct":         {"scope": &quoted{Path: "keys/\xff"}},
+		"a slice of strings":                 {"paths": []string{"keys/a", "keys/\xff"}},
+		"a map of strings, in a name":        {"paths": map[string]string{"k\xff": "v"}},
+		"a slice of such structs":            {"scopes": []quoted{{Path: "keys/a"}, {Path: "keys/\xff"}}},
+		"a name that writes its own text":    {"paths": map[mpaLabel]string{{Name: "k\xff"}: "v"}},
+	} {
+		if payload, err := s.request(parameters); !mpaInvalidValue(err) || payload != nil {
+			t.Fatalf("%s, built: %v, %v", name, payload, err)
+		}
+		if r, err := s.evaluate(signed, parameters); !mpaInvalidValue(err) || r != nil {
+			t.Fatalf("%s, stated: %+v, %v", name, r, err)
+		}
+	}
+	if payload, err := s.request(map[string]interface{}{"scope": quoted{Path: "keys/a"}, "raw": []byte{0xff}}); err != nil || payload == nil {
+		t.Fatalf("a quoted field of text, and bytes that are data: %v, %v", payload, err) // []byte is written as base64
 	}
 	for name, in := range map[string]v2.MultiPartyRequestInput{
 		"target":     {Target: "agent:\xff", Audience: "verifier:here", ValiditySeconds: 600},

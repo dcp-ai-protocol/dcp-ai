@@ -149,7 +149,7 @@ Five phases. A phase that adds a code stops the next ones, so no signature of a 
 - In phase 4 each key gets the first that applies of not anchored, revoked, expired (`status` `expired`, or `expires_at` before `now`) and not yet valid (`not_before` after `now`). A signature is verified only when both keys can count.
 - The algorithms of phase 4 are the profile's: `ed25519` in the classical slot, `ml-dsa-65` or `slh-dsa-192f` in the other. They are not read from a verifier policy, which can change.
 - Instants are compared in milliseconds: digits past the third of a fraction are dropped, and a `now` with a finer resolution is truncated.
-- Text that is not well formed is refused outside `operation_payload` too: a record with such a `party_id` does not conform to its schema (`MPA_SCHEMA_INVALID`), and a policy set with such a target, audience or `party_id` does not load (`CONFIG_INVALID_VALUE`).
+- Text that is not well formed is refused outside `operation_payload` too: a record with it in any string, a `party_id` or the name of an algorithm, does not conform to its schema (`MPA_SCHEMA_INVALID`), and a policy set with it in any string does not load (`CONFIG_INVALID_VALUE`).
 
 ## 5. Result
 

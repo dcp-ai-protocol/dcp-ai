@@ -171,7 +171,7 @@
 - 在第 4 阶段，每个密钥得到下列情况中第一个适用的：未锚定、已吊销、已过期（`status` 为 `expired`，或 `expires_at` 早于 `now`）以及尚未生效（`not_before` 晚于 `now`）。只有两个密钥都可以计数时，才验证签名。
 - 第 4 阶段的算法是本配置文件自己的：经典组件为 `ed25519`，另一个组件为 `ml-dsa-65` 或 `slh-dsa-192f`。它们不从可能变化的验证策略中读取。
 - 时间点以毫秒比较：小数部分第三位之后的数字被舍弃，分辨率更高的 `now` 被截断。
-- 格式不良的文本在 `operation_payload` 之外同样被拒绝：带有这种 `party_id` 的记录不符合其模式（`MPA_SCHEMA_INVALID`），带有这种目标、受众或 `party_id` 的策略集无法加载（`CONFIG_INVALID_VALUE`）。
+- 格式不良的文本在 `operation_payload` 之外同样被拒绝：任何字符串（`party_id` 或算法名称）中带有这种文本的记录不符合其模式（`MPA_SCHEMA_INVALID`），任何字符串中带有这种文本的策略集无法加载（`CONFIG_INVALID_VALUE`）。
 
 <a id="5-result"></a>
 

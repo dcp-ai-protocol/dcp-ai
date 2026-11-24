@@ -171,7 +171,7 @@ Cinco fases. Uma fase que acrescenta um código interrompe as seguintes, então 
 - Na fase 4 cada chave recebe o primeiro que se aplicar entre não ancorada, revogada, expirada (`status` `expired`, ou `expires_at` anterior a `now`) e ainda não válida (`not_before` posterior a `now`). Uma assinatura é verificada apenas quando as duas chaves podem contar.
 - Os algoritmos da fase 4 são os do perfil: `ed25519` no componente clássico, `ml-dsa-65` ou `slh-dsa-192f` no outro. Não são lidos de uma política de verificação, que pode mudar.
 - Os instantes são comparados em milissegundos: os dígitos de uma fração além do terceiro são descartados, e um `now` com mais resolução é truncado.
-- O texto mal formado também é recusado fora de `operation_payload`: um registro com um `party_id` assim não está conforme ao seu esquema (`MPA_SCHEMA_INVALID`), e um conjunto de políticas com um alvo, uma audiência ou um `party_id` assim não é carregado (`CONFIG_INVALID_VALUE`).
+- O texto mal formado também é recusado fora de `operation_payload`: um registro que o traz em qualquer string, um `party_id` ou o nome de um algoritmo, não está conforme ao seu esquema (`MPA_SCHEMA_INVALID`), e um conjunto de políticas que o traz em qualquer string não é carregado (`CONFIG_INVALID_VALUE`).
 
 <a id="5-result"></a>
 

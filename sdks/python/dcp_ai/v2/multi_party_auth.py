@@ -360,7 +360,7 @@ def create_multi_party_policy_store(policy_set: Any) -> MultiPartyPolicyStore:
         _fail("CONFIG_INVALID_VALUE", "the policy set must be an object")
     _unknown_field(policy_set, ("policy_set_version", "profile", "audience", "max_validity_seconds", "subjects"), "policy set")
     version = policy_set.get("policy_set_version")
-    if not isinstance(version, str) or version == "":
+    if not isinstance(version, str) or version == "" or not _well_formed(version):
         _fail("CONFIG_INVALID_VALUE", "policy_set_version must be a non-empty string")
     if policy_set.get("profile") != MPA_V1:
         _fail("CONFIG_INVALID_VALUE", f"profile must be {MPA_V1}")
@@ -544,6 +544,7 @@ def _is_signature_part(value: Any) -> bool:
         isinstance(value, dict)
         and set(value) == {"alg", "kid", "sig_b64"}
         and isinstance(value["alg"], str)
+        and _well_formed(value["alg"])
         and isinstance(value["kid"], str)
         and _KID.fullmatch(value["kid"]) is not None
         and isinstance(value["sig_b64"], str)

@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -483,11 +484,52 @@ var (
 	mpaPQAlgs        = []string{"ml-dsa-65", "slh-dsa-192f"}
 )
 
+// mpaValidStrings reports whether every Go string in a caller's value is
+// UTF-8, the names of map members included. The value is read as it is, not as
+// encoding/json writes it: an encoder, a struct tag or a MarshalJSON can hide
+// the mark of the bytes it replaced. A []byte is data, written as base64.
+func mpaValidStrings(v reflect.Value, depth int) bool {
+	if depth > 2*mpaMaxDepth { // deeper than the profile nests, or a cycle: refused for that, not here
+		return true
+	}
+	switch v.Kind() {
+	case reflect.String:
+		return utf8.ValidString(v.String())
+	case reflect.Interface, reflect.Pointer:
+		return v.IsNil() || mpaValidStrings(v.Elem(), depth+1)
+	case reflect.Map:
+		for members := v.MapRange(); members.Next(); {
+			if !mpaValidStrings(members.Key(), depth+1) || !mpaValidStrings(members.Value(), depth+1) {
+				return false
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return true
+		}
+		for i := 0; i < v.Len(); i++ {
+			if !mpaValidStrings(v.Index(i), depth+1) {
+				return false
+			}
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if !mpaValidStrings(v.Field(i), depth+1) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // mpaCanonical is CanonicalizeV2 for a value the caller built, nesting at most
 // levels deep. It is refused when it holds a number outside mpaRange (an
 // int64, a uint64 or a float64 past it is read from its exact digits, before
 // any rounding) or a string that is not UTF-8.
 func mpaCanonical(v interface{}, levels int) (string, error) {
+	if !mpaValidStrings(reflect.ValueOf(v), 0) {
+		return "", fmt.Errorf("not %s", mpaData)
+	}
 	data, err := json.Marshal(v)
 	if err != nil {
 		return "", err
