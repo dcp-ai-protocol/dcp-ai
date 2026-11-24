@@ -624,6 +624,18 @@ func (l mpaLabel) MarshalText() ([]byte, error) {
 	return bytes.ToValidUTF8([]byte(l.Name), []byte("?")), nil
 }
 
+// mpaKnot points back to itself through every field.
+type mpaKnot struct{ A, B, C *mpaKnot }
+
+// mpaBehind puts v behind as many pointers as hops: none of them is a level of the JSON.
+func mpaBehind(v interface{}, hops int) interface{} {
+	for i := 0; i < hops; i++ {
+		inner := v
+		v = &inner
+	}
+	return v
+}
+
 func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 	s := newMpaSetting(t)
 	// The control: a character outside the BMP is text like any other, written as it is or as an escaped pair.
@@ -696,6 +708,8 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 		"a map of strings, in a name":        {"paths": map[string]string{"k\xff": "v"}},
 		"a slice of such structs":            {"scopes": []quoted{{Path: "keys/a"}, {Path: "keys/\xff"}}},
 		"a name that writes its own text":    {"paths": map[mpaLabel]string{{Name: "k\xff"}: "v"}},
+		"behind forty pointers":              {"scope": mpaBehind(quoted{Path: "keys/\xff"}, 40)},
+		"behind more pointers than are read": {"scope": mpaBehind(quoted{Path: "keys/\xff"}, 400)},
 	} {
 		if payload, err := s.request(parameters); !mpaInvalidValue(err) || payload != nil {
 			t.Fatalf("%s, built: %v, %v", name, payload, err)
@@ -706,6 +720,25 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 	}
 	if payload, err := s.request(map[string]interface{}{"scope": quoted{Path: "keys/a"}, "raw": []byte{0xff}}); err != nil || payload == nil {
 		t.Fatalf("a quoted field of text, and bytes that are data: %v, %v", payload, err) // []byte is written as base64
+	}
+	if payload, err := s.request(map[string]interface{}{"scope": mpaBehind(quoted{Path: "keys/a"}, 40)}); err != nil || payload == nil {
+		t.Fatalf("text behind forty pointers: %v, %v", payload, err)
+	}
+	// A value that points back to itself is refused at once, not walked branch by branch.
+	knot := &mpaKnot{}
+	knot.A, knot.B, knot.C = knot, knot, knot
+	refused := make(chan error, 1)
+	go func() {
+		_, err := s.request(map[string]interface{}{"scope": knot})
+		refused <- err
+	}()
+	select {
+	case err := <-refused:
+		if !mpaInvalidValue(err) {
+			t.Fatalf("a value that points back to itself: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("a value that points back to itself was walked branch by branch")
 	}
 	for name, in := range map[string]v2.MultiPartyRequestInput{
 		"target":     {Target: "agent:\xff", Audience: "verifier:here", ValiditySeconds: 600},

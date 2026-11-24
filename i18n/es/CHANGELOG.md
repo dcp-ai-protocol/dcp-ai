@@ -126,19 +126,22 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   algoritmos de una firma híbrida son los del propio perfil en los cuatro SDK: los de TypeScript y Python los tomaban
   de la política de verificación por defecto, un objeto que cualquier código del proceso puede cambiar. Go: un
   registro de algoritmos `nil` es un error en lugar de un pánico, y `Now` se lee en milisegundos, como toman el reloj
-  los demás SDK. Compilado con `GOEXPERIMENT=jsonv2`, cuyo codificador no marca los bytes que sustituye, quien llama
-  desde Go no puede declarar U+FFFD. Python: un `required_parties` de un registro que ningún binary64 guarda no es un
-  entero del esquema, un nombre de miembro que no es una cadena no es un dato, y una subclase del almacén de políticas
-  no es un almacén cargado. TypeScript: `createPartyAuthorization` solo firma datos del perfil, también para una carga
-  v2.0 sin `request`: un `Map` en una carga se firmaba como `{}`, y una carga con un miembro `undefined`, un entero
-  fuera del rango o más de 32 niveles se rechaza ahora con `CONFIG_INVALID_VALUE`;
-  `checkMultiPartyAuthorizationStructure` devuelve un resultado para un JSON escrito para hacerla lanzar una
-  excepción. El [perfil](../../spec/profiles/multi-party/README.md) fija las reglas (§2.2, §2.3, §3 y §4), dice lo que
-  un resultado revela del conjunto de políticas y del conjunto de confianza del operador, y añade A4: un adaptador
-  debe devolverlo solo a quienes el operador deja conocerlo. Hay ocho casos nuevos en
-  `tests/interop/v2/multi_party_vectors.json` (142, y 62 casos de configuración de políticas), entre ellos una firma
-  clásica que no verifica bajo una poscuántica que sí, una clave que el operador marca como caducada y una validez un
-  milisegundo demasiado larga; la CI comprueba que el archivo coincide con su generador.
+  los demás SDK. El valor que declara quien llama desde Go se lee tal como es, antes de codificarlo: se rechaza una
+  cadena de Go que no sea UTF-8 en cualquier parte de él, también en un campo que `encoding/json` no escribiría, y se
+  rechaza un valor que apunta a sí mismo o que queda detrás de más de 128 punteros y contenedores. Compilado con
+  `GOEXPERIMENT=jsonv2`, cuyo codificador no marca los bytes que sustituye, quien llama desde Go no puede declarar
+  U+FFFD. Python: un `required_parties` de un registro que ningún binary64 guarda no es un entero del esquema, un
+  nombre de miembro que no es una cadena no es un dato, y una subclase del almacén de políticas no es un almacén
+  cargado. TypeScript: `createPartyAuthorization` solo firma datos del perfil, también para una carga v2.0 sin
+  `request`: un `Map` en una carga se firmaba como `{}`, y una carga con un miembro `undefined`, un entero fuera del
+  rango o más de 32 niveles se rechaza ahora con `CONFIG_INVALID_VALUE`; `checkMultiPartyAuthorizationStructure`
+  devuelve un resultado para un JSON escrito para hacerla lanzar una excepción. El
+  [perfil](../../spec/profiles/multi-party/README.md) fija las reglas (§2.2, §2.3, §3 y §4), dice lo que un resultado
+  revela del conjunto de políticas y del conjunto de confianza del operador, y añade A4: un adaptador debe devolverlo
+  solo a quienes el operador deja conocerlo. Hay ocho casos nuevos en `tests/interop/v2/multi_party_vectors.json`
+  (142, y 62 casos de configuración de políticas), entre ellos una firma clásica que no verifica bajo una poscuántica
+  que sí, una clave que el operador marca como caducada y una validez un milisegundo demasiado larga; la CI comprueba
+  que el archivo coincide con su generador.
 
 - **Servidor y servicios de referencia: correcciones posteriores a las revisiones del endurecimiento y de la ruta
   multiparte** (código fuente en `main`, en ninguna versión publicada; sin cambio de versión). **Cambios de

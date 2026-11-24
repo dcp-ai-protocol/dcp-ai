@@ -320,7 +320,8 @@ type MultiPartyRequestInput struct {
 	Target string
 	// Audience is the verifier that may act on the authorization.
 	Audience string
-	// Parameters of the operation; nil is the empty object.
+	// Parameters of the operation; nil is the empty object. Every Go string in
+	// them has to be UTF-8, also where encoding/json would not write it.
 	Parameters map[string]interface{}
 	// ValiditySeconds is how long the request is valid (1 to 86400; the operator may allow less).
 	ValiditySeconds int
@@ -488,9 +489,14 @@ var (
 // UTF-8, the names of map members included. The value is read as it is, not as
 // encoding/json writes it: an encoder, a struct tag or a MarshalJSON can hide
 // the mark of the bytes it replaced. A []byte is data, written as base64.
+//
+// Pointers and interfaces count as steps although they are no level of the
+// JSON, so the walk stops well past what a payload of the profile takes. What
+// lies further is not read and is not data: a value that points back to itself
+// ends there, at once.
 func mpaValidStrings(v reflect.Value, depth int) bool {
-	if depth > 2*mpaMaxDepth { // deeper than the profile nests, or a cycle: refused for that, not here
-		return true
+	if depth > 4*mpaMaxDepth {
+		return false
 	}
 	switch v.Kind() {
 	case reflect.String:
@@ -605,7 +611,8 @@ func BuildMultiPartyAuthorization(operation string, operationPayload map[string]
 type MultiPartyExpected struct {
 	Operation string
 	Target    string
-	// Parameters of the operation; nil is the empty object.
+	// Parameters of the operation; nil is the empty object. Every Go string in
+	// them has to be UTF-8, also where encoding/json would not write it.
 	Parameters map[string]interface{}
 }
 
