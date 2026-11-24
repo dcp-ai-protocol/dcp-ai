@@ -485,6 +485,15 @@ var (
 	mpaPQAlgs        = []string{"ml-dsa-65", "slh-dsa-192f"}
 )
 
+// mpaRead is what mpaValidStrings has read already. A struct and its first
+// field begin at one address and a slice and a shorter one over the same
+// values do too, so the type and the length are part of it.
+type mpaRead struct {
+	kind reflect.Type
+	at   uintptr
+	len  int
+}
+
 // mpaValidStrings reports whether every Go string in a caller's value is
 // UTF-8, the names of map members included. The value is read as it is, not as
 // encoding/json writes it: an encoder, a struct tag or a MarshalJSON can hide
@@ -492,20 +501,34 @@ var (
 //
 // Pointers and interfaces count as steps although they are no level of the
 // JSON, so the walk stops well past what a payload of the profile takes. What
-// lies further is not read and is not data: a value that points back to itself
-// ends there, at once.
-func mpaValidStrings(v reflect.Value, depth int) bool {
+// lies further is not read and is not data. What a pointer, a map or a slice
+// leads to is read once, however many ways lead there: seen holds them.
+func mpaValidStrings(v reflect.Value, depth int, seen map[mpaRead]bool) bool {
 	if depth > 4*mpaMaxDepth {
 		return false
+	}
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice:
+		if v.IsNil() {
+			return true
+		}
+		at := mpaRead{kind: v.Type(), at: v.Pointer()}
+		if v.Kind() == reflect.Slice {
+			at.len = v.Len()
+		}
+		if seen[at] {
+			return true
+		}
+		seen[at] = true
 	}
 	switch v.Kind() {
 	case reflect.String:
 		return utf8.ValidString(v.String())
 	case reflect.Interface, reflect.Pointer:
-		return v.IsNil() || mpaValidStrings(v.Elem(), depth+1)
+		return v.IsNil() || mpaValidStrings(v.Elem(), depth+1, seen)
 	case reflect.Map:
 		for members := v.MapRange(); members.Next(); {
-			if !mpaValidStrings(members.Key(), depth+1) || !mpaValidStrings(members.Value(), depth+1) {
+			if !mpaValidStrings(members.Key(), depth+1, seen) || !mpaValidStrings(members.Value(), depth+1, seen) {
 				return false
 			}
 		}
@@ -514,13 +537,13 @@ func mpaValidStrings(v reflect.Value, depth int) bool {
 			return true
 		}
 		for i := 0; i < v.Len(); i++ {
-			if !mpaValidStrings(v.Index(i), depth+1) {
+			if !mpaValidStrings(v.Index(i), depth+1, seen) {
 				return false
 			}
 		}
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
-			if !mpaValidStrings(v.Field(i), depth+1) {
+			if !mpaValidStrings(v.Field(i), depth+1, seen) {
 				return false
 			}
 		}
@@ -533,7 +556,7 @@ func mpaValidStrings(v reflect.Value, depth int) bool {
 // int64, a uint64 or a float64 past it is read from its exact digits, before
 // any rounding) or a string that is not UTF-8.
 func mpaCanonical(v interface{}, levels int) (string, error) {
-	if !mpaValidStrings(reflect.ValueOf(v), 0) {
+	if !mpaValidStrings(reflect.ValueOf(v), 0, map[mpaRead]bool{}) {
 		return "", fmt.Errorf("not %s", mpaData)
 	}
 	data, err := json.Marshal(v)

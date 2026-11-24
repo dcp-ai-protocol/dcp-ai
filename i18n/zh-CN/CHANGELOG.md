@@ -116,7 +116,7 @@
   `operation_payload` 最多嵌套 32 层。
   `required_parties` 大于 16（一份记录最多容纳的授权数）的策略集无法加载（`CONFIG_MPA_UNSATISFIABLE`）。
   混合签名的算法在四个 SDK 中都是配置文件自己的：TypeScript 和 Python SDK 原先从默认验证策略中取这些算法，而该对象可以被进程中的任何代码修改。
-  Go：算法注册表为 `nil` 时返回错误而不是 panic，`Now` 按毫秒读取，与其他 SDK 取时钟的方式一致。Go 调用方声明的值在编码之前按原样读取：其中任何位置的 Go 字符串不是 UTF-8 都会被拒绝，即使它位于 `encoding/json` 不会写出的字段中；指向自身的值，或位于超过 128 层指针和容器之后的值，同样被拒绝。使用 `GOEXPERIMENT=jsonv2` 构建时，编码器不会标记它替换掉的字节，因此 Go 调用方无法声明 U+FFFD。
+  Go：算法注册表为 `nil` 时返回错误而不是 panic，`Now` 按毫秒读取，与其他 SDK 取时钟的方式一致。Go 调用方声明的值在编码之前按原样读取：其中任何位置的 Go 字符串不是 UTF-8 都会被拒绝，即使它位于 `encoding/json` 不会写出的字段中；位于超过 128 层指针和容器之后的值，同样被拒绝。使用 `GOEXPERIMENT=jsonv2` 构建时，编码器不会标记它替换掉的字节，因此 Go 调用方无法声明 U+FFFD。
   Python：记录中的 `required_parties` 若是任何 binary64 都无法保存的数值，就不是模式中的整数；不是字符串的成员名不属于数据；策略存储的子类也不是已加载的存储。
   TypeScript：`createPartyAuthorization` 只对配置文件的数据签名，对没有 `request` 的 v2.0 载荷也是如此：载荷中的 `Map` 原先被当作 `{}` 签名，带有 `undefined` 成员、超出范围的整数或超过 32 层嵌套的载荷现在以 `CONFIG_INVALID_VALUE` 拒绝；对于为使其抛出异常而编写的 JSON，`checkMultiPartyAuthorizationStructure` 也返回结果。
   [配置文件](../../spec/profiles/multi-party/README.md)规定了这些规则（§2.2、§2.3、§3 和 §4），说明结果会透露运营方策略集和信任集的哪些内容，并新增 A4：适配器必须只把结果返回给运营方允许了解这些内容的调用方。

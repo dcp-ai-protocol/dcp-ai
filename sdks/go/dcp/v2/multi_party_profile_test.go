@@ -627,6 +627,15 @@ func (l mpaLabel) MarshalText() ([]byte, error) {
 // mpaKnot points back to itself through every field.
 type mpaKnot struct{ A, B, C *mpaKnot }
 
+// mpaShared leads to one node below through two fields, neither of them written.
+type mpaShared struct{ a, b *mpaShared }
+
+// mpaTwo starts where its first field does, and hides in the second the mark of the bytes that were replaced.
+type mpaTwo struct {
+	First  string `json:"first"`
+	Second string `json:"second,string"`
+}
+
 // mpaBehind puts v behind as many pointers as hops: none of them is a level of the JSON.
 func mpaBehind(v interface{}, hops int) interface{} {
 	for i := 0; i < hops; i++ {
@@ -701,15 +710,20 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 	type quoted struct {
 		Path string `json:"path,string"`
 	}
+	two := mpaTwo{First: "keys/a", Second: "keys/\xff"}
+	both := []quoted{{Path: "keys/a"}, {Path: "keys/\xff"}}
 	for name, parameters := range map[string]map[string]interface{}{
 		"a field encoded as a quoted string": {"scope": quoted{Path: "keys/\xff"}},
-		"a pointer to such a struct":         {"scope": &quoted{Path: "keys/\xff"}},
-		"a slice of strings":                 {"paths": []string{"keys/a", "keys/\xff"}},
-		"a map of strings, in a name":        {"paths": map[string]string{"k\xff": "v"}},
-		"a slice of such structs":            {"scopes": []quoted{{Path: "keys/a"}, {Path: "keys/\xff"}}},
-		"a name that writes its own text":    {"paths": map[mpaLabel]string{{Name: "k\xff"}: "v"}},
-		"behind forty pointers":              {"scope": mpaBehind(quoted{Path: "keys/\xff"}, 40)},
-		"behind more pointers than are read": {"scope": mpaBehind(quoted{Path: "keys/\xff"}, 400)},
+		// What was read once is not read again, and only that: not what begins at the same address.
+		"a struct after a pointer to its first field":      {"paths": []interface{}{&two.First, &two}},
+		"a slice after a shorter one over the same values": {"paths": []interface{}{both[:1], both}},
+		"a pointer to such a struct":                       {"scope": &quoted{Path: "keys/\xff"}},
+		"a slice of strings":                               {"paths": []string{"keys/a", "keys/\xff"}},
+		"a map of strings, in a name":                      {"paths": map[string]string{"k\xff": "v"}},
+		"a slice of such structs":                          {"scopes": []quoted{{Path: "keys/a"}, {Path: "keys/\xff"}}},
+		"a name that writes its own text":                  {"paths": map[mpaLabel]string{{Name: "k\xff"}: "v"}},
+		"behind forty pointers":                            {"scope": mpaBehind(quoted{Path: "keys/\xff"}, 40)},
+		"behind more pointers than are read":               {"scope": mpaBehind(quoted{Path: "keys/\xff"}, 400)},
 	} {
 		if payload, err := s.request(parameters); !mpaInvalidValue(err) || payload != nil {
 			t.Fatalf("%s, built: %v, %v", name, payload, err)
@@ -724,21 +738,32 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 	if payload, err := s.request(map[string]interface{}{"scope": mpaBehind(quoted{Path: "keys/a"}, 40)}); err != nil || payload == nil {
 		t.Fatalf("text behind forty pointers: %v, %v", payload, err)
 	}
-	// A value that points back to itself is refused at once, not walked branch by branch.
+	// The walk reads a value once, however many ways lead to it.
+	returns := func(what string, parameters map[string]interface{}) error {
+		done := make(chan error, 1)
+		go func() {
+			_, err := s.request(parameters)
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			return err
+		case <-time.After(10 * time.Second):
+			t.Fatalf("%s: the call did not return", what)
+			return nil
+		}
+	}
 	knot := &mpaKnot{}
 	knot.A, knot.B, knot.C = knot, knot, knot
-	refused := make(chan error, 1)
-	go func() {
-		_, err := s.request(map[string]interface{}{"scope": knot})
-		refused <- err
-	}()
-	select {
-	case err := <-refused:
-		if !mpaInvalidValue(err) {
-			t.Fatalf("a value that points back to itself: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("a value that points back to itself was walked branch by branch")
+	if err := returns("a value that points back to itself", map[string]interface{}{"scope": knot}); !mpaInvalidValue(err) {
+		t.Fatalf("a value that points back to itself: %v", err)
+	}
+	var shared *mpaShared // 2^40 ways down, and {} when written
+	for i := 0; i < 40; i++ {
+		shared = &mpaShared{a: shared, b: shared}
+	}
+	if err := returns("a value shared along many paths", map[string]interface{}{"scope": shared}); err != nil {
+		t.Fatalf("a value shared along many paths: %v", err)
 	}
 	for name, in := range map[string]v2.MultiPartyRequestInput{
 		"target":     {Target: "agent:\xff", Audience: "verifier:here", ValiditySeconds: 600},

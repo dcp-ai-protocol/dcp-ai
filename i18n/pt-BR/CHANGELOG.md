@@ -128,18 +128,17 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
   algoritmos `nil` é um erro em vez de um pânico, e `Now` é lido em milissegundos, como os outros SDKs tomam o
   relógio. O valor que quem chama a partir de Go declara é lido como é, antes de ser codificado: uma string de Go que
   não seja UTF-8 em qualquer parte dele é recusada, também em um campo que `encoding/json` não escreveria, e é
-  recusado um valor que aponta para si mesmo ou que fica atrás de mais de 128 ponteiros e contêineres. Compilado com
-  `GOEXPERIMENT=jsonv2`, cujo codificador não marca os bytes que substitui, quem chama a partir de Go não pode
-  declarar U+FFFD. Python: um `required_parties` de um registro que nenhum binary64 guarda não é um inteiro do
-  esquema, um nome de membro que não é uma string não é um dado, e uma subclasse do armazenamento de políticas não é
-  um armazenamento carregado. TypeScript: `createPartyAuthorization` só assina dados do perfil, também para uma carga
-  v2.0 sem `request`: um `Map` em uma carga era assinado como `{}`, e uma carga com um membro `undefined`, um inteiro
-  fora do intervalo ou mais de 32 níveis agora é recusada com `CONFIG_INVALID_VALUE`;
-  `checkMultiPartyAuthorizationStructure` devolve um resultado para um JSON escrito para fazê-la lançar uma exceção. O
-  [perfil](../../spec/profiles/multi-party/README.md) fixa as regras (§2.2, §2.3, §3 e §4), diz o que um resultado
-  revela do conjunto de políticas e do conjunto de confiança do operador, e acrescenta A4: um adaptador deve
-  devolvê-lo apenas a quem o operador deixa conhecê-lo. Há oito casos novos em
-  `tests/interop/v2/multi_party_vectors.json` (142, e 62 casos de configuração de políticas), entre eles uma
+  recusado o que fica atrás de mais de 128 ponteiros e contêineres. Compilado com `GOEXPERIMENT=jsonv2`, cujo
+  codificador não marca os bytes que substitui, quem chama a partir de Go não pode declarar U+FFFD. Python: um
+  `required_parties` de um registro que nenhum binary64 guarda não é um inteiro do esquema, um nome de membro que não
+  é uma string não é um dado, e uma subclasse do armazenamento de políticas não é um armazenamento carregado.
+  TypeScript: `createPartyAuthorization` só assina dados do perfil, também para uma carga v2.0 sem `request`: um `Map`
+  em uma carga era assinado como `{}`, e uma carga com um membro `undefined`, um inteiro fora do intervalo ou mais de
+  32 níveis agora é recusada com `CONFIG_INVALID_VALUE`; `checkMultiPartyAuthorizationStructure` devolve um resultado
+  para um JSON escrito para fazê-la lançar uma exceção. O [perfil](../../spec/profiles/multi-party/README.md) fixa as
+  regras (§2.2, §2.3, §3 e §4), diz o que um resultado revela do conjunto de políticas e do conjunto de confiança do
+  operador, e acrescenta A4: um adaptador deve devolvê-lo apenas a quem o operador deixa conhecê-lo. Há oito casos
+  novos em `tests/interop/v2/multi_party_vectors.json` (142, e 62 casos de configuração de políticas), entre eles uma
   assinatura clássica que não verifica sob uma pós-quântica que verifica, uma chave que o operador marca como expirada
   e uma validade um milissegundo longa demais; a CI verifica que o arquivo coincide com o seu gerador.
 
