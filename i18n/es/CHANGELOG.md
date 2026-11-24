@@ -1321,9 +1321,11 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   KEM híbrido, la capa 8, §11 y sus limitaciones conocidas), la guía de inicio rápido (§7), la arquitectura técnica,
   la referencia de la API, el README del SDK de TypeScript, el mapeo de la Ley de IA de la UE y las preguntas
   frecuentes para primeros adoptantes dicen que ni el handshake ni verificar el bundle de la contraparte la
-  autentican, que tal como está especificado no hay protección frente a un intermediario ni frente a la suplantación,
-  y que los SDK solo construyen los mensajes `A2A_HELLO` y `A2A_WELCOME` y no verifican ningún bundle. Todos remiten
-  al aviso de [DCP-04 §3](../../spec/DCP-04.md#3-handshake-protocol), que está en revisión.
+  autentican. El modelo de seguridad añade que, tal como está especificado, no hay protección frente a un
+  intermediario ni frente a la suplantación; y donde describen las funciones, los documentos dicen que, de los cuatro
+  mensajes del handshake, las funciones A2A de los SDK solo construyen `A2A_HELLO` y `A2A_WELCOME` y no verifican los
+  bundles que transportan. Todos remiten al aviso de [DCP-04 §3](../../spec/DCP-04.md#3-handshake-protocol), que está
+  en revisión.
 
 - **Límites operacionales** (nuevo [docs/OPERATIONAL_LIMITS.md](../../docs/OPERATIONAL_LIMITS.md); sin cambios de código, valores por defecto, perfiles ni wire). Qué acota las entradas, las fuentes de confianza y de revocación, la concurrencia, la desconexión del cliente y la caché de veredictos de Express, qué capa fija cada límite, qué tiene que fijar el operador, y una configuración de muestra para un piloto que no es un valor por defecto ni normativa. Enlazado desde `docs/ADMISSION.md` y los README de Express y FastAPI; el README de Express indica ahora que `req.dcpAgent.mandateId` es el valor del manifiesto, sin ninguna cadena de mandatos verificada.
 
