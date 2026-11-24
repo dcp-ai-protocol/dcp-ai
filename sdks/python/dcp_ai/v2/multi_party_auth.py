@@ -50,7 +50,7 @@ from dcp_ai.v2.composite_ops import CompositeKeyInfo, composite_sign, composite_
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS
 from dcp_ai.v2.session_nonce import rfc3339_epoch_ms
-from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY, SESSION_CLOCK_SKEW_MS, _canonical_b64_bytes
+from dcp_ai.v2.verify import SESSION_CLOCK_SKEW_MS, _canonical_b64_bytes
 
 MultiPartyOperation = Literal[
     "revoke_agent",
@@ -72,6 +72,12 @@ _MAX_IDENTIFIER = 256
 _MAX_MESSAGE = 300
 _OPERATIONS = ("revoke_agent", "rotate_org_key", "change_jurisdiction", "modify_recovery_config")
 _ROLES = ("owner", "org_admin", "recovery_contact")
+# How deep operation_payload may nest (§ 2.2): it is the first level and `parameters` the second.
+_MAX_DEPTH = 32
+# The algorithms of a hybrid signature of the profile (§ 4). Its own, and immutable: the default
+# verifier policy is a dict any code in the process can change.
+_CLASSICAL_ALGS = ("ed25519",)
+_PQ_ALGS = ("ml-dsa-65", "slh-dsa-192f")
 _CONTEXT = DCP_CONTEXTS["MultiPartyAuth"]
 
 
@@ -211,14 +217,34 @@ def _bounded(value: Any, maximum: int) -> bool:
 
 _LARGEST_INTEGER = 2**53 - 1
 _RANGE = "-(2^53 - 1) to 2^53 - 1"
+_DATA = f"an object of JSON data: well-formed text, integers within {_RANGE}, nested no deeper than the profile allows"
 
 
-def _is_profile_data(value: Any) -> bool:
-    """Whether the numbers of `value` are numbers of the profile (§ 3): the integers from
-    -(2^53 - 1) to 2^53 - 1. dcp-jcs-v1 takes larger ones, and what it makes of them is not one
-    thing: this SDK writes every digit, others write the nearest binary64, which is also what
-    most parsers read. Two numbers would be signed, compared and verified as one. What is not
-    JSON at all is left for the canonicalization to refuse."""
+def _well_formed(text: str) -> bool:
+    """No unpaired surrogate: text UTF-8 can carry."""
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _text(value: Any, maximum: int) -> bool:
+    """A well-formed string of 1 to `maximum` code points: what a caller may state."""
+    return _bounded(value, maximum) and _well_formed(value)
+
+
+def _is_profile_data(value: Any, levels: int) -> bool:
+    """Whether `value` is data of the profile (§ 2.2), nesting at most `levels` deep: no number
+    but the integers from -(2^53 - 1) to 2^53 - 1 and no string with an unpaired surrogate.
+    dcp-jcs-v1 takes more, and what it makes of it is not one thing: this SDK writes every digit
+    of a larger integer, others write the nearest binary64, which is also what most parsers
+    read, so two numbers would be signed, compared and verified as one; and an unpaired
+    surrogate is U+FFFD to one SDK and unreadable to another. A member name is a string: this
+    canonicalizer would write another kind of name out of order. What else is not JSON is left
+    for the canonicalization to refuse."""
+    if isinstance(value, str):
+        return _well_formed(value)
     if isinstance(value, bool):
         return True
     if isinstance(value, int):
@@ -226,17 +252,21 @@ def _is_profile_data(value: Any) -> bool:
     if isinstance(value, float):
         return value.is_integer() and abs(value) <= _LARGEST_INTEGER
     if isinstance(value, dict):
-        return all(_is_profile_data(member) for member in value.values())
+        return levels >= 1 and all(
+            isinstance(name, str) and _well_formed(name) and _is_profile_data(member, levels - 1)
+            for name, member in value.items()
+        )
     if isinstance(value, (list, tuple)):
-        return all(_is_profile_data(member) for member in value)
+        return levels >= 1 and all(_is_profile_data(member, levels - 1) for member in value)
     return True
 
 
-def _canonical(value: Any) -> str | None:
+def _canonical(value: Any, levels: int = _MAX_DEPTH) -> str | None:
     """The dcp-jcs-v1 form, or None when the value is not data of the profile or is not
-    representable."""
+    representable. `levels` is how deep it may nest: all of them for operation_payload, one
+    fewer for `parameters`, which is inside it."""
     try:
-        return canonicalize_v2(value) if _is_profile_data(value) else None
+        return canonicalize_v2(value) if _is_profile_data(value, levels) else None
     except Exception:
         return None
 
@@ -324,7 +354,7 @@ def create_multi_party_policy_store(policy_set: Any) -> MultiPartyPolicyStore:
     Raises MultiPartyConfigError on the first problem found. There are no defaults: an
     operation the operator does not list for a target is not authorized.
     """
-    if isinstance(policy_set, MultiPartyPolicyStore):
+    if type(policy_set) is MultiPartyPolicyStore:  # not a subclass: its __init__ may have skipped the loader
         return policy_set
     if not isinstance(policy_set, dict):
         _fail("CONFIG_INVALID_VALUE", "the policy set must be an object")
@@ -392,6 +422,8 @@ def create_multi_party_policy_store(policy_set: Any) -> MultiPartyPolicyStore:
             if any(r not in allowed for r in required_roles):
                 _fail("CONFIG_INVALID_VALUE", f"{at}.required_roles must be among allowed_roles")
             eligible = [role for role in parties.values() if role in allowed]
+            if required > MPA_V1_MAX_AUTHORIZATIONS:
+                _fail("CONFIG_MPA_UNSATISFIABLE", f"{at}: {int(required)} parties are required and a record holds at most {MPA_V1_MAX_AUTHORIZATIONS} authorizations")
             if required > len(eligible):
                 _fail("CONFIG_MPA_UNSATISFIABLE", f"{at}: {int(required)} parties are required and {len(eligible)} have an allowed role")
             if any(r not in eligible for r in required_roles):
@@ -435,18 +467,18 @@ def create_multi_party_request(
         issued_at_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     if request_id is None:
         request_id = f"mpa:{secrets.token_hex(16)}"
-    if not _bounded(target, _MAX_IDENTIFIER):
+    if not _text(target, _MAX_IDENTIFIER):
         _fail("CONFIG_INVALID_VALUE", "target must be a string of 1 to 256 characters")
-    if not _bounded(audience, _MAX_IDENTIFIER):
+    if not _text(audience, _MAX_IDENTIFIER):
         _fail("CONFIG_INVALID_VALUE", "audience must be a string of 1 to 256 characters")
-    if not _bounded(request_id, _MAX_REQUEST_ID):
+    if not _text(request_id, _MAX_REQUEST_ID):
         _fail("CONFIG_INVALID_VALUE", "request_id must be a string of 1 to 128 characters")
     if not _is_integer(validity_seconds) or not 1 <= validity_seconds <= MPA_V1_MAX_VALIDITY_SECONDS:
         _fail("CONFIG_INVALID_VALUE", f"validity_seconds must be an integer from 1 to {MPA_V1_MAX_VALIDITY_SECONDS}")
     if not _is_integer(issued_at_ms):
         _fail("CONFIG_INVALID_VALUE", "issued_at_ms must be an integer number of milliseconds")
-    if not isinstance(parameters, dict) or _canonical(parameters) is None:
-        _fail("CONFIG_INVALID_VALUE", f"parameters must be an object of JSON data with integers within {_RANGE}")
+    if not isinstance(parameters, dict) or _canonical(parameters, _MAX_DEPTH - 1) is None:
+        _fail("CONFIG_INVALID_VALUE", f"parameters must be {_DATA}")
     issued = int(issued_at_ms)
     return {
         "request": {
@@ -530,6 +562,10 @@ def _conforms_to_schema(record: Any) -> bool:
         return False
     if not _is_integer(record["required_parties"]) or record["required_parties"] < 2:
         return False
+    try:
+        float(record["required_parties"])  # an integer for the schema is one a binary64 holds, as the other SDKs read it
+    except OverflowError:
+        return False
     if not isinstance(record["authorizations"], list) or len(record["authorizations"]) == 0:
         return False
     for auth in record["authorizations"]:
@@ -589,11 +625,11 @@ def _valid_expected(expected: Any) -> tuple[str, str, str]:
     operation, target = expected.get("operation"), expected.get("target")
     if not isinstance(operation, str) or operation not in _OPERATIONS:
         _fail("CONFIG_INVALID_VALUE", f"expected.operation {_printable(operation)} is not an operation")
-    if not _bounded(target, _MAX_IDENTIFIER):
+    if not _text(target, _MAX_IDENTIFIER):
         _fail("CONFIG_INVALID_VALUE", "expected.target must be a string of 1 to 256 characters")
-    parameters = _canonical(expected.get("parameters")) if isinstance(expected.get("parameters"), dict) else None
+    parameters = _canonical(expected.get("parameters"), _MAX_DEPTH - 1) if isinstance(expected.get("parameters"), dict) else None
     if parameters is None:
-        _fail("CONFIG_INVALID_VALUE", f"expected.parameters must be an object of JSON data with integers within {_RANGE}")
+        _fail("CONFIG_INVALID_VALUE", f"expected.parameters must be {_DATA}")
     return operation, target, parameters
 
 
@@ -735,8 +771,7 @@ async def evaluate_multi_party_authorization(
         return result
 
     # 4. Verification: every authorization is a hybrid signature, by the party's trusted keys, over this request.
-    classical_algs = DEFAULT_VERIFIER_POLICY["accepted_classical_algs"]
-    pq_algs = DEFAULT_VERIFIER_POLICY["accepted_pq_algs"]
+    classical_algs, pq_algs = _CLASSICAL_ALGS, _PQ_ALGS
     counted = 0
     for i, auth in enumerate(authorizations):
         before = len(errors)

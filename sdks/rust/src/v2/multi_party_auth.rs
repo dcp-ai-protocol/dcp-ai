@@ -207,25 +207,30 @@ const INVALID: &str = "CONFIG_INVALID_VALUE";
 /// 2^53 - 1. Past it a binary64, which is what dcp-jcs-v1 reads a number into, no longer holds every integer, and
 /// two SDKs would write two different texts for the same signed number.
 const LARGEST_INTEGER: i64 = (1 << 53) - 1;
-const RANGE: &str = "-(2^53 - 1) to 2^53 - 1";
+/// How deep operation_payload may nest (§ 2.2): it is the first level and `parameters` the second.
+const MAX_DEPTH: usize = 32;
+const DATA: &str = "an object of JSON data: integers within -(2^53 - 1) to 2^53 - 1, nested no deeper than the profile allows";
 
-/// Whether a value holds, at every depth, only numbers the profile compares: integers within RANGE.
-fn is_profile_data(value: &Value) -> bool {
+/// Whether a value nests at most `levels` deep and holds only numbers the profile compares: integers from
+/// -(2^53 - 1) to 2^53 - 1.
+/// Its strings need no check here: a Rust string is well-formed text, and serde_json reads nothing else.
+fn is_profile_data(value: &Value, levels: usize) -> bool {
     match value {
         Value::Number(n) => match n.as_i64() {
             Some(i) => (-LARGEST_INTEGER..=LARGEST_INTEGER).contains(&i),
             // 1e2 and 1.0 are integers of the profile; a u64 past i64 is past the range too.
             None => n.as_f64().is_some_and(|f| f.fract() == 0.0 && f.abs() <= LARGEST_INTEGER as f64),
         },
-        Value::Array(members) => members.iter().all(is_profile_data),
-        Value::Object(members) => members.values().all(is_profile_data),
+        Value::Array(members) => levels >= 1 && members.iter().all(|member| is_profile_data(member, levels - 1)),
+        Value::Object(members) => levels >= 1 && members.values().all(|member| is_profile_data(member, levels - 1)),
         _ => true,
     }
 }
 
-/// The canonical text of a value the profile compares, or None when it is not data of the profile.
-fn canonical(value: &Value) -> Option<String> {
-    is_profile_data(value).then(|| canonicalize_v2(value).ok()).flatten()
+/// The canonical text of a value the profile compares, or None when it is not data of the profile. `levels` is how
+/// deep it may nest: all of them for operation_payload, one fewer for `parameters`, which is inside it.
+fn canonical(value: &Value, levels: usize) -> Option<String> {
+    is_profile_data(value, levels).then(|| canonicalize_v2(value).ok()).flatten()
 }
 
 /// A string of 1 to `max` Unicode code points.
@@ -377,6 +382,12 @@ impl MultiPartyPolicyStore {
                     return fail(INVALID, format!("{at}.required_roles must be among allowed_roles"));
                 }
                 let eligible: Vec<&String> = parties.values().filter(|role| allowed.contains(role)).collect();
+                if required > MPA_V1_MAX_AUTHORIZATIONS as i64 {
+                    return fail(
+                        "CONFIG_MPA_UNSATISFIABLE",
+                        format!("{at}: {required} parties are required and a record holds at most {MPA_V1_MAX_AUTHORIZATIONS} authorizations"),
+                    );
+                }
                 if required > eligible.len() as i64 {
                     return fail("CONFIG_MPA_UNSATISFIABLE", format!("{at}: {required} parties are required and {} have an allowed role", eligible.len()));
                 }
@@ -450,8 +461,8 @@ pub fn create_multi_party_request(input: &MultiPartyRequestInput) -> Result<Valu
         return fail(INVALID, "request_id must be a string of 1 to 128 characters");
     }
     let parameters = input.parameters.cloned().unwrap_or_else(|| json!({}));
-    if !parameters.is_object() || canonical(&parameters).is_none() {
-        return fail(INVALID, format!("parameters must be an object of JSON data with integers within {RANGE}"));
+    if !parameters.is_object() || canonical(&parameters, MAX_DEPTH - 1).is_none() {
+        return fail(INVALID, format!("parameters must be {DATA}"));
     }
     let issued = input.issued_at_ms.unwrap_or_else(|| {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
@@ -654,7 +665,7 @@ fn structure_code(record: &Value) -> Option<&'static str> {
     if !conforms_to_request(payload) {
         return Some("MPA_REQUEST_INVALID");
     }
-    if canonical(&record["operation_payload"]).is_none() {
+    if canonical(&record["operation_payload"], MAX_DEPTH).is_none() {
         return Some("MPA_NOT_REPRESENTABLE");
     }
     (authorizations.len() > MPA_V1_MAX_AUTHORIZATIONS).then_some("MPA_TOO_MANY_AUTHORIZATIONS")
@@ -695,8 +706,8 @@ fn evaluate_with(record: &Value, options: &MultiPartyOptions, provider_for: Prov
     if bounded_str(Some(&Value::String(expected.target.to_string())), MAX_IDENTIFIER).is_none() {
         return fail(INVALID, "expected.target must be a string of 1 to 256 characters");
     }
-    let Some(expected_parameters) = expected.parameters.is_object().then(|| canonical(expected.parameters)).flatten() else {
-        return fail(INVALID, format!("expected.parameters must be an object of JSON data with integers within {RANGE}"));
+    let Some(expected_parameters) = expected.parameters.is_object().then(|| canonical(expected.parameters, MAX_DEPTH - 1)).flatten() else {
+        return fail(INVALID, format!("expected.parameters must be {DATA}"));
     };
 
     let mut result = MultiPartyEvaluation {
@@ -744,7 +755,7 @@ fn evaluate_with(record: &Value, options: &MultiPartyOptions, provider_for: Prov
     if target != expected.target {
         result.add("MPA_TARGET_MISMATCH", format!("the request is for target {}", printable_str(&target)));
     }
-    if canonical(parameters).as_ref() != Some(&expected_parameters) {
+    if canonical(parameters, MAX_DEPTH - 1).as_ref() != Some(&expected_parameters) {
         result.add("MPA_PARAMETERS_MISMATCH", "the signed parameters are not the ones about to be used");
     }
     if request["audience"].as_str() != Some(policy.audience.as_str()) {

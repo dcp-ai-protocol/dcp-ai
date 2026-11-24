@@ -108,6 +108,20 @@
 
 ### 安全
 
+- **`mpa-v1`：格式良好的文本、嵌套上限以及配置文件自己的算法**（`main` 上的源代码，未包含在任何已发布版本中；版本号不变）。
+  这些是对该配置文件进行独立评审之后的修正，除另有说明外适用于四个 SDK。
+  `operation_payload` 中含有不成对代理项或非 UTF-8 字节的字符串不属于该配置文件的数据：Go SDK 把它读作 U+FFFD，因此声明 `keys/\xff` 的执行方会得到对 `keys/\uFFFD` 签名的参与方的授权，而 Rust SDK 则无法读取该记录。
+  这样的记录现在得到 `MPA_NOT_REPRESENTABLE`，构建请求的函数以及执行方声明的内容则以 `CONFIG_INVALID_VALUE` 拒绝。
+  `operation_payload` 最多嵌套 32 层。
+  `required_parties` 大于 16（一份记录最多容纳的授权数）的策略集无法加载（`CONFIG_MPA_UNSATISFIABLE`）。
+  TypeScript 和 Python SDK 原先从默认验证策略中取混合签名的算法，而该对象可以被进程中的任何代码修改；现在使用配置文件自己的算法。
+  Go：算法注册表为 `nil` 时返回错误而不是 panic，`Now` 按毫秒读取，与其他 SDK 取时钟的方式一致。
+  Python：记录中的 `required_parties` 若是任何 binary64 都无法保存的数值，就不是模式中的整数；策略存储的子类也不是已加载的存储。
+  Python 还规定：不是字符串的成员名不属于数据。
+  TypeScript：`createPartyAuthorization` 只对配置文件的数据签名（载荷中的 `Map` 原先被当作 `{}` 签名）；对于为使其抛出异常而编写的 JSON，`checkMultiPartyAuthorizationStructure` 也返回结果。
+  [配置文件](../../spec/profiles/multi-party/README.md)规定了这些规则（§2.2、§2.3、§3 和 §4），说明结果会描述运营方的策略，并新增 A4，规定适配器把结果返回给谁。
+  `tests/interop/v2/multi_party_vectors.json` 新增八个用例（共 142 个，策略配置用例 62 个），其中包括：后量子签名可验证而经典签名无法验证、运营方标记为已过期的密钥，以及长出一毫秒的有效期；CI 会检查该文件与其生成器的输出一致。
+
 - **`mpa-v1`：被签名的载荷中的每个数值都是 -(2^53 - 1) 至 2^53 - 1 之间的整数**（`main` 上的源代码，未包含在任何已发布版本中；版本号不变）。
   该配置文件通过 `dcp-jcs-v1` 比较 `parameters`，而对于 binary64 无法精确保存的整数，各 SDK 写出的文本并不相同：TypeScript 和 Go SDK 会将其舍入，Python SDK 写出全部数字，Rust SDK 在 64 位以内写出全部数字。
   使用 Go SDK 时，参与方对 `1234567890123456789` 签名的记录，会对声明 `1234567890123456790` 的执行方给出授权；同一份记录也可能被一个 SDK 授权而被另一个 SDK 拒绝。

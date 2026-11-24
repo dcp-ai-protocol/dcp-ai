@@ -113,6 +113,28 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **`mpa-v1`: texto bem formado, um limite de aninhamento e os algoritmos próprios do perfil** (código-fonte em
+  `main`, em nenhuma versão publicada; sem mudança de versão). Correções posteriores à revisão independente do perfil,
+  nos quatro SDKs salvo indicação em contrário. Uma string de `operation_payload` com um substituto sem par, ou com
+  bytes que não são UTF-8, não é um dado do perfil: o SDK de Go a lia como U+FFFD, de modo que um executor que
+  declarava `keys/\xff` ficava autorizado por partes que tinham assinado `keys/\uFFFD`, e o SDK de Rust não conseguia
+  ler o registro. Esse registro agora recebe `MPA_NOT_REPRESENTABLE`, e os construtores da requisição e o que o
+  executor declara o recusam com `CONFIG_INVALID_VALUE`. `operation_payload` aninha no máximo 32 níveis. Um conjunto
+  de políticas cujo `required_parties` é maior que 16, o máximo de autorizações que cabe em um registro, não é
+  carregado (`CONFIG_MPA_UNSATISFIABLE`). Os SDKs de TypeScript e Python tomavam os algoritmos de uma assinatura
+  híbrida da política de verificação padrão, um objeto que qualquer código do processo pode mudar; agora são os do
+  próprio perfil. Go: um registro de algoritmos `nil` é um erro em vez de um pânico, e `Now` é lido em milissegundos,
+  como os outros SDKs tomam o relógio. Python: um `required_parties` de um registro que nenhum binary64 guarda não é
+  um inteiro do esquema, e uma subclasse do armazenamento de políticas não é um armazenamento carregado, nem um nome
+  de membro que não é uma string é um dado. TypeScript: `createPartyAuthorization` só assina dados do perfil (um `Map`
+  em uma carga era assinado como `{}`), e `checkMultiPartyAuthorizationStructure` devolve um resultado para um JSON
+  escrito para fazê-la lançar uma exceção. O [perfil](../../spec/profiles/multi-party/README.md) fixa as regras (§2.2,
+  §2.3, §3 e §4), diz que um resultado descreve a política do operador e acrescenta A4 sobre a quem um adaptador o
+  devolve. Há oito casos novos em `tests/interop/v2/multi_party_vectors.json` (142, e 62 casos de configuração de
+  políticas), entre eles uma assinatura clássica que não verifica sob uma pós-quântica que verifica, uma chave que o
+  operador marca como expirada e uma validade um milissegundo longa demais; a CI verifica que o arquivo coincide com o
+  seu gerador.
+
 - **`mpa-v1`: todo número da carga assinada é um inteiro de -(2^53 - 1) a 2^53 - 1** (código-fonte em `main`, em
   nenhuma versão publicada; sem mudança de versão). O perfil compara `parameters` por meio de `dcp-jcs-v1`, e os SDKs
   não escreviam o mesmo texto para um inteiro que um binary64 não guarda exatamente: os SDKs de TypeScript e Go o

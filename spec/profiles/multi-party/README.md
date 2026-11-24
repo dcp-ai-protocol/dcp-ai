@@ -55,6 +55,8 @@ Under `mpa-v1`, `operation_payload` has exactly two members. Schema: [`multi_par
 - `target` names the object of the operation as the operator's policy names it. `audience` names the verifier that may act on the authorization.
 - `parameters` is an object: the operation's own parameters, empty when it has none.
 - Every number in `operation_payload`, read as the nearest binary64, is an integer from -(2^53 - 1) to 2^53 - 1: the integers a binary64 holds exactly. `1.0` and `1e2` are such integers, and so is a literal a binary64 cannot tell from one. Past that range, an implementation that reads JSON numbers as binary64 and one that reads them exactly write different `dcp-jcs-v1` texts for the same record, and a signature over one integer would stand for its neighbours. A larger value, such as a 64-bit identifier, goes in a string.
+- Every string in `operation_payload`, member names included, is well-formed Unicode text: no unpaired surrogate, written as an escape or otherwise, and no bytes that are not UTF-8. Implementations do not read anything else alike: one puts U+FFFD in its place and another cannot read it.
+- `operation_payload` nests at most 32 levels deep, itself being the first level and `parameters` the second.
 
 What a party signs is unchanged: `UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`. The classical signature covers those bytes and the post-quantum one covers them followed by the classical signature.
 
@@ -95,7 +97,7 @@ A policy set is validated when it is loaded. It is rejected, with the configurat
 | A field outside the schema at any level | `CONFIG_UNKNOWN_FIELD` |
 | `policy_set_version` missing or empty; `profile` not `mpa-v1`; `audience` not a string of 1 to 256 characters; `max_validity_seconds` not an integer from 1 to 86400; a role or an operation outside the lists; `parties` empty; `allowed_roles` empty or repeating a role; `required_parties` below 2; `required_roles` not among `allowed_roles` | `CONFIG_INVALID_VALUE` |
 | A target listed twice, or a party listed twice for one target | `CONFIG_MPA_DUPLICATE` |
-| `required_parties` greater than the number of parties with an allowed role, or a required role that no such party holds | `CONFIG_MPA_UNSATISFIABLE` |
+| `required_parties` greater than the number of parties with an allowed role, or greater than 16, the most authorizations a record holds; or a required role that no such party holds | `CONFIG_MPA_UNSATISFIABLE` |
 
 When a policy set has several of these problems, the code of any one of them may be reported.
 
@@ -109,7 +111,7 @@ The two are loaded separately. A party of the policy that the trust set does not
 
 ## 3. What the executor states
 
-The executor gives the operation, the target and the parameters it is about to carry out. They must be an operation of the list, a target of 1 to 256 characters and an object of JSON data whose numbers are integers in the range of §2.2. Otherwise the call is refused as a configuration error (`CONFIG_INVALID_VALUE`) and gives no result. The authorization must be for exactly those.
+The executor gives the operation, the target and the parameters it is about to carry out. They must be an operation of the list, a target of 1 to 256 characters of well-formed text, and an object that is data of §2.2: numbers in its range, well-formed text and at most 31 levels deep, since `parameters` is the second level of `operation_payload`. Otherwise the call is refused as a configuration error (`CONFIG_INVALID_VALUE`) and gives no result. The authorization must be for exactly those.
 
 ## 4. Evaluation
 
@@ -120,7 +122,7 @@ Five phases. A phase that adds a code stops the next ones, so no signature of a 
 | 1. Structure | The record conforms to its schema | `MPA_SCHEMA_INVALID` |
 | | `operation_payload` has a `request` member | `MPA_REQUEST_MISSING` |
 | | `operation_payload` conforms to §2.2, with RFC 3339 instants | `MPA_REQUEST_INVALID` |
-| | `operation_payload` is representable in `dcp-jcs-v1` and every number in it is in the range of §2.2 | `MPA_NOT_REPRESENTABLE` |
+| | `operation_payload` is data of §2.2 (numbers in its range, well-formed text, at most 32 levels deep) and is representable in `dcp-jcs-v1` | `MPA_NOT_REPRESENTABLE` |
 | | At most 16 authorizations | `MPA_TOO_MANY_AUTHORIZATIONS` |
 | 2. Binding | `operation` is the one the executor states | `MPA_OPERATION_MISMATCH` |
 | | `request.target` is the one the executor states | `MPA_TARGET_MISMATCH` |
@@ -145,6 +147,8 @@ Five phases. A phase that adds a code stops the next ones, so no signature of a 
 - `required_parties` in the record is not signed and is never read.
 - In phase 3 the role that counts is the operator's: `MPA_ROLE_MISMATCH` when the signed one is another, `MPA_ROLE_NOT_ALLOWED` when the operator's is not allowed for the operation. Both can apply. An unknown party gets `MPA_PARTY_UNKNOWN` and nothing else.
 - In phase 4 each key gets the first that applies of not anchored, revoked, expired (`status` `expired`, or `expires_at` before `now`) and not yet valid (`not_before` after `now`). A signature is verified only when both keys can count.
+- The algorithms of phase 4 are the profile's: `ed25519` in the classical slot, `ml-dsa-65` or `slh-dsa-192f` in the other. They are not read from a verifier policy, which can change.
+- Instants are compared in milliseconds: digits past the third of a fraction are dropped, and a `now` with a finer resolution is truncated.
 
 ## 5. Result
 
@@ -177,7 +181,7 @@ Five phases. A phase that adds a code stops the next ones, so no signature of a 
 | `CONFIG_UNKNOWN_FIELD`, `CONFIG_INVALID_VALUE`, `CONFIG_MPA_DUPLICATE`, `CONFIG_MPA_UNSATISFIABLE` | Raised when a policy set is loaded, or for what the executor states (§3) |
 | `CONFIG_TRUST_*` | Raised when the trust set is loaded (admission profile §2.2) |
 
-Messages are at most 300 characters and never contain private keys, tokens or the operator's configuration beyond the identifiers being compared.
+Messages are at most 300 characters and never contain private keys or tokens. The codes, the messages and `required_parties` do say what the operator's policy asks for (a threshold, a role, the longest validity): see A4 in §6.
 
 ## 6. Adapters
 
@@ -186,6 +190,7 @@ The core functions are deterministic, make no network call and keep no state. An
 - **A1.** The operation runs only when `authorized` is true, and it is the operation, on the target, with the parameters that were given to the evaluation.
 - **A2.** The policy set, the trust set, their sources, the audience and the tenant come from the operator's code and configuration. No request field, header or tool parameter selects or changes them.
 - **A3.** An operation that is not idempotent is single use, and that is the adapter's to enforce (§7).
+- **A4.** A result says what the operator's policy asks for. An adapter returns it only to callers the operator lets learn that; to anyone else, at most whether the operation was authorized.
 
 ## 7. Guarantees and limits
 

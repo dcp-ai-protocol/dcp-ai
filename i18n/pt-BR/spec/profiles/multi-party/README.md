@@ -69,6 +69,8 @@ Sob `mpa-v1`, `operation_payload` tem exatamente dois membros. Schema: [`multi_p
 - `target` nomeia o objeto da operação como a política do operador o nomeia. `audience` nomeia o verificador que pode agir com a autorização.
 - `parameters` é um objeto: os parâmetros próprios da operação, vazio quando ela não tem nenhum.
 - Todo número de `operation_payload`, lido como o binary64 mais próximo, é um inteiro de -(2^53 - 1) a 2^53 - 1: os inteiros que um binary64 guarda exatamente. `1.0` e `1e2` são inteiros desses, e também o é um literal que um binary64 não distingue de um deles. Fora desse intervalo, uma implementação que lê os números de JSON como binary64 e outra que os lê exatamente escrevem textos `dcp-jcs-v1` diferentes para o mesmo registro, e uma assinatura sobre um inteiro valeria para os seus vizinhos. Um valor maior, como um identificador de 64 bits, vai em uma string.
+- Toda string de `operation_payload`, incluídos os nomes dos seus membros, é texto Unicode bem formado: sem substitutos sem par, escritos como escape ou de outra forma, e sem bytes que não sejam UTF-8. As implementações não leem da mesma forma nada além disso: uma coloca U+FFFD no lugar e outra não consegue ler.
+- `operation_payload` aninha no máximo 32 níveis, sendo ele próprio o primeiro e `parameters` o segundo.
 
 O que uma parte assina não muda: `UTF8("DCP-AI.v2.MultiPartyAuth") || 0x00 || dcp-jcs-v1({operation, operation_payload, party_id, role})`. A assinatura clássica cobre esses bytes e a pós-quântica os cobre seguidos da assinatura clássica.
 
@@ -111,7 +113,7 @@ Um conjunto de políticas é validado ao ser carregado. Ele é rejeitado, com o 
 | Um campo fora do schema em qualquer nível | `CONFIG_UNKNOWN_FIELD` |
 | `policy_set_version` ausente ou vazio; `profile` diferente de `mpa-v1`; `audience` que não é uma string de 1 a 256 caracteres; `max_validity_seconds` que não é um inteiro de 1 a 86400; um papel ou uma operação fora das listas; `parties` vazio; `allowed_roles` vazio ou com um papel repetido; `required_parties` menor que 2; `required_roles` que não está entre os `allowed_roles` | `CONFIG_INVALID_VALUE` |
 | Um alvo listado duas vezes, ou uma parte listada duas vezes para um mesmo alvo | `CONFIG_MPA_DUPLICATE` |
-| `required_parties` maior que o número de partes com um papel permitido, ou um papel obrigatório que nenhuma dessas partes tem | `CONFIG_MPA_UNSATISFIABLE` |
+| `required_parties` maior que o número de partes com um papel permitido, ou maior que 16, o máximo de autorizações que cabe em um registro; ou um papel obrigatório que nenhuma dessas partes tem | `CONFIG_MPA_UNSATISFIABLE` |
 
 Quando um conjunto de políticas tem vários desses problemas, o código de qualquer um deles pode ser informado.
 
@@ -129,7 +131,7 @@ Os dois são carregados separadamente. Uma parte da política que o conjunto de 
 
 ## 3. O que o executor declara
 
-O executor dá a operação, o alvo e os parâmetros que está prestes a realizar. Eles têm de ser uma operação da lista, um alvo de 1 a 256 caracteres e um objeto de dados JSON cujos números sejam inteiros do intervalo de §2.2. Caso contrário, a chamada é recusada como erro de configuração (`CONFIG_INVALID_VALUE`) e não dá nenhum resultado. A autorização tem de ser exatamente para isso.
+O executor dá a operação, o alvo e os parâmetros que está prestes a realizar. Eles têm de ser uma operação da lista, um alvo de 1 a 256 caracteres de texto bem formado, e um objeto que seja um dado de §2.2: números no seu intervalo, texto bem formado e no máximo 31 níveis, porque `parameters` é o segundo nível de `operation_payload`. Caso contrário, a chamada é recusada como erro de configuração (`CONFIG_INVALID_VALUE`) e não dá nenhum resultado. A autorização tem de ser exatamente para isso.
 
 <a id="4-evaluation"></a>
 
@@ -142,7 +144,7 @@ Cinco fases. Uma fase que acrescenta um código interrompe as seguintes, então 
 | 1. Estrutura | O registro está em conformidade com o seu schema | `MPA_SCHEMA_INVALID` |
 | | `operation_payload` tem um membro `request` | `MPA_REQUEST_MISSING` |
 | | `operation_payload` está em conformidade com o §2.2, com instantes RFC 3339 | `MPA_REQUEST_INVALID` |
-| | `operation_payload` é representável em `dcp-jcs-v1` e todos os seus números estão no intervalo de §2.2 | `MPA_NOT_REPRESENTABLE` |
+| | `operation_payload` é um dado de §2.2 (números no seu intervalo, texto bem formado, no máximo 32 níveis) e é representável em `dcp-jcs-v1` | `MPA_NOT_REPRESENTABLE` |
 | | No máximo 16 autorizações | `MPA_TOO_MANY_AUTHORIZATIONS` |
 | 2. Vínculo | `operation` é a que o executor declara | `MPA_OPERATION_MISMATCH` |
 | | `request.target` é o que o executor declara | `MPA_TARGET_MISMATCH` |
@@ -167,6 +169,8 @@ Cinco fases. Uma fase que acrescenta um código interrompe as seguintes, então 
 - `required_parties` do registro não é assinado e nunca é lido.
 - Na fase 3 o papel que conta é o do operador: `MPA_ROLE_MISMATCH` quando o assinado é outro, `MPA_ROLE_NOT_ALLOWED` quando o do operador não é permitido para a operação. Os dois podem se aplicar. Uma parte desconhecida recebe `MPA_PARTY_UNKNOWN` e nada mais.
 - Na fase 4 cada chave recebe o primeiro que se aplicar entre não ancorada, revogada, expirada (`status` `expired`, ou `expires_at` anterior a `now`) e ainda não válida (`not_before` posterior a `now`). Uma assinatura é verificada apenas quando as duas chaves podem contar.
+- Os algoritmos da fase 4 são os do perfil: `ed25519` no componente clássico, `ml-dsa-65` ou `slh-dsa-192f` no outro. Não são lidos de uma política de verificação, que pode mudar.
+- Os instantes são comparados em milissegundos: os dígitos de uma fração além do terceiro são descartados, e um `now` com mais resolução é truncado.
 
 <a id="5-result"></a>
 
@@ -207,7 +211,7 @@ Cinco fases. Uma fase que acrescenta um código interrompe as seguintes, então 
 | `CONFIG_UNKNOWN_FIELD`, `CONFIG_INVALID_VALUE`, `CONFIG_MPA_DUPLICATE`, `CONFIG_MPA_UNSATISFIABLE` | Lançados quando um conjunto de políticas é carregado, ou pelo que o executor declara (§3) |
 | `CONFIG_TRUST_*` | Lançados quando o conjunto de confiança é carregado (perfil de admissão, §2.2) |
 
-As mensagens têm no máximo 300 caracteres e nunca contêm chaves privadas, tokens nem a configuração do operador além dos identificadores que estão sendo comparados.
+As mensagens têm no máximo 300 caracteres e nunca contêm chaves privadas nem tokens. Os códigos, as mensagens e `required_parties` dizem, sim, o que a política do operador pede (um limiar, um papel, a validade mais longa): ver A4 em §6.
 
 <a id="6-adapters"></a>
 
@@ -218,6 +222,7 @@ As funções do núcleo são determinísticas, não fazem nenhuma chamada de red
 - **A1.** A operação é executada apenas quando `authorized` é verdadeiro, e é a operação, sobre o alvo e com os parâmetros que foram dados à avaliação.
 - **A2.** O conjunto de políticas, o conjunto de confiança, as suas fontes, a audiência e o inquilino vêm do código e da configuração do operador. Nenhum campo, cabeçalho ou parâmetro de ferramenta de uma requisição os seleciona ou muda.
 - **A3.** Uma operação que não é idempotente é de uso único, e fazer isso valer cabe ao adaptador (§7).
+- **A4.** Um resultado diz o que a política do operador pede. Um adaptador o devolve apenas a quem o operador deixa conhecê-lo; a qualquer outro, no máximo se a operação ficou autorizada.
 
 <a id="7-guarantees-and-limits"></a>
 
