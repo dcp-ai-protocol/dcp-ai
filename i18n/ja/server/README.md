@@ -35,7 +35,7 @@ node server/index.js
 |--------|------|-------------|
 | GET | `/` , `/health` | ヘルスチェック：`{ ok, service, supported_versions, registered_agents, registered_keys }` |
 | GET | `/.well-known/dcp-capabilities.json` | プロトコルのケイパビリティの発見（アルゴリズム、機能、ワイヤ形式）。サーバーが宣伝している内容であり、確認済みの保証ではありません。`application/cbor` を挙げていますが、ボディは JSON としてしか読みません。HSM はないため、`hsm_provider` は `false` です。DCP-05 から DCP-09 の機能は `false` で、`demo_endpoints` が後述のデモのエンドポイントを説明します |
-| POST | `/verify` | 署名付きバンドルを検証する（V1 か V2 かを自動判別し、V2 は `VERIFIER_POLICY` に照らして確認） |
+| POST | `/verify` | 署名付きバンドルを `VERIFIER_POLICY` に照らして検証する（V1 か V2 かを自動判別）。V1 のバンドルには耐量子の署名がないため、古典のみのバンドルが通る場合にだけ通る（`ALLOW_V1_BUNDLES` を参照） |
 | POST | `/v2/admit` | オペレーターが信頼するプリンシパルに対するアドミッション、設定されていれば strict-v1 も（`docs/ADMISSION.md`）。ボディからは `signed_bundle` だけを読みます。未設定なら 501 |
 | POST | `/anchor` | スタブ：501 を返す（オペレーターごとに実装） |
 
@@ -48,7 +48,7 @@ node server/index.js
 |--------|------|-------------|
 | POST | `/v2/passport/register` | 自己署名のエージェントのパスポートを登録する。新しい `agent_id` にはオペレーターのトークンが必要（[信頼モデル](#trust-model)を参照） |
 | POST | `/v2/intent/declare` | 登録済みのエージェントの意図を宣言し、サーバーの（署名のない）ポリシー判断を受け取る。意図の `composite_sig` は検証されません |
-| POST | `/v2/audit/append` | エージェントのチェーンに監査イベントを追加する |
+| POST | `/v2/audit/append` | 登録済みのエージェントの監査イベントを確認し、数える。イベントは V2 の監査エントリ（`schemas/v2/audit_entry.schema.json`）で、`signature` はそれに対する `DCP-AI.v2.AuditEvent` のもとでの、エージェントの有効な鍵による複合署名でなければならない。ゲートウェイは監査イベントを保存せず、`prev_hash` も比較しない |
 | POST | `/v2/audit/compact` | マークルの要約で監査チェーンを圧縮する |
 | POST | `/v2/bundle/verify` | V2 のバンドルの完全な検証：スキーマ、マニフェスト、Ed25519 + ML-DSA-65 の複合署名、セッションの結び付け、監査チェーン（`lib/verify.js` と `@dcp-ai/sdk` による）を `VERIFIER_POLICY` に照らして確認。V1 のバンドルには 400 |
 
@@ -105,7 +105,7 @@ node server/index.js
 | `PORT` | `3000` | 待ち受ける HTTP のポート |
 | `OPERATOR_TOKEN` | — | オペレーターのエンドポイントと、新しい `agent_id` の登録のための Bearer トークン。未設定なら両方ともロックされます |
 | `VERIFIER_MODE` | `hybrid_required` | 起動時の検証モード：`classical_only`、`hybrid_preferred`、`hybrid_required`、`pq_only` のいずれか。無効な値ではサーバーが停止します |
-| `ALLOW_V1_BUNDLES` | `true` | `false` にすると `POST /verify` が V1 のバンドルを拒否します（`pq_only` では常に拒否） |
+| `ALLOW_V1_BUNDLES` | `true` | `false` にすると `POST /verify` が V1 のバンドルをすべて拒否します。`true` の場合も、V1 のバンドルを受け入れるのは古典のみのバンドルを受け入れる場合だけです。パスポートの `risk_tier` に対するモードを意図のセキュリティ階層で引き上げた結果が、`classical_only` または `hybrid_preferred` でなければなりません。そのため既定の `hybrid_required` では V1 のバンドルは拒否され、`pq_only` では常に拒否されます |
 | `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` で DCP-05 から DCP-09 のデモのエンドポイントが有効になり、オペレーターのトークン（32 文字以上）が必要になります。未設定、`off`、`dcp-05-09` 以外の値ではサーバーが停止します |
 | `TRUST_PROXY` | — | クライアントの IP を `X-Forwarded-For` に付け加えるプロキシ（Fly、nginx）の背後でだけ `true`。そのときレート制限はその最後のホップを基準にし、そうでなければソケットのアドレスを基準にします。クライアントはヘッダーを偽造できるからです |
 | `REGISTRATIONS_PER_HOUR` | `20` | クライアントごと 1 時間あたりの `POST /v2/passport/register` の呼び出し回数。超えると 429 |
@@ -132,11 +132,14 @@ node server/index.js
 - **新しい** `agent_id` の登録には `Authorization: Bearer <OPERATOR_TOKEN>` が必要です（そうでなければ 401）。パスポートは
   自己署名にすぎず、プリンシパルの RPR も同じなので、信頼のアンカーがなければ、誰でも被害者の `agent_id` を先に名乗り、
   緊急失効させることができてしまいます。そこで、新しいエージェントについてはオペレーターが保証します。それを再登録する
-  （たとえば緊急失効トークンを差し替える）には、署名済みのパスポートは公開されており古いものを再送できるため、`VERIFIER_MODE`
+  には、署名済みのパスポートは公開されており古いものを再送できるため、`VERIFIER_MODE`
   が新しいエージェントに何を許していても、`created_at` が登録済みのものより新しく、かつエージェントの有効な鍵（そのエージェントに
   登録され、失効しておらず、期限切れでないもの）だけで署名されたパスポートが必要です。そうでなければ 409 です。登録済みの鍵の
   エントリはそのまま保持されるため、新しいパスポートで鍵の `expires_at` を延ばすことはできず、トークンのないパスポートでは
-  登録済みのトークンが残ります。
+  登録済みのトークンが残ります。別のトークンを持つパスポートが登録済みのトークンを置き換えるのは、リクエストに
+  `current_revocation_secret`（登録済みのトークンの秘密値）も含まれている場合か、オペレーターのトークンがある場合だけで、
+  そうでなければ 403 です。このトークンは、エージェントの鍵が漏れたときにプリンシパルに残された手段なので、その鍵だけで
+  置き換えられてはなりません。
 - 登録した系統の有効な鍵をすべて失った（たとえば ML-DSA-65 の鍵が期限切れになった）エージェントは、再登録できません。残った
   鍵だけでトークンを差し替えてはならないからです。復旧は、緊急失効トークン（失効させてから新しい `agent_id` を登録する）か、
   オペレーターを通じて行いますが、オペレーター向けの API はまだありません。ほかのエージェントに登録された kid も 409 となり、
@@ -195,6 +198,8 @@ curl -s -X POST http://localhost:3000/verify \
     }
   }'
 ```
+
+サーバーが V1 のバンドルを受け入れるのは、古典のみのバンドルを受け入れる場合だけです。そのため既定の `hybrid_required` では、このリクエストへの応答は `"verified": false` になります。試すには、サーバーを `VERIFIER_MODE=classical_only` または `VERIFIER_MODE=hybrid_preferred` で起動してください。ボディに `public_key_b64` がない場合、署名はバンドル自身が宣言する鍵で確認され、`warnings` がそのことを伝えます。信頼できる鍵で確認するには `public_key_b64` を送ってください。
 
 <a id="v2-passport-registration"></a>
 
@@ -372,7 +377,7 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
                     │  V1 Verification          │
                     │  V2 Composite Verification│
                     │  Key Registry (in-memory) │
-                    │  Audit Chains (in-memory) │
+                    │  Audit Event Checks       │
                     │  Policy Engine (Phase 3)  │
                     │  Advisory System           │
                     │  Governance Keys           │
@@ -383,8 +388,8 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 
 ## 制限
 
-- **メモリ上のストレージ**：すべての状態（パスポート、鍵、監査チェーン、アドバイザリー）は再起動で失われます。[永続化](#persistence)を参照してください。
-- **バンドルの検証以外での署名**：バンドルの検証、パスポートの登録、鍵のローテーション、マルチパーティ承認は、本物の Ed25519 と ML-DSA-65 / SLH-DSA の署名を確認します。`/v2/advisory/publish` と `/v2/governance/register` は確認せず（オペレーターのトークンが唯一の保護です）、`/v2/intent/declare` と `/v2/audit/*` も確認せず、これらはトークンも不要です。DCP-05 から DCP-09 のデモのエンドポイントも確認しませんが、これらはデフォルトでオフで、有効にしたときはオペレーターだけが使えます（[DCP-05 から DCP-09](#dcp-05-to-dcp-09) を参照）。
+- **メモリ上のストレージ**：すべての状態（パスポート、鍵、監査イベントの件数、アドバイザリー）は再起動で失われます。[永続化](#persistence)を参照してください。
+- **バンドルの検証以外での署名**：バンドルの検証、パスポートの登録、鍵のローテーション、マルチパーティ承認、`/v2/audit/append` は、本物の Ed25519 と ML-DSA-65 / SLH-DSA の署名を確認します。`/v2/advisory/publish` と `/v2/governance/register` は確認せず（オペレーターのトークンが唯一の保護です）、`/v2/intent/declare` と `/v2/audit/compact` も確認せず、これらはトークンも不要です。DCP-05 から DCP-09 のデモのエンドポイントも確認しませんが、これらはデフォルトでオフで、有効にしたときはオペレーターだけが使えます（[DCP-05 から DCP-09](#dcp-05-to-dcp-09) を参照）。
 - **アンカリング**：`POST /anchor` は 501 を返します。あなたのブロックチェーン（Ethereum、Bitcoin）または透明性ログを使って実装してください。
 
 <a id="persistence"></a>

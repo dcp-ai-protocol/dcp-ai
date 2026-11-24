@@ -35,7 +35,7 @@ node server/index.js
 |--------|------|-------------|
 | GET | `/` , `/health` | 健康检查：`{ ok, service, supported_versions, registered_agents, registered_keys }` |
 | GET | `/.well-known/dcp-capabilities.json` | 协议能力发现（算法、功能、线上格式）。这是服务器声明的内容，并非经过检查的保证：它列出了 `application/cbor`，但请求体只按 JSON 读取；由于没有 HSM，`hsm_provider` 为 `false`；DCP-05 至 DCP-09 的功能为 `false`，`demo_endpoints` 描述下文的演示端点 |
-| POST | `/verify` | 验证已签名的 bundle（自动识别 V1 或 V2；V2 按 `VERIFIER_POLICY` 检查） |
+| POST | `/verify` | 按 `VERIFIER_POLICY` 验证已签名的 bundle（自动识别 V1 或 V2）。V1 bundle 没有后量子签名，因此只有在仅经典签名的 bundle 能通过的情况下才能通过（见 `ALLOW_V1_BUNDLES`） |
 | POST | `/v2/admit` | 依据运营方信任的委托人进行准入，配置后还会执行 strict-v1（`docs/ADMISSION.md`）。只读取请求体中的 `signed_bundle`。未配置时返回 501 |
 | POST | `/anchor` | 桩实现：返回 501（由各运营方实现） |
 
@@ -48,7 +48,7 @@ node server/index.js
 |--------|------|-------------|
 | POST | `/v2/passport/register` | 登记自签名的智能体护照；新的 `agent_id` 需要运营方令牌（参见[信任模型](#trust-model)） |
 | POST | `/v2/intent/declare` | 声明已登记智能体的意图，并获得服务器的（未签名的）策略决定；意图的 `composite_sig` 不会被验证 |
-| POST | `/v2/audit/append` | 向智能体的链追加审计事件 |
+| POST | `/v2/audit/append` | 检查已登记智能体的审计事件并计数。事件必须是 V2 审计条目（`schemas/v2/audit_entry.schema.json`），`signature` 必须是该智能体的有效密钥在 `DCP-AI.v2.AuditEvent` 下对它所作的复合签名。网关不保存审计事件，也不比较 `prev_hash` |
 | POST | `/v2/audit/compact` | 用 Merkle 摘要压缩审计链 |
 | POST | `/v2/bundle/verify` | 完整的 V2 bundle 验证：schema、清单、Ed25519 + ML-DSA-65 复合签名、会话绑定和审计链（通过 `lib/verify.js` 和 `@dcp-ai/sdk`），依据 `VERIFIER_POLICY`。V1 bundle 返回 400 |
 
@@ -105,7 +105,7 @@ node server/index.js
 | `PORT` | `3000` | HTTP 监听端口 |
 | `OPERATOR_TOKEN` | — | 用于运营方端点和登记新 `agent_id` 的 Bearer 令牌。未设置：两者都保持锁定 |
 | `VERIFIER_MODE` | `hybrid_required` | 启动时的验证模式：`classical_only`、`hybrid_preferred`、`hybrid_required` 或 `pq_only`。无效值会使服务器停止 |
-| `ALLOW_V1_BUNDLES` | `true` | 设为 `false` 时 `POST /verify` 拒绝 V1 bundle（`pq_only` 总是拒绝） |
+| `ALLOW_V1_BUNDLES` | `true` | 设为 `false` 时 `POST /verify` 拒绝所有 V1 bundle。为 `true` 时，也只有在会接受仅经典签名 bundle 的情况下才接受 V1 bundle：护照 `risk_tier` 对应的模式经意图的安全层级提升后，必须是 `classical_only` 或 `hybrid_preferred`。因此默认的 `hybrid_required` 会拒绝 V1 bundle，`pq_only` 总是拒绝 |
 | `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` 启用 DCP-05 至 DCP-09 演示端点，此时它们需要运营方令牌（至少 32 个字符）；除未设置、`off` 或 `dcp-05-09` 之外的任何值都会让服务器停止 |
 | `TRUST_PROXY` | — | 仅在会把客户端 IP 追加到 `X-Forwarded-For` 的代理（Fly、nginx）之后设为 `true`。此时限流以其最后一跳为准；否则以套接字地址为准，因为客户端可以伪造该请求头 |
 | `REGISTRATIONS_PER_HOUR` | `20` | 每个客户端每小时的 `POST /v2/passport/register` 调用次数；超出的会得到 429 |
@@ -129,9 +129,11 @@ node server/index.js
   公钥不会登记任何东西。密钥和签名必须是与其算法大小完全相符的规范 base64。
 - 登记**新的** `agent_id` 需要 `Authorization: Bearer <OPERATOR_TOKEN>`（否则返回 401）。护照只是自签名的，委托人的 RPR
   也是如此，因此如果没有信任锚，任何人都可以抢先认领受害者的 `agent_id` 并对其执行紧急撤销：由运营方为新智能体担保。再次
-  登记它（例如为了替换紧急撤销令牌）需要一份 `created_at` 晚于已登记护照的护照，因为已签名的护照是公开的，旧护照可能被重放；
+  登记它需要一份 `created_at` 晚于已登记护照的护照，因为已签名的护照是公开的，旧护照可能被重放；
   并且该护照必须恰好由该智能体当前有效的密钥（登记在其名下、未撤销、未过期）签名，无论 `VERIFIER_MODE` 对新智能体允许什么；
   否则返回 409。已登记的密钥条目会被保留，因此新护照不能延长某个密钥的 `expires_at`，不带令牌的护照会保留已登记的令牌。
+  带有不同令牌的护照只有在请求同时带有 `current_revocation_secret`（已登记令牌的秘密值）或运营方令牌时才会替换已登记的
+  令牌；否则返回 403。该令牌是智能体密钥泄露时留给委托人的出路，因此不能仅凭这些密钥替换它。
 - 失去其所登记某一类别全部有效密钥的智能体（例如其 ML-DSA-65 密钥已过期）不能重新登记：它剩下的密钥不应单独替换令牌。
   恢复需要通过紧急撤销令牌（先撤销，再登记新的 `agent_id`）或通过运营方进行，而运营方目前还没有相应的 API。登记在另一个
   智能体名下的 kid 同样返回 409，已被紧急撤销的智能体也不能重新登记。
@@ -185,6 +187,8 @@ curl -s -X POST http://localhost:3000/verify \
     }
   }'
 ```
+
+服务器只有在会接受仅经典签名 bundle 的情况下才接受 V1 bundle，因此在默认的 `hybrid_required` 下，这个请求得到的是 `"verified": false`：要试用它，请用 `VERIFIER_MODE=classical_only` 或 `VERIFIER_MODE=hybrid_preferred` 启动服务器。请求体中没有 `public_key_b64` 时，签名是用 bundle 自己声明的密钥检查的，`warnings` 会说明这一点：发送 `public_key_b64`，即可用你信任的密钥来检查。
 
 <a id="v2-passport-registration"></a>
 
@@ -360,7 +364,7 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
                     │  V1 Verification          │
                     │  V2 Composite Verification│
                     │  Key Registry (in-memory) │
-                    │  Audit Chains (in-memory) │
+                    │  Audit Event Checks       │
                     │  Policy Engine (Phase 3)  │
                     │  Advisory System           │
                     │  Governance Keys           │
@@ -371,8 +375,8 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 
 ## 限制
 
-- **内存存储**：所有状态（护照、密钥、审计链、通告）在重启后都会丢失。参见[持久化](#persistence)。
-- **bundle 验证之外的签名**：bundle 验证、护照登记、密钥轮换和多方授权会检查真实的 Ed25519 和 ML-DSA-65 / SLH-DSA 签名。`/v2/advisory/publish` 和 `/v2/governance/register` 不检查（运营方令牌是它们唯一的保护），`/v2/intent/declare` 和 `/v2/audit/*` 也不检查，而且不需要令牌；DCP-05 至 DCP-09 演示端点同样不检查签名，它们默认关闭，启用后只供运营方使用（参见 [DCP-05 至 DCP-09](#dcp-05-to-dcp-09)）。
+- **内存存储**：所有状态（护照、密钥、审计事件计数、通告）在重启后都会丢失。参见[持久化](#persistence)。
+- **bundle 验证之外的签名**：bundle 验证、护照登记、密钥轮换、多方授权和 `/v2/audit/append` 会检查真实的 Ed25519 和 ML-DSA-65 / SLH-DSA 签名。`/v2/advisory/publish` 和 `/v2/governance/register` 不检查（运营方令牌是它们唯一的保护），`/v2/intent/declare` 和 `/v2/audit/compact` 也不检查，而且不需要令牌；DCP-05 至 DCP-09 演示端点同样不检查签名，它们默认关闭，启用后只供运营方使用（参见 [DCP-05 至 DCP-09](#dcp-05-to-dcp-09)）。
 - **锚定**：`POST /anchor` 返回 501。请用你的区块链（Ethereum、Bitcoin）或透明日志来实现。
 
 <a id="persistence"></a>

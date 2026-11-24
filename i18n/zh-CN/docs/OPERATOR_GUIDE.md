@@ -5,7 +5,7 @@
 
 # 运营方指南 — 运行验证服务
 
-> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 20/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 23/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本指南面向希望运行“智能体已验证”服务的**第三方**：一个验证 DCP Signed Bundle 的 HTTP API（还可以选择把哈希锚定到区块链上）。协议**不**要求任何中央服务器；验证随时都可以用 `dcp verify-bundle` 在本地完成。此服务是**可选的**，由运营方自行决定是否运行。
 
@@ -69,7 +69,7 @@
 { "verified": false, "errors": ["SIGNATURE INVALID", "Hint: Check that the public key ..."] }
 ```
 
-参考服务器（`server/`）将其实现为 `POST /verify`。其响应始终带有 `dcp_version` 和 `errors`；对于 V2，还会增加 `warnings`、`verifier_policy_hash` 和 `resolved_tier`。请求体为 JSON。
+参考服务器（`server/`）将其实现为 `POST /verify`。它对已检查的 bundle 的响应（200）始终带有 `dcp_version`、`errors` 和 `warnings`；对于 V2，还会增加 `verifier_policy_hash` 和 `resolved_tier`。对无法作为请求读取的请求体，400 响应只带有 `verified: false` 和 `errors`。只有在其策略会接受仅经典签名 bundle 的情况下，它才接受 V1 bundle（见下文的 `ALLOW_V1_BUNDLES`）；V1 bundle 发送时不带 `public_key_b64` 的，它会警告签名是用 bundle 自己声明的密钥检查的。请求体为 JSON。
 
 <a id="post-anchor-optional"></a>
 
@@ -179,7 +179,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 网关有两部分的行为不同：
 
 - **DCP-05–09 记录存储会逐出。** 这些是生命周期、活力、遗嘱、继承、争议、判例、异议、权利、义务、违规、委托书、咨询声明、镜像、交互和关注阈值的存储。每个存储最多保留 10,000 条，在按智能体划分的列表中每个智能体最多 10,000 条，并逐出最旧的条目（FIFO）：被逐出的记录会直接消失，不报错。
-- **审计链没有自己的上限**（`POST /v2/audit/append`）。只有请求方面的限制适用于它们。
+- **审计事件只计数，不保存**（`POST /v2/audit/append`）。网关会检查每个事件（包括已登记智能体的签名），并为每个已登记的智能体保留一个计数器。
 
 限制按客户端 IP 计数。在会把客户端 IP 追加到 `X-Forwarded-For` 的代理之后，请设置 `TRUST_PROXY=true`；否则所有客户端都会共享代理的地址。
 
@@ -190,7 +190,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 - `PORT` — HTTP 端口（默认 `3000`）
 - `OPERATOR_TOKEN` — 用于管理端点（策略、公告、治理）以及注册新 `agent_id` 的 bearer 令牌；不设置时这些功能保持锁定
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
-- `ALLOW_V1_BUNDLES` — `false` 会拒绝 V1 bundle
+- `ALLOW_V1_BUNDLES` — `false` 会拒绝所有 V1 bundle；`true`（默认值）也只有在策略会接受仅经典签名 bundle 的情况下才接受，即在 `hybrid_required` 和 `pq_only` 下不接受
 - `DCP_DEMO_ENDPOINTS` — `off`（默认）或 `dcp-05-09`，后者启用 [DCP-05–09 演示端点](#dcp-0509-service-endpoints)，并需要至少 32 个字符的 RFC 6750 b64token 形式的 `OPERATOR_TOKEN`；任何其他值都会让服务器停止
 - `TRUST_PROXY`、`REGISTRATIONS_PER_HOUR`、`MAX_REGISTERED_KEYS`、`MAX_KEYS_PER_AGENT` — 见上文
 - `DCP_TRUSTED_PRINCIPALS_FILE`、`DCP_ADMISSION_PROFILE_FILE`、`DCP_REVOCATION_LIST_URL`、`DCP_REVOCATION_LIST_AUTHORIZATION`、`DCP_REVOCATION_TIMEOUT_MS` — 用于 `POST /v2/admit` 的准入，参见 [ADMISSION.md](../../../docs/ADMISSION.md)

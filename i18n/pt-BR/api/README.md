@@ -69,7 +69,7 @@ O que elas cobrem (25/10/2026):
 
 | Método | Caminho | Descrição |
 |--------|------|-------------|
-| `POST /v2/passport/register` | Registra o passaporte e as chaves de um agente (um `agent_id` novo precisa do token do operador) | Requisição: `{ signed_passport }`; a autoassinatura composta deve ser verificada |
+| `POST /v2/passport/register` | Registra o passaporte e as chaves de um agente (um `agent_id` novo precisa do token do operador) | Requisição: `{ signed_passport, current_revocation_secret? }`; a autoassinatura composta deve ser verificada, e substituir um token de revogação de emergência registrado exige o segredo dele ou o token do operador |
 | `GET /v2/keys/{kid}` | Consulta ao registro de chaves | Resposta: `{ found, kid, key, agent_id }` |
 | `POST /v2/keys/rotate` | Rotação de chaves com prova de posse | Requisição: `KeyRotationRecord` (`{ old_kid, new_key, timestamp, proof_of_possession, authorization_sig }`) |
 
@@ -90,7 +90,7 @@ O que elas cobrem (25/10/2026):
 
 | Método | Caminho | Descrição |
 |--------|------|-------------|
-| `POST /v2/audit/append` | Acrescenta um evento de auditoria | Requisição: `{ audit_event }` |
+| `POST /v2/audit/append` | Checa e conta um evento de auditoria assinado por um agente registrado (nenhum evento é guardado) | Requisição: `{ audit_event, signature }` |
 | `POST /v2/audit/compact` | Compacta a trilha de auditoria | Requisição: `{ compaction }` |
 
 <a id="v2-revocation--emergency"></a>

@@ -5,7 +5,7 @@
 
 # Guia do operador — executar um serviço de verificação
 
-> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 20/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 23/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este guia é para **terceiros** que queiram executar um serviço de «agente verificado»: uma API HTTP que verifica Signed Bundles do DCP (e, opcionalmente, ancora hashes numa blockchain). O protocolo **não** exige nenhum servidor central; a verificação sempre pode ser feita localmente com `dcp verify-bundle`. Este serviço é **opcional** e executado por escolha do operador.
 
@@ -69,7 +69,7 @@ Exemplo:
 { "verified": false, "errors": ["SIGNATURE INVALID", "Hint: Check that the public key ..."] }
 ```
 
-O servidor de referência (`server/`) implementa isso como `POST /verify`. A resposta dele sempre traz `dcp_version` e `errors`; na V2 acrescenta `warnings`, `verifier_policy_hash` e `resolved_tier`. Os corpos das requisições são JSON.
+O servidor de referência (`server/`) implementa isso como `POST /verify`. A resposta dele a um bundle que examinou (200) sempre traz `dcp_version`, `errors` e `warnings`; na V2 acrescenta `verifier_policy_hash` e `resolved_tier`. Um 400, para um corpo que ele não consegue ler como requisição, traz só `verified: false` e `errors`. Ele aceita um bundle V1 só onde sua política aceitaria um bundle somente clássico (`ALLOW_V1_BUNDLES`, abaixo), e, quando um bundle V1 chega sem `public_key_b64`, avisa que a assinatura foi checada com a chave que o próprio bundle declara. Os corpos das requisições são JSON.
 
 <a id="post-anchor-optional"></a>
 
@@ -179,7 +179,7 @@ Para manter a memória limitada, os registros de identidades, chaves e revogaç�
 Duas partes do gateway se comportam de outro jeito:
 
 - **Os armazenamentos de registros do DCP-05–09 descartam.** São os armazenamentos de ciclo de vida, vitalidade, testamentos, sucessão, disputas, jurisprudência, objeções, direitos, obrigações, violações, mandatos, declarações de aconselhamento, espelhos, interações e limiares de atenção. Cada um guarda no máximo 10.000 entradas, e 10.000 por agente nas listas por agente, e descarta as mais antigas (FIFO): um registro descartado se perde, sem erro.
-- **As cadeias de auditoria não têm limite próprio** (`POST /v2/audit/append`). Só os limites das requisições se aplicam a elas.
+- **Os eventos de auditoria são contados, não guardados** (`POST /v2/audit/append`). O gateway checa cada evento, inclusive a assinatura do agente registrado, e guarda um contador por agente registrado.
 
 Os limites contam por IP de cliente. Atrás de um proxy que acrescenta o IP do cliente a `X-Forwarded-For`, defina `TRUST_PROXY=true`; caso contrário, todos os clientes compartilham o endereço do proxy.
 
@@ -190,7 +190,7 @@ Os limites contam por IP de cliente. Atrás de um proxy que acrescenta o IP do c
 - `PORT` — porta HTTP (padrão `3000`)
 - `OPERATOR_TOKEN` — token bearer para os endpoints de administração (política, avisos, governança) e para registrar `agent_id` novos; sem defini-lo, eles continuam bloqueados
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
-- `ALLOW_V1_BUNDLES` — `false` rejeita bundles V1
+- `ALLOW_V1_BUNDLES` — `false` rejeita todos os bundles V1; `true` (o padrão) aceita um só onde a política aceitaria um bundle somente clássico, ou seja, não com `hybrid_required` nem com `pq_only`
 - `DCP_DEMO_ENDPOINTS` — `off` (o padrão) ou `dcp-05-09`, que ativa os [endpoints demo do DCP-05–09](#dcp-0509-service-endpoints) e precisa de um `OPERATOR_TOKEN` de pelo menos 32 caracteres b64token da RFC 6750; qualquer outro valor impede o servidor de iniciar
 - `TRUST_PROXY`, `REGISTRATIONS_PER_HOUR`, `MAX_REGISTERED_KEYS`, `MAX_KEYS_PER_AGENT` — veja acima
 - `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE`, `DCP_REVOCATION_LIST_URL`, `DCP_REVOCATION_LIST_AUTHORIZATION`, `DCP_REVOCATION_TIMEOUT_MS` — admissão para `POST /v2/admit`, veja [ADMISSION.md](../../../docs/ADMISSION.md)

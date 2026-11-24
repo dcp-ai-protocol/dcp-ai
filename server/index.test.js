@@ -5,7 +5,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, buildMultiPartyAuthorization, createKeyRotation, createMultiPartyRequest,
-  createPartyAuthorization,
+  createPartyAuthorization, generateKeypair, hashObject, intentHash, signBundle,
 } from "@dcp-ai/sdk";
 import { buildV2Examples } from "../scripts/generate-v2-examples.js";
 import { computeSecurityTier } from "../lib/security-tier.js";
@@ -16,6 +16,7 @@ const OPERATOR_TOKEN = "test-operator-token";
 const asOperator = { authorization: `Bearer ${OPERATOR_TOKEN}` };
 let base; // default policy, operator token set
 let configured; // VERIFIER_MODE=classical_only ALLOW_V1_BUNDLES=false
+let classical; // VERIFIER_MODE=classical_only, V1 bundles allowed
 let procs;
 let signedBundle;
 
@@ -24,8 +25,9 @@ before(async () => {
   const services = await Promise.all([
     startService(SERVER, { OPERATOR_TOKEN, REGISTRATIONS_PER_HOUR: "1000" }),
     startService(SERVER, { VERIFIER_MODE: "classical_only", ALLOW_V1_BUNDLES: "false", REGISTRATIONS_PER_HOUR: "1000", OPERATOR_TOKEN }),
+    startService(SERVER, { VERIFIER_MODE: "classical_only", OPERATOR_TOKEN }),
   ]);
-  [base, configured] = services.map((s) => s.base);
+  [base, configured, classical] = services.map((s) => s.base);
   procs = services.map((s) => s.proc);
 });
 
@@ -54,6 +56,19 @@ const ed25519Rotator = (url, agent) => {
 const v1Bundle = () => JSON.parse(
   fs.readFileSync(new URL("../tests/conformance/examples/citizenship_bundle.signed.json", import.meta.url), "utf8"),
 );
+// A V1 bundle as anyone can make one: the example's public artifacts, the intent changed, the audit
+// chain recomputed, and a signature by a key generated here, which the bundle itself declares.
+const forgedV1 = (intent = {}, change = () => {}) => {
+  const { bundle } = v1Bundle();
+  Object.assign(bundle.intent, intent);
+  change(bundle);
+  let prev = "GENESIS";
+  for (const entry of bundle.audit_entries) {
+    Object.assign(entry, { intent_hash: intentHash(bundle.intent), prev_hash: prev });
+    prev = hashObject(entry);
+  }
+  return signBundle(bundle, { secretKeyB64: generateKeypair().secretKeyB64 });
+};
 
 test("valid V2 bundle verifies on both endpoints", async () => {
   assert.equal((await post("/verify", { signed_bundle: signedBundle })).body.verified, true);
@@ -93,6 +108,91 @@ test("V1 bundle on the V2 endpoint is a 400, not a 500", async () => {
   assert.equal((await post("/v2/bundle/verify", { signed_bundle: v1Bundle() })).status, 400);
 });
 
+test("POST /verify takes a V1 bundle only where a classical-only bundle would pass", async () => {
+  // The default policy is hybrid_required for every tier, and a V1 bundle has one Ed25519 signature.
+  const refused = await post("/verify", { signed_bundle: forgedV1() });
+  assert.equal(refused.body.verified, false);
+  assert.match(refused.body.errors[0], /hybrid_required/);
+
+  // classical_only takes its routine and standard intents, as it would a classical-only V2 bundle...
+  const taken = await postTo(classical, "/verify", { signed_bundle: forgedV1() });
+  assert.deepEqual([taken.body.verified, taken.body.errors], [true, []]);
+  // ...but a payment is an elevated intent, which needs the post-quantum signature under any policy.
+  const payment = await postTo(classical, "/verify", { signed_bundle: forgedV1({ action_type: "initiate_payment" }) });
+  assert.equal(payment.body.verified, false);
+  assert.match(payment.body.errors[0], /hybrid_required/);
+  // A risk_tier the policy has no mode for counts as hybrid_required, not as the default mode.
+  const unknownTier = forgedV1();
+  unknownTier.bundle.agent_passport.risk_tier = "none";
+  assert.match((await postTo(classical, "/verify", { signed_bundle: unknownTier })).body.errors[0], /hybrid_required/);
+  // The V1 risk_score goes from 0 to 1: 0.9 is a decision of the maximum tier, and a decision without one is
+  // not a routine one.
+  for (const [change, tier] of [[(b) => { b.policy_decision.risk_score = 0.9; }, "maximum"], [(b) => { delete b.policy_decision.risk_score; }, "elevated"]]) {
+    const risky = await postTo(classical, "/verify", { signed_bundle: forgedV1({}, change) });
+    assert.equal(risky.body.verified, false);
+    assert.match(risky.body.errors[0], new RegExp(`hybrid_required for this bundle \\(security tier ${tier}\\)`));
+  }
+  // The key a caller pins says whose signature it is, not that the policy takes the bundle.
+  const pinned = forgedV1();
+  const withKey = await post("/verify", { signed_bundle: pinned, public_key_b64: pinned.signature.signer.public_key_b64 });
+  assert.equal(withKey.body.verified, false);
+  assert.match(withKey.body.errors[0], /hybrid_required/);
+});
+
+test("POST /verify refuses a V1 bundle once an advisory has withdrawn its algorithm", async () => {
+  const revoke = (affected_algorithms) => ({
+    type: "algorithm_advisory", advisory_id: "DCP-ADV-0002", severity: "critical", affected_algorithms, action: "revoke",
+    replacement_algorithms: [], effective_date: "2026-01-01T00:00:00Z", grace_period_days: 0, description: "test advisory",
+    issued_at: "2026-01-01T00:00:00Z", issuer: "governance:test",
+    composite_sig: { classical: { alg: "ed25519", kid: "0".repeat(32), sig_b64: "A".repeat(88) }, pq: null, binding: "classical_only" },
+  });
+  // Each case has its own server: an advisory changes the policy for every request that follows.
+  const withAdvisory = async (mode, affected, check) => {
+    const { base: url, proc } = await startService(SERVER, { VERIFIER_MODE: mode, OPERATOR_TOKEN });
+    try {
+      const v1 = forgedV1();
+      assert.equal((await postTo(url, "/verify", { signed_bundle: v1 })).body.verified, true, mode);
+      assert.equal((await postTo(url, "/v2/advisory/publish", { advisory: revoke(affected) }, asOperator)).status, 201);
+      const applied = await postTo(url, "/v2/advisory/auto-apply", {}, asOperator);
+      assert.deepEqual([applied.status, applied.body.removed_classical], [200, ["ed25519"]]);
+      const after = await postTo(url, "/verify", { signed_bundle: v1 });
+      assert.equal(after.body.verified, false, mode);
+      await check(after.body.errors[0], (await (await fetch(`${url}/v2/policy`)).json()).policy, url);
+    } finally {
+      proc.kill();
+    }
+  };
+  // No classical algorithm is left and a post-quantum one is: the policy becomes pq_only for every risk tier, not
+  // only for bundles without one, and pq_only takes no V1 bundle.
+  for (const mode of ["classical_only", "hybrid_preferred"]) {
+    await withAdvisory(mode, ["ed25519"], async (error, policy, url) => {
+      assert.match(error, /V1 bundles are disabled/);
+      assert.deepEqual([policy.default_mode, policy.risk_overrides, policy.allow_v1_bundles, policy.accepted_classical_algs],
+        ["pq_only", { high: "pq_only", medium: "pq_only", low: "pq_only" }, false, []]);
+      // A hybrid bundle still verifies, on its post-quantum signature: with the risk tiers left on a mode that
+      // reads the classical one, it was refused.
+      assert.equal((await postTo(url, "/v2/bundle/verify", { signed_bundle: signedBundle })).body.verified, true, mode);
+    });
+  }
+  // No algorithm is left at all, so the mode does not change: the V1 signature is still Ed25519, which the policy
+  // no longer takes.
+  await withAdvisory("classical_only", ["ed25519", "ml-dsa-65", "slh-dsa-192f"], (error, policy) => {
+    assert.match(error, /ed25519/);
+    assert.equal(policy.default_mode, "classical_only");
+  });
+});
+
+test("POST /verify warns when a V1 signature was checked against the key the bundle declares", async () => {
+  const forged = forgedV1();
+  const selfDeclared = await postTo(classical, "/verify", { signed_bundle: forged });
+  assert.equal(selfDeclared.body.verified, true);
+  assert.equal(selfDeclared.body.warnings?.length, 1);
+  const pinned = await postTo(classical, "/verify", {
+    signed_bundle: forged, public_key_b64: forged.signature.signer.public_key_b64,
+  });
+  assert.deepEqual([pinned.body.verified, pinned.body.warnings], [true, []]);
+});
+
 test("admin endpoints require the operator token", async () => {
   for (const path of ["/v2/policy/mode", "/v2/governance/register", "/v2/advisory/publish", "/v2/advisory/auto-apply"]) {
     assert.equal((await post(path, { mode: "classical_only" })).status, 401, path);
@@ -124,14 +224,19 @@ test("passport registration checks the self-signature and blocks agent hijacking
   const revoke = { agent_id: "agent:alice-001", revocation_secret: mallory.revocationSecret };
   assert.equal((await post("/v2/emergency-revoke", revoke)).status, 403);
 
-  // Alice herself can replace the token: her current keys sign a newer passport.
+  // Alice replaces the token: her current keys sign a newer passport, and she shows the secret of
+  // the registered token.
   const secret = crypto.randomBytes(32).toString("hex");
   const renewed = {
     ...alice.passport,
     created_at: later(alice.passport.created_at),
     emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
   };
-  assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(renewed, alice.keys) })).status, 201);
+  const signedRenewed = await signPassport(renewed, alice.keys);
+  const withSecret = (current_revocation_secret) =>
+    post("/v2/passport/register", { signed_passport: signedRenewed, current_revocation_secret });
+  assert.equal((await withSecret(secret)).status, 403); // the new token's secret is not the registered one's
+  assert.equal((await withSecret(alice.revocationSecret)).status, 201);
 
   // Signed passports are public: replaying the old one must not bring the old token back.
   assert.equal((await post("/v2/passport/register", { signed_passport: alice.signedPassport })).status, 409);
@@ -146,6 +251,158 @@ test("passport registration checks the self-signature and blocks agent hijacking
   assert.deepEqual(squat.body.registered_kids, [squatter.keys.classical.kid, squatter.keys.pq.kid]);
   const owner = await (await fetch(`${base}/v2/keys/${alice.keys.classical.kid}`)).json();
   assert.equal(owner.agent_id, "agent:alice-001");
+});
+
+test("replacing an emergency revocation token takes its secret or the operator, not the agent's keys alone", async () => {
+  const victor = await newAgent("agent:victor-01");
+  const whiskey = await newAgent("agent:whiskey-1");
+  for (const agent of [victor, whiskey]) assert.equal((await registerNew(base, agent.signedPassport)).status, 201);
+  const secret = "22".repeat(32);
+  const withNewToken = (agent) => signPassport({
+    ...agent.passport,
+    created_at: later(agent.passport.created_at),
+    emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
+  }, agent.keys);
+
+  // The keys are what a compromise gives away, and the token exists for that case: a passport they
+  // sign does not replace it, and the principal's secret still revokes the agent.
+  assert.equal((await post("/v2/passport/register", { signed_passport: await withNewToken(victor) })).status, 403);
+  const principal = { agent_id: "agent:victor-01", revocation_secret: victor.revocationSecret };
+  assert.equal((await post("/v2/emergency-revoke", principal)).status, 200);
+
+  // The operator can replace it, for a principal who has lost the secret.
+  assert.equal((await post("/v2/passport/register", { signed_passport: await withNewToken(whiskey) }, asOperator)).status, 201);
+  assert.equal((await post("/v2/emergency-revoke", { agent_id: "agent:whiskey-1", revocation_secret: secret })).status, 200);
+});
+
+test("POST /v2/audit/append takes a schema-valid event signed by the registered agent's active keys", async () => {
+  const oscar = await newAgent("agent:oscar-001");
+  const papa = await newAgent("agent:papa-0001");
+  for (const agent of [oscar, papa]) assert.equal((await registerNew(base, agent.signedPassport)).status, 201);
+  const event = (fields) => ({
+    dcp_version: "2.0", audit_id: "audit:0001", session_nonce: "ab".repeat(32), prev_hash: "GENESIS",
+    hash_alg: "sha256", timestamp: "2026-11-18T00:00:00Z", agent_id: "agent:oscar-001", human_id: "human:test-owner",
+    intent_id: "intent:0001", intent_hash: `sha256:${"0".repeat(64)}`, policy_decision: "approved", outcome: "sent",
+    evidence: { tool: null, result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null, ...fields,
+  });
+  const append = async (audit_event, keys) => post("/v2/audit/append", {
+    audit_event, ...(keys && { signature: await sign(DCP_CONTEXTS.AuditEvent, audit_event, keys) }),
+  });
+
+  assert.deepEqual((await append(event(), oscar.keys)).body, { ok: true, audit_id: "audit:0001", chain_length: 1 });
+  const second = await append(event({ audit_id: "audit:0002" }), oscar.keys);
+  assert.deepEqual([second.status, second.body.chain_length], [201, 2]);
+
+  // Not signed, signed by another registered agent, or with one of the agent's two keys only.
+  assert.equal((await append(event())).status, 403);
+  assert.equal((await append(event(), papa.keys)).status, 403);
+  assert.equal((await append(event(), { classical: oscar.keys.classical })).status, 403);
+  // An event that names no agent, or one that is not registered, belongs to nobody's chain.
+  const { agent_id: _omitted, ...anonymous } = event();
+  assert.equal((await append(anonymous, oscar.keys)).status, 400);
+  assert.equal((await append(event({ agent_id: "agent:nobody-01" }), oscar.keys)).status, 400);
+  // The event is the V2 audit entry of the schema, nothing else.
+  assert.equal((await append(event({ note: "extra" }), oscar.keys)).status, 400);
+  // Refused events do not count.
+  assert.equal((await append(event({ audit_id: "audit:0003" }), oscar.keys)).body.chain_length, 3);
+});
+
+test("POST /v2/audit/append: the context, the keys in force, the post-quantum key and each agent's count", async () => {
+  // Its own server: the shared one is close to the limits of its client.
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN, REGISTRATIONS_PER_HOUR: "1000" });
+  try {
+    const quebec = await newAgent("agent:quebec-01");
+    const romeo = await newAgent("agent:romeo-001");
+    for (const agent of [quebec, romeo]) assert.equal((await registerNew(url, agent.signedPassport)).status, 201);
+    let n = 0;
+    const event = (agent_id, fields) => ({
+      dcp_version: "2.0", audit_id: `audit:${String(++n).padStart(4, "0")}`, session_nonce: "ab".repeat(32), prev_hash: "GENESIS",
+      hash_alg: "sha256", timestamp: "2026-11-18T00:00:00Z", agent_id, human_id: "human:test-owner",
+      intent_id: "intent:0001", intent_hash: `sha256:${"0".repeat(64)}`, policy_decision: "approved", outcome: "sent",
+      evidence: { tool: null, result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null, ...fields,
+    });
+    const append = async (agent_id, keys, { context = DCP_CONTEXTS.AuditEvent, fields } = {}) => {
+      const audit_event = event(agent_id, fields);
+      return postTo(url, "/v2/audit/append", { audit_event, signature: await sign(context, audit_event, keys) });
+    };
+
+    // Each agent has its own count.
+    assert.equal((await append("agent:quebec-01", quebec.keys)).body.chain_length, 1);
+    assert.equal((await append("agent:quebec-01", quebec.keys)).body.chain_length, 2);
+    assert.equal((await append("agent:romeo-001", romeo.keys)).body.chain_length, 1);
+    // A signature under another context is not a signature of an audit event.
+    assert.equal((await append("agent:quebec-01", quebec.keys, { context: DCP_CONTEXTS.Intent })).status, 403);
+    // The answer to an event that is not the schema's lists at most 50 problems, whatever the event carries.
+    const unknown = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`extra_${i}`, i]));
+    const invalid = await append("agent:quebec-01", quebec.keys, { fields: unknown });
+    assert.deepEqual([invalid.status, invalid.body.details.length], [400, 50]);
+
+    // A key that was rotated out no longer signs for its agent; the one that replaced it does.
+    const provider = new Ed25519Provider();
+    const rotate = async (from, to) => (await postTo(url, "/v2/keys/rotate", await createKeyRotation(registry, {
+      oldKid: from.kid, oldAlg: from.alg, oldSecretKeyB64: from.secretKeyB64,
+      newKid: to.kid, newAlg: "ed25519", newSecretKeyB64: to.secretKeyB64, newPublicKeyB64: to.publicKeyB64,
+      timestamp: new Date().toISOString(), expiresAt: null,
+    }))).status;
+    const next = async () => ({ alg: "ed25519", ...(await provider.generateKeypair()) });
+    const renewed = await next();
+    assert.equal(await rotate(quebec.keys.classical, renewed), 200);
+    assert.equal((await append("agent:quebec-01", quebec.keys)).status, 403);
+    assert.equal((await append("agent:quebec-01", { classical: renewed, pq: quebec.keys.pq })).body.chain_length, 3);
+
+    // An agent that registered a post-quantum key needs one for every event, also when the registry no longer
+    // has that key: whoever holds it alone rotates it into Ed25519 keys of their own until its entry is dropped.
+    let current = quebec.keys.pq;
+    for (let i = 0; i < 5; i++) {
+      const mine = await next();
+      assert.equal(await rotate(current, mine), 200);
+      current = mine;
+    }
+    assert.equal((await (await fetch(`${url}/v2/keys/${quebec.keys.pq.kid}`)).json()).key, null);
+    for (const classical of [current, renewed]) {
+      assert.equal((await append("agent:quebec-01", { classical })).status, 403);
+    }
+  } finally {
+    proc.kill();
+  }
+
+  // An agent whose keys were classical from the start signs with one. Only a classical_only policy registers it.
+  const sierra = await newAgent("agent:sierra-01");
+  const classicalOnly = { classical: sierra.keys.classical };
+  const passport = { ...sierra.passport, keys: sierra.passport.keys.filter((key) => key.kid === sierra.keys.classical.kid) };
+  assert.equal((await registerNew(classical, await signPassport(passport, classicalOnly))).status, 201);
+  const audit_event = {
+    dcp_version: "2.0", audit_id: "audit:0001", session_nonce: "ab".repeat(32), prev_hash: "GENESIS", hash_alg: "sha256",
+    timestamp: "2026-11-18T00:00:00Z", agent_id: "agent:sierra-01", human_id: "human:test-owner", intent_id: "intent:0001",
+    intent_hash: `sha256:${"0".repeat(64)}`, policy_decision: "approved", outcome: "sent",
+    evidence: { tool: null, result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+  };
+  const alone = await postTo(classical, "/v2/audit/append", { audit_event, signature: await sign(DCP_CONTEXTS.AuditEvent, audit_event, classicalOnly) });
+  assert.deepEqual([alone.status, alone.body.chain_length], [201, 1]);
+});
+
+test("an emergency revocation token is kept by a passport without one, and first set by the agent's keys", async () => {
+  const { base: url, proc } = await startService(SERVER, { OPERATOR_TOKEN });
+  try {
+    const tango = await newAgent("agent:tango-001");
+    assert.equal((await registerNew(url, tango.signedPassport)).status, 201);
+    const { emergency_revocation_token: _dropped, ...withoutToken } = { ...tango.passport, created_at: later(tango.passport.created_at) };
+    assert.equal((await postTo(url, "/v2/passport/register", { signed_passport: await signPassport(withoutToken, tango.keys) })).status, 201);
+    assert.equal((await postTo(url, "/v2/emergency-revoke", { agent_id: "agent:tango-001", revocation_secret: tango.revocationSecret })).status, 200);
+
+    // An agent registered without a token sets its first one with its keys: there is none to replace.
+    const uniform = await newAgent("agent:uniform-01", { emergencyToken: false });
+    assert.equal((await registerNew(url, uniform.signedPassport)).status, 201);
+    const secret = "33".repeat(32);
+    const first = {
+      ...uniform.passport, created_at: later(uniform.passport.created_at),
+      emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
+    };
+    assert.equal((await postTo(url, "/v2/passport/register", { signed_passport: await signPassport(first, uniform.keys) })).status, 201);
+    assert.equal((await postTo(url, "/v2/emergency-revoke", { agent_id: "agent:uniform-01", revocation_secret: secret })).status, 200);
+  } finally {
+    proc.kill();
+  }
 });
 
 test("re-registration needs every active key, even where VERIFIER_MODE allows classical-only", async () => {
@@ -502,7 +759,7 @@ test("multi-party authorization: the server refuses to start with an unusable po
 });
 
 test("VERIFIER_MODE and ALLOW_V1_BUNDLES are read from the environment", async () => {
-  assert.equal((await post("/verify", { signed_bundle: v1Bundle() })).body.verified, true);
+  assert.equal((await postTo(classical, "/verify", { signed_bundle: v1Bundle() })).body.verified, true);
 
   const policy = await (await fetch(`${configured}/v2/policy`)).json();
   assert.equal(policy.mode, "classical_only");

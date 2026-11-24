@@ -113,6 +113,49 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **Servidor de referência: `POST /v2/audit/append` checa o evento e a assinatura dele, e não guarda eventos**
+  (código-fonte na `main`, não está em nenhuma versão publicada; sem mudança de versão). O endpoint aceitava de
+  qualquer pessoa qualquer JSON como evento de auditoria, inclusive um sem `agent_id`, e guardava cada corpo em
+  memória sem limite, então bastavam requisições para esgotar a memória do gateway. Agora um evento só é aceito se for
+  uma entrada de auditoria V2 (`schemas/v2/audit_entry.schema.json`) de um agente registrado e `signature` for uma
+  assinatura composta sobre ele sob `DCP-AI.v2.AuditEvent` pelas chaves ativas do agente, as duas quando o agente
+  registrou uma chave pós-quântica, também quando o registro já não guarda a entrada dessa chave. Os eventos aceitos
+  são contados, não guardados: `chain_length` é o número de requisições aceitas para o agente, de modo que um evento
+  enviado de novo conta de novo, e `prev_hash` continua sem ser comparado. Um 400 por um corpo que não é válido pelo
+  seu schema lista no máximo 50 problemas, nesta rota e nas outras que checam um. **Mudança de aceitação:** um evento
+  sem assinatura, ou um que não é válido pelo schema, recebia 201 e agora recebe 403 ou 400.
+
+- **Servidor de verificação e serviço de revogação: um token de revogação de emergência registrado só é substituído
+  com o seu segredo ou pelo operador** (código-fonte na `main`, não está em nenhuma versão publicada; sem mudança de
+  versão). Registrar de novo um agente com um passaporte mais recente, assinado por suas chaves ativas, também
+  substituía o token de revogação de emergência dele. O token é o que o principal usa quando essas chaves estão
+  comprometidas, então as chaves sozinhas não o substituem mais: um novo registro cujo passaporte traz um token
+  diferente é recusado com 403, a menos que a requisição também traga `current_revocation_secret`, o segredo do token
+  registrado, ou o token do operador. Um passaporte com o mesmo token, ou sem token, é registrado de novo como antes e
+  mantém o token registrado. O serviço de revogação também recusa um token que não seja uma string: ele aceitava uma
+  lista contendo um e depois respondia 500 à revogação de emergência desse agente. **Mudança de aceitação:** em
+  `POST /v2/passport/register` (gateway) e
+  `POST /v2/register` (serviço de revogação), uma substituição do token assinada só pelas chaves do agente recebia 201
+  e agora recebe 403. Os SDKs, o schema do passaporte e o formato de transmissão não mudam.
+
+- **Servidor de referência: `POST /verify` aplica a política do verificador aos bundles V1** (código-fonte na `main`,
+  não está em nenhuma versão publicada; sem mudança de versão). Para um bundle V1 (uma assinatura Ed25519, nenhuma
+  pós-quântica) o servidor só lia `allow_v1_bundles`, então respondia `verified: true` qualquer que fosse o modo
+  exigido por sua política. Agora ele aceita um bundle V1 só onde VERIFICATION.md V2-10 aceitaria um bundle somente
+  clássico, a regra que as integrações Express, OpenClaw e FastAPI já aplicam: `allow_v1_bundles` é verdadeiro, a
+  política ainda aceita `ed25519`, e o mais rigoroso entre o modo da política para o `risk_tier` do passaporte V1 e o modo do nível de segurança da
+  intenção e da decisão de política V1 é `classical_only` ou `hybrid_preferred`. A resposta a um bundle V1 agora traz
+  `warnings`: sem `public_key_b64` na requisição, ela informa que a assinatura foi checada com a chave que o próprio
+  bundle declara. `POST /v2/advisory/auto-apply` agora passa toda a política para `pq_only` quando um aviso a deixa
+  sem nenhum algoritmo clássico. Antes só mudava o modo padrão, então os níveis de risco mantinham o modo que tinham:
+  um bundle V1 continuava sendo verificado onde esse modo o aceitava, e um bundle V2 híbrido era recusado. **Mudança
+  de aceitação:** com o padrão `hybrid_required`, que `docker/docker-compose.yml` também
+  define, bundles V1 que antes eram verificados recebem `verified: false`; `VERIFIER_MODE=classical_only` ou
+  `hybrid_preferred` continua aceitando os de intenção rotineira ou padrão. Onde a política recusa bundles V1, um
+  corpo que não é um bundle V2 recebe essa recusa (200, `verified: false`) antes de o resto ser lido: um sem chave
+  pública recebia 400, e um com erros de schema ou de assinatura recebia esses erros. `lib/verify.js`, a CLI e os
+  SDKs não mudam.
+
 - **DCP-04 §3 (handshake A2A) e DCP-09 §8 estão em revisão: não implementá-los tal como estão escritos** (apenas
   especificação e documentação; sem mudança no comportamento de nenhum código, nem em esquemas, valores padrão ou
   versões). Tal como especificado, o handshake não autentica as partes: suas mensagens não são assinadas com as
