@@ -8,7 +8,7 @@ hide:
 
 > A portable accountability layer for AI agents on open networks.
 
-Cryptographically verifiable identity, machine-readable intent, tamper-evident audit trails, authenticated agent-to-agent communication, lifecycle governance, procedural accountability, and delegated representation — in a single hybrid post-quantum protocol stack.
+Cryptographically verifiable identity, machine-readable intent, tamper-evident audit trails, agent-to-agent communication, lifecycle governance, procedural accountability, and delegated representation — in a single hybrid post-quantum protocol stack.
 
 [Get started :material-rocket-launch:](quickstart/QUICKSTART.md){ .md-button .md-button--primary }
 [Try the playground :material-play-circle:](playground/){ .md-button }
@@ -86,7 +86,7 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 
     ---
 
-    Authenticated inter-agent messaging, discovery, handshake, delegation, trust chains.
+    Inter-agent messaging, discovery, handshake (under revision: as specified it does not authenticate the parties), delegation, trust chains.
 
     [Read →](specs/DCP-04.md)
 

@@ -1026,6 +1026,8 @@ effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 Agent-to-Agent session protocol, designed around a hybrid X25519 + ML-KEM-768 key exchange. These functions do not
 perform that exchange: the caller performs it and supplies the resulting session key to `createSession`.
 
+They do not authenticate the counterparty either, and verifying its bundle does not: [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) is under revision.
+
 ### `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)`
 
 Create an A2A_HELLO handshake message (initiator side).

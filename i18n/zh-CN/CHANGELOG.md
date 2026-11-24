@@ -974,6 +974,11 @@
 
 ### 文档
 
+- **原先把 DCP-04 握手描述为已认证的文档，现在与规范中的提示保持一致**（仅文档；代码、模式和版本均无变更）。
+  README 和文档索引不再把 DCP-04 的消息传递或通信称为“经过认证”。
+  安全模型（混合 KEM、第 8 层、§11 及其已知限制）、快速入门（§7）、技术架构、API 参考、TypeScript SDK 的 README、欧盟《人工智能法案》对照表以及早期采用者常见问题说明：握手和验证对方的 bundle 都不能认证对方。安全模型还说明，按现有规范无法防范中间人攻击或冒充；在描述这些函数的地方，文档说明在握手的四种消息中，SDK 的 A2A 函数只构建 `A2A_HELLO` 和 `A2A_WELCOME`，并不验证它们所携带的 bundle。
+  这些文档都指向正在修订的 [DCP-04 §3](../../spec/DCP-04.md#3-handshake-protocol) 中的提示。
+
 - **运行限制**（新增 [docs/OPERATIONAL_LIMITS.md](../../docs/OPERATIONAL_LIMITS.md)；不改变代码、默认值、配置或线格式）。说明什么在限制输入、信任来源与撤销来源、并发、客户端断开以及 Express 的判定缓存，每个限制由哪一层设定，运营方需要设置什么，以及一份既不是默认值也不具规范性的试点示例配置。已从 `docs/ADMISSION.md` 以及 Express 和 FastAPI 的 README 链接；Express 的 README 现在说明 `req.dcpAgent.mandateId` 是清单中的值，不验证任何授权链。
 
 - `spec/profiles/admission/README.md`（准入配置文件）：编辑性澄清，不改变任何向量、schema 或 SDK 行为；四个 SDK 已经按这些内容运行。

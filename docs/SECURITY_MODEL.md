@@ -177,7 +177,7 @@ DCP v2.0 significantly strengthens the security model with post-quantum cryptogr
 
 **Protection:**
 - **Hybrid composite signatures:** A V2 composite signature pairs Ed25519 (classical) with ML-DSA-65 (post-quantum, FIPS 204). The PQ signature covers the classical signature (`pq_over_classical` binding), so breaking either alone is insufficient. A V2 signature can also be `classical_only`; whether it is accepted depends on the verification mode (§8).
-- **Hybrid KEM:** The DCP-04 key exchange uses X25519 + ML-KEM-768 (FIPS 203), so session keys stay secure if either component algorithm holds. The SDKs do not run this exchange: the caller derives the session key ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.1).
+- **Hybrid KEM:** The DCP-04 key exchange uses X25519 + ML-KEM-768 (FIPS 203), so session keys stay secure against an attacker who only observes if either component algorithm holds; as specified, the exchange is not authenticated (see §11). The SDKs do not run this exchange: the caller derives the session key ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.1).
 - **Dual hash chains:** the design uses SHA-256 and SHA3-256 in parallel to provide continuity if one hash family is compromised, provided both chains are verified. The V2 bundle verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 check the optional secondary links and secondary Merkle root that are present, but do not require them, and earlier versions do not check them; a successful result therefore does not establish this additional protection ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 
 **Strength:** NIST Level 3 post-quantum security for signatures checked in `hybrid_required` mode (the mode of the elevated and maximum tiers): an attacker must break both the classical and the post-quantum algorithm.
@@ -222,14 +222,14 @@ The nonce does not stop the same bundle from being presented again: a whole bund
 **Attack:** An attacker intercepts or hijacks an agent-to-agent communication session.
 
 **Protection:**
-- **Mutual bundle verification:** Both agents verify each other's bundles before establishing a session.
+- **Mutual bundle verification:** Both agents verify each other's bundles before establishing a session. The caller does this: the SDK helpers carry the bundles and do not verify them. This does not authenticate the counterparty: a signed bundle is a public artifact, and the handshake messages are not signed with the agents' keys. [DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol) is under revision; establish who the peer is by other means.
 - **Hybrid KEM key exchange:** Ephemeral keys provide forward secrecy. Compromising long-term keys does not reveal past session keys. The SDKs leave this exchange to the caller.
 - **AES-256-GCM encryption:** All session messages are encrypted with authenticated encryption.
 - **Monotonic sequence numbers:** Prevent replay and reordering within a session.
 - **Periodic rekeying:** The session reports when a rekey is due (`needsRekeying`); the caller derives the new key.
 - **Revocation awareness:** The specification ends a session when either agent is revoked. The SDKs do not watch revocation during a session: the application must check it and close the session.
 
-**Strength:** Post-quantum forward secrecy + authenticated encryption, when the caller runs the hybrid exchange and the rekeying.
+**Strength:** Post-quantum forward secrecy + authenticated encryption against an attacker who only observes, when the caller runs the hybrid exchange and the rekeying. Not authentication of the counterparty: as specified, the handshake gives no protection against a man-in-the-middle or impersonation ([DCP-04 §3](../spec/DCP-04.md#3-handshake-protocol)), and the session is encrypted to whoever completed it.
 
 ### 12. Lifecycle State Manipulation (DCP-05)
 
@@ -294,7 +294,8 @@ Layer 7: Security Tiers (V2.0)
   Risk-adaptive cryptographic requirements. High-risk = full PQ.
 
 Layer 8: A2A Security (DCP-04)
-  Mutual authentication + encrypted channels between agents.
+  Encrypted channels between agents. As specified, the handshake does not
+  authenticate them (DCP-04 §3 is under revision).
 
 Layer 9: Observability (V2.0)
   Telemetry, metrics, and alerting for anomalous behavior.
@@ -379,6 +380,7 @@ Operators deploying DCP MUST:
 | V2 verifiers released before 28/10/2026 do not check the optional secondary audit chain or secondary Merkle root; from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1, the present fields are checked, absent ones are not required | With earlier versions, rely only on the checks actually performed: primary SHA-256 commitments and signatures, and do not claim the additional protection specified in V2-11 from a successful result. From those versions, a successful result covers the secondary fields that are present, not a complete secondary chain; the experimental candidate reuses these checks ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | `agent_id` persistence enables tracking | Consider pseudonym rotation for high-privacy scenarios |
 | BlindedRPR exposes `entity_type` and `jurisdiction` | Future: ZKP-based credential presentation |
+| The DCP-04 handshake does not authenticate the parties as specified | Do not rely on an A2A session to know who the peer is; §3 is under revision ([notice](../spec/DCP-04.md#3-handshake-protocol)) |
 | No SDK runs the X25519 + ML-KEM-768 exchange of DCP-04 | The caller derives the A2A session key. Python, Go, Rust and WASM expose ML-KEM-768 as a primitive; the TypeScript KEM providers are internal |
 | ML-DSA-87 is not implemented | The identifier is reserved in the key schema; no SDK can use it (the simulated HSM pattern that listed it was not an implementation and was removed on 06/11/2026) |
 | The reference server's DCP-05–09 endpoints are a demo: off by default, operator token only when enabled, no signature verification | Leave them off, or enable them for operators only ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |
