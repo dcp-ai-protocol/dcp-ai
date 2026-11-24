@@ -617,34 +617,6 @@ func TestMultiPartyTakesTheIntegersABinary64HoldsExactlyAndNoOtherNumber(t *test
 	}
 }
 
-// mpaLabel names a map member with text of its own making: the encoder never sees the bytes it holds.
-type mpaLabel struct{ Name string }
-
-func (l mpaLabel) MarshalText() ([]byte, error) {
-	return bytes.ToValidUTF8([]byte(l.Name), []byte("?")), nil
-}
-
-// mpaKnot points back to itself through every field.
-type mpaKnot struct{ A, B, C *mpaKnot }
-
-// mpaShared leads to one node below through two fields, neither of them written.
-type mpaShared struct{ a, b *mpaShared }
-
-// mpaTwo starts where its first field does, and hides in the second the mark of the bytes that were replaced.
-type mpaTwo struct {
-	First  string `json:"first"`
-	Second string `json:"second,string"`
-}
-
-// mpaBehind puts v behind as many pointers as hops: none of them is a level of the JSON.
-func mpaBehind(v interface{}, hops int) interface{} {
-	for i := 0; i < hops; i++ {
-		inner := v
-		v = &inner
-	}
-	return v
-}
-
 func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 	s := newMpaSetting(t)
 	// The control: a character outside the BMP is text like any other, written as it is or as an escaped pair.
@@ -663,25 +635,17 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 			t.Fatalf("a character outside the BMP, %s: %+v, %v", name, r, err)
 		}
 	}
-	// U+FFFD itself is a character: signed, stated and authorized, also written as its escape. That needs
-	// encoding/json to tell it from the bytes it replaces, which it writes as an escape. Built with
-	// GOEXPERIMENT=jsonv2 it writes both alike, and then U+FFFD in what a caller states is refused too.
-	marked, _ := json.Marshal("\xff")
-	coercionIsVisible := string(marked) == `"\ufffd"`
+	// U+FFFD itself is a character: signed, stated and authorized, also written as its escape, whatever
+	// encoding/json makes of bytes that are not UTF-8.
 	replacement := map[string]interface{}{"path": "keys/\uFFFD"}
-	withReplacement, err := s.request(replacement)
+	if _, err := s.request(replacement); err != nil {
+		t.Fatal(err)
+	}
 	signed := s.signedOver(t, map[string]interface{}{"request": withPair["request"], "parameters": replacement})
-	if coercionIsVisible {
-		if err != nil {
-			t.Fatal(err)
+	for name, record := range map[string][]byte{"as it is": signed, "as its escape": bytes.Replace(signed, []byte("\uFFFD"), []byte(`\ufffd`), 1)} {
+		if r, err := s.evaluate(record, replacement); err != nil || !r.Authorized {
+			t.Fatalf("U+FFFD, %s: %+v, %v", name, r, err)
 		}
-		for name, record := range map[string][]byte{"as it is": signed, "as its escape": bytes.Replace(signed, []byte("\uFFFD"), []byte(`\ufffd`), 1)} {
-			if r, err := s.evaluate(record, replacement); err != nil || !r.Authorized {
-				t.Fatalf("U+FFFD, %s: %+v, %v", name, r, err)
-			}
-		}
-	} else if !mpaInvalidValue(err) || withReplacement != nil {
-		t.Fatalf("U+FFFD where the bytes it replaces cannot be told from it, built: %v, %v", withReplacement, err)
 	}
 
 	plainParameters := map[string]interface{}{"path": "keys/a"}
@@ -705,26 +669,31 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 			t.Fatalf("%s, stated: %+v, %v", name, r, err)
 		}
 	}
-	// A Go value is read as it is, not only as encoding/json writes it: a field encoded as a string inside a string
-	// hides the mark of the bytes that were replaced.
+	// What a caller states is JSON as Go spells it, as in the other SDKs: nil, a bool, a string, a number, and a
+	// []interface{} or a map[string]interface{} of those. Any other value would get its JSON from encoding/json, where
+	// a tag or a method of the type decides what is written: a field written as a string inside a string hides the
+	// mark of the bytes that were replaced, and "keys/\xff" in it was authorized by parties that signed "keys/\xfe".
 	type quoted struct {
 		Path string `json:"path,string"`
 	}
-	two := mpaTwo{First: "keys/a", Second: "keys/\xff"}
-	both := []quoted{{Path: "keys/a"}, {Path: "keys/\xff"}}
-	for name, parameters := range map[string]map[string]interface{}{
-		"a field encoded as a quoted string": {"scope": quoted{Path: "keys/\xff"}},
-		// What was read once is not read again, and only that: not what begins at the same address.
-		"a struct after a pointer to its first field":      {"paths": []interface{}{&two.First, &two}},
-		"a slice after a shorter one over the same values": {"paths": []interface{}{both[:1], both}},
-		"a pointer to such a struct":                       {"scope": &quoted{Path: "keys/\xff"}},
-		"a slice of strings":                               {"paths": []string{"keys/a", "keys/\xff"}},
-		"a map of strings, in a name":                      {"paths": map[string]string{"k\xff": "v"}},
-		"a slice of such structs":                          {"scopes": []quoted{{Path: "keys/a"}, {Path: "keys/\xff"}}},
-		"a name that writes its own text":                  {"paths": map[mpaLabel]string{{Name: "k\xff"}: "v"}},
-		"behind forty pointers":                            {"scope": mpaBehind(quoted{Path: "keys/\xff"}, 40)},
-		"behind more pointers than are read":               {"scope": mpaBehind(quoted{Path: "keys/\xff"}, 400)},
+	type named string
+	itself := map[string]interface{}{}
+	itself["again"] = itself
+	around := make([]interface{}, 1)
+	around[0] = around
+	for name, value := range map[string]interface{}{
+		"a struct":                     quoted{Path: "keys/a"},
+		"a struct that hides the mark": quoted{Path: "keys/\xff"},
+		"a pointer":                    &quoted{Path: "keys/a"},
+		"a slice of strings":           []string{"keys/a"},
+		"a map of strings":             map[string]string{"k": "v"},
+		"bytes":                        []byte("keys/a"),
+		"JSON of the caller's writing": json.RawMessage(`"keys/a"`),
+		"a string of another type":     named("keys/a"),
+		"a map that holds itself":      itself,
+		"a slice that holds itself":    around,
 	} {
+		parameters := map[string]interface{}{"scope": value}
 		if payload, err := s.request(parameters); !mpaInvalidValue(err) || payload != nil {
 			t.Fatalf("%s, built: %v, %v", name, payload, err)
 		}
@@ -732,38 +701,19 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 			t.Fatalf("%s, stated: %+v, %v", name, r, err)
 		}
 	}
-	if payload, err := s.request(map[string]interface{}{"scope": quoted{Path: "keys/a"}, "raw": []byte{0xff}}); err != nil || payload == nil {
-		t.Fatalf("a quoted field of text, and bytes that are data: %v, %v", payload, err) // []byte is written as base64
+	every := map[string]interface{}{
+		"nothing": nil, "bool": true, "text": "keys/a", "number": json.Number("7"),
+		"int": 7, "int8": int8(7), "int16": int16(7), "int32": int32(7), "int64": int64(7),
+		"uint": uint(7), "uint8": uint8(7), "uint16": uint16(7), "uint32": uint32(7), "uint64": uint64(7),
+		"float32": float32(7), "float64": float64(7),
+		"array": []interface{}{map[string]interface{}{"empty": []interface{}{}}},
 	}
-	if payload, err := s.request(map[string]interface{}{"scope": mpaBehind(quoted{Path: "keys/a"}, 40)}); err != nil || payload == nil {
-		t.Fatalf("text behind forty pointers: %v, %v", payload, err)
+	built, err := s.request(every)
+	if err != nil {
+		t.Fatalf("every kind of JSON value: %v", err)
 	}
-	// The walk reads a value once, however many ways lead to it.
-	returns := func(what string, parameters map[string]interface{}) error {
-		done := make(chan error, 1)
-		go func() {
-			_, err := s.request(parameters)
-			done <- err
-		}()
-		select {
-		case err := <-done:
-			return err
-		case <-time.After(10 * time.Second):
-			t.Fatalf("%s: the call did not return", what)
-			return nil
-		}
-	}
-	knot := &mpaKnot{}
-	knot.A, knot.B, knot.C = knot, knot, knot
-	if err := returns("a value that points back to itself", map[string]interface{}{"scope": knot}); !mpaInvalidValue(err) {
-		t.Fatalf("a value that points back to itself: %v", err)
-	}
-	var shared *mpaShared // 2^40 ways down, and {} when written
-	for i := 0; i < 40; i++ {
-		shared = &mpaShared{a: shared, b: shared}
-	}
-	if err := returns("a value shared along many paths", map[string]interface{}{"scope": shared}); err != nil {
-		t.Fatalf("a value shared along many paths: %v", err)
+	if r, err := s.evaluate(s.signedOver(t, built), every); err != nil || !r.Authorized {
+		t.Fatalf("every kind of JSON value, signed and stated: %+v, %v", r, err)
 	}
 	for name, in := range map[string]v2.MultiPartyRequestInput{
 		"target":     {Target: "agent:\xff", Audience: "verifier:here", ValiditySeconds: 600},

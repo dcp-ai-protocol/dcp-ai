@@ -34,7 +34,6 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -179,7 +178,7 @@ func NewMultiPartyPolicyStore(policySetJSON []byte) (*MultiPartyPolicyStore, err
 	if err != nil || !ok {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the policy set must be a JSON object")
 	}
-	if !mpaWellFormedText(policySetJSON, false) { // read as U+FFFD, a target or a party would be another one
+	if !mpaWellFormedText(policySetJSON) { // read as U+FFFD, a target or a party would be another one
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the policy set must be well-formed text: UTF-8, with no unpaired surrogate")
 	}
 	if err := mpaUnknownField(set, []string{"policy_set_version", "profile", "audience", "max_validity_seconds", "subjects"}, "policy set"); err != nil {
@@ -320,8 +319,9 @@ type MultiPartyRequestInput struct {
 	Target string
 	// Audience is the verifier that may act on the authorization.
 	Audience string
-	// Parameters of the operation; nil is the empty object. Every Go string in
-	// them has to be UTF-8, also where encoding/json would not write it.
+	// Parameters of the operation; nil is the empty object. They are JSON as Go
+	// spells it: nil, a bool, a string of UTF-8, a number, and a []interface{}
+	// or a map[string]interface{} of those.
 	Parameters map[string]interface{}
 	// ValiditySeconds is how long the request is valid (1 to 86400; the operator may allow less).
 	ValiditySeconds int
@@ -431,10 +431,8 @@ func mpaProfileData(v interface{}, levels int) bool {
 // mpaWellFormedText reports whether the strings of a JSON text, already read
 // by a decoder, are text every SDK reads alike: UTF-8, with no escape of a
 // surrogate that is not half of a pair. encoding/json reads both as U+FFFD, so
-// they are looked for in the text itself. With coerced, the text was written
-// by encoding/json from a caller's value, where the escape \ufffd stands for
-// bytes that were not UTF-8 (U+FFFD itself is written as it is).
-func mpaWellFormedText(text []byte, coerced bool) bool {
+// they are looked for in the text itself.
+func mpaWellFormedText(text []byte) bool {
 	if !utf8.Valid(text) {
 		return false
 	}
@@ -461,22 +459,13 @@ func mpaWellFormedText(text []byte, coerced bool) bool {
 				return false
 			}
 			i += 6
-		case u >= 0xDC00 && u <= 0xDFFF, coerced && u == 0xFFFD:
+		case u >= 0xDC00 && u <= 0xDFFF:
 			return false
 		}
 		i += 5
 	}
 	return true
 }
-
-// mpaCoercionIsVisible reports whether encoding/json marks the bytes it
-// replaces in a string: it writes them as the escape \ufffd, and U+FFFD itself
-// as it is. Built with GOEXPERIMENT=jsonv2 it writes both alike, and then what
-// a caller states cannot hold U+FFFD at all: it could stand for other bytes.
-var mpaCoercionIsVisible = func() bool {
-	data, err := json.Marshal("\xff")
-	return err == nil && string(data) == `"\ufffd"`
-}()
 
 // The algorithms of a hybrid signature of the profile (§ 4): its own, not the
 // ones of a verifier policy.
@@ -485,78 +474,49 @@ var (
 	mpaPQAlgs        = []string{"ml-dsa-65", "slh-dsa-192f"}
 )
 
-// mpaRead is what mpaValidStrings has read already. A struct and its first
-// field begin at one address and a slice and a shorter one over the same
-// values do too, so the type and the length are part of it.
-type mpaRead struct {
-	kind reflect.Type
-	at   uintptr
-	len  int
-}
-
-// mpaValidStrings reports whether every Go string in a caller's value is
-// UTF-8, the names of map members included. The value is read as it is, not as
-// encoding/json writes it: an encoder, a struct tag or a MarshalJSON can hide
-// the mark of the bytes it replaced. A []byte is data, written as base64.
-//
-// Pointers and interfaces count as steps although they are no level of the
-// JSON, so the walk stops well past what a payload of the profile takes. What
-// lies further is not read and is not data. What a pointer, a map or a slice
-// leads to is read once, however many ways lead there: seen holds them.
-func mpaValidStrings(v reflect.Value, depth int, seen map[mpaRead]bool) bool {
-	if depth > 4*mpaMaxDepth {
-		return false
-	}
-	switch v.Kind() {
-	case reflect.Pointer, reflect.Map, reflect.Slice:
-		if v.IsNil() {
-			return true
+// mpaPlain reports whether a caller's value is JSON as Go spells it, nesting at
+// most levels deep: nil, a bool, a string of UTF-8, a number of the language or
+// a json.Number, and a []interface{} or a map[string]interface{} of those. It
+// is what the other SDKs take. Any other value would get its JSON from
+// encoding/json, where a tag or a method of the type decides what is written
+// and bytes that are not UTF-8 become U+FFFD with nothing left to tell.
+func mpaPlain(v interface{}, levels int) bool {
+	switch val := v.(type) {
+	case nil, bool, json.Number,
+		int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		return true
+	case string:
+		return utf8.ValidString(val)
+	case []interface{}:
+		if levels < 1 { // also a slice that holds itself
+			return false
 		}
-		at := mpaRead{kind: v.Type(), at: v.Pointer()}
-		if v.Kind() == reflect.Slice {
-			at.len = v.Len()
-		}
-		if seen[at] {
-			return true
-		}
-		seen[at] = true
-	}
-	switch v.Kind() {
-	case reflect.String:
-		return utf8.ValidString(v.String())
-	case reflect.Interface, reflect.Pointer:
-		return v.IsNil() || mpaValidStrings(v.Elem(), depth+1, seen)
-	case reflect.Map:
-		for members := v.MapRange(); members.Next(); {
-			if !mpaValidStrings(members.Key(), depth+1, seen) || !mpaValidStrings(members.Value(), depth+1, seen) {
+		for _, member := range val {
+			if !mpaPlain(member, levels-1) {
 				return false
 			}
 		}
-	case reflect.Slice, reflect.Array:
-		if v.Type().Elem().Kind() == reflect.Uint8 {
-			return true
+		return true
+	case map[string]interface{}:
+		if levels < 1 { // also a map that holds itself
+			return false
 		}
-		for i := 0; i < v.Len(); i++ {
-			if !mpaValidStrings(v.Index(i), depth+1, seen) {
+		for name, member := range val {
+			if !utf8.ValidString(name) || !mpaPlain(member, levels-1) {
 				return false
 			}
 		}
-	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			if !mpaValidStrings(v.Field(i), depth+1, seen) {
-				return false
-			}
-		}
+		return true
 	}
-	return true
+	return false
 }
 
 // mpaCanonical is CanonicalizeV2 for a value the caller built, nesting at most
-// levels deep. It is refused when it holds a number outside mpaRange (an
-// int64, a uint64 or a float64 past it is read from its exact digits, before
-// any rounding) or a string that is not UTF-8.
+// levels deep. It is refused when it is not mpaPlain or holds a number outside
+// mpaRange (an int64, a uint64 or a float64 past it is read from its exact
+// digits, before any rounding).
 func mpaCanonical(v interface{}, levels int) (string, error) {
-	if !mpaValidStrings(reflect.ValueOf(v), 0, map[mpaRead]bool{}) {
+	if !mpaPlain(v, levels) {
 		return "", fmt.Errorf("not %s", mpaData)
 	}
 	data, err := json.Marshal(v)
@@ -567,8 +527,7 @@ func mpaCanonical(v interface{}, levels int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	replaced := !mpaCoercionIsVisible && bytes.ContainsRune(data, utf8.RuneError)
-	if replaced || !mpaWellFormedText(data, true) || !mpaProfileData(decoded, levels) {
+	if !mpaProfileData(decoded, levels) {
 		return "", fmt.Errorf("not %s", mpaData)
 	}
 	return CanonicalizeV2(v)
@@ -634,8 +593,9 @@ func BuildMultiPartyAuthorization(operation string, operationPayload map[string]
 type MultiPartyExpected struct {
 	Operation string
 	Target    string
-	// Parameters of the operation; nil is the empty object. Every Go string in
-	// them has to be UTF-8, also where encoding/json would not write it.
+	// Parameters of the operation; nil is the empty object. They are JSON as Go
+	// spells it: nil, a bool, a string of UTF-8, a number, and a []interface{}
+	// or a map[string]interface{} of those.
 	Parameters map[string]interface{}
 }
 
@@ -778,7 +738,7 @@ func mpaStructure(recordJSON []byte) (map[string]interface{}, string) {
 		return nil, "MPA_SCHEMA_INVALID"
 	}
 	rawPayload := members["operation_payload"]
-	if !mpaWellFormedText(bytes.Replace(recordJSON, rawPayload, []byte("{}"), 1), false) {
+	if !mpaWellFormedText(bytes.Replace(recordJSON, rawPayload, []byte("{}"), 1)) {
 		return nil, "MPA_SCHEMA_INVALID"
 	}
 	payload := record["operation_payload"].(map[string]interface{})
@@ -788,7 +748,7 @@ func mpaStructure(recordJSON []byte) (map[string]interface{}, string) {
 	if !mpaConformsToRequest(payload) {
 		return nil, "MPA_REQUEST_INVALID"
 	}
-	if !mpaWellFormedText(rawPayload, false) {
+	if !mpaWellFormedText(rawPayload) {
 		return nil, "MPA_NOT_REPRESENTABLE"
 	}
 	if !mpaProfileData(payload, mpaMaxDepth) {

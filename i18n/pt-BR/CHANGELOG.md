@@ -126,10 +126,10 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
   algoritmos de uma assinatura híbrida são os do próprio perfil nos quatro SDKs: os de TypeScript e Python os tomavam
   da política de verificação padrão, um objeto que qualquer código do processo pode mudar. Go: um registro de
   algoritmos `nil` é um erro em vez de um pânico, e `Now` é lido em milissegundos, como os outros SDKs tomam o
-  relógio. O valor que quem chama a partir de Go declara é lido como é, antes de ser codificado: uma string de Go que
-  não seja UTF-8 em qualquer parte dele é recusada, também em um campo que `encoding/json` não escreveria, e é
-  recusado o que fica atrás de mais de 128 ponteiros e contêineres. Compilado com `GOEXPERIMENT=jsonv2`, cujo
-  codificador não marca os bytes que substitui, quem chama a partir de Go não pode declarar U+FFFD. Python: um
+  relógio. Como parâmetros, o SDK de Go aceita apenas valores JSON, como os outros SDKs: nil, um bool, uma string
+  UTF-8, um número, e um `[]interface{}` ou um `map[string]interface{}` deles. Uma struct, um ponteiro, uma lista ou
+  um mapa tipados, ou um tipo que escreve o próprio JSON, recebem `CONFIG_INVALID_VALUE`: `encoding/json` escreveria
+  U+FFFD no lugar dos bytes que não são UTF-8, e uma tag ou um método do tipo podem ocultar que o fez. Python: um
   `required_parties` de um registro que nenhum binary64 guarda não é um inteiro do esquema, um nome de membro que não
   é uma string não é um dado, e uma subclasse do armazenamento de políticas não é um armazenamento carregado.
   TypeScript: `createPartyAuthorization` só assina dados do perfil, também para uma carga v2.0 sem `request`: um `Map`

@@ -104,20 +104,20 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   (`CONFIG_MPA_UNSATISFIABLE`). The algorithms of a hybrid signature are the profile's own in the four SDKs: the
   TypeScript and Python SDKs took them from the default verifier policy, an object any code in the process can change.
   Go: a nil registry is an error instead of a panic, and `Now` is read in milliseconds, as the other SDKs take the
-  clock. The value a Go caller states is read as it is, before it is encoded: a Go string that is not UTF-8 anywhere
-  in it is refused, also in a field `encoding/json` would not write, and so is what lies behind more than 128 pointers
-  and containers. Built with `GOEXPERIMENT=jsonv2`, whose encoder does not mark the bytes it replaces, a Go caller
-  cannot state U+FFFD at all. Python: a `required_parties` in a record that no binary64 holds is not an integer of the
-  schema, a member name that is not a string is not data, and a subclass of the policy store is not a loaded store.
-  TypeScript: `createPartyAuthorization` signs only data of the profile, also for a v2.0 payload with no `request`: a
-  `Map` in a payload was signed as `{}`, and a payload with an `undefined` member, an integer outside the range or
-  more than 32 levels is now refused with `CONFIG_INVALID_VALUE`; `checkMultiPartyAuthorizationStructure` returns a
-  result for JSON written to make it throw. The [profile](spec/profiles/multi-party/README.md) states the rules (§2.2,
-  §2.3, §3 and §4), says what a result reveals of the operator's policy set and trust set, and adds A4: an adapter
-  must return it only to callers the operator lets learn that. Eight cases are new in
-  `tests/interop/v2/multi_party_vectors.json` (142, and 62 policy configuration cases), among them a classical
-  signature that does not verify under a post-quantum one that does, a key the operator marks expired and a validity
-  one millisecond too long; CI checks that the file matches its generator.
+  clock. As parameters the Go SDK takes JSON values only, as the other SDKs do: nil, a bool, a string of UTF-8, a
+  number, and a `[]interface{}` or a `map[string]interface{}` of those. A struct, a pointer, a typed slice or map, or
+  a type that writes its own JSON gets `CONFIG_INVALID_VALUE`: `encoding/json` would write U+FFFD for bytes that are
+  not UTF-8, and a tag or a method of the type can hide that it did. Python: a `required_parties` in a record that no
+  binary64 holds is not an integer of the schema, a member name that is not a string is not data, and a subclass of
+  the policy store is not a loaded store. TypeScript: `createPartyAuthorization` signs only data of the profile, also
+  for a v2.0 payload with no `request`: a `Map` in a payload was signed as `{}`, and a payload with an `undefined`
+  member, an integer outside the range or more than 32 levels is now refused with `CONFIG_INVALID_VALUE`;
+  `checkMultiPartyAuthorizationStructure` returns a result for JSON written to make it throw. The
+  [profile](spec/profiles/multi-party/README.md) states the rules (§2.2, §2.3, §3 and §4), says what a result reveals
+  of the operator's policy set and trust set, and adds A4: an adapter must return it only to callers the operator lets
+  learn that. Eight cases are new in `tests/interop/v2/multi_party_vectors.json` (142, and 62 policy configuration
+  cases), among them a classical signature that does not verify under a post-quantum one that does, a key the operator
+  marks expired and a validity one millisecond too long; CI checks that the file matches its generator.
 
 - **Reference server and services: follow-ups from the reviews of the hardening and of the multi-party route** (source
   on `main`, not in a published version; no version bump). **Acceptance changes.** `POST /v2/audit/append` and
