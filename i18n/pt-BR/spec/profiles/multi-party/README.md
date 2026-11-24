@@ -171,6 +171,7 @@ Cinco fases. Uma fase que acrescenta um código interrompe as seguintes, então 
 - Na fase 4 cada chave recebe o primeiro que se aplicar entre não ancorada, revogada, expirada (`status` `expired`, ou `expires_at` anterior a `now`) e ainda não válida (`not_before` posterior a `now`). Uma assinatura é verificada apenas quando as duas chaves podem contar.
 - Os algoritmos da fase 4 são os do perfil: `ed25519` no componente clássico, `ml-dsa-65` ou `slh-dsa-192f` no outro. Não são lidos de uma política de verificação, que pode mudar.
 - Os instantes são comparados em milissegundos: os dígitos de uma fração além do terceiro são descartados, e um `now` com mais resolução é truncado.
+- O texto mal formado também é recusado fora de `operation_payload`: um registro com um `party_id` assim não está conforme ao seu esquema (`MPA_SCHEMA_INVALID`), e um conjunto de políticas com um alvo, uma audiência ou um `party_id` assim não é carregado (`CONFIG_INVALID_VALUE`).
 
 <a id="5-result"></a>
 
@@ -211,7 +212,7 @@ Cinco fases. Uma fase que acrescenta um código interrompe as seguintes, então 
 | `CONFIG_UNKNOWN_FIELD`, `CONFIG_INVALID_VALUE`, `CONFIG_MPA_DUPLICATE`, `CONFIG_MPA_UNSATISFIABLE` | Lançados quando um conjunto de políticas é carregado, ou pelo que o executor declara (§3) |
 | `CONFIG_TRUST_*` | Lançados quando o conjunto de confiança é carregado (perfil de admissão, §2.2) |
 
-As mensagens têm no máximo 300 caracteres e nunca contêm chaves privadas nem tokens. Os códigos, as mensagens e `required_parties` dizem, sim, o que a política do operador pede (um limiar, um papel, a validade mais longa): ver A4 em §6.
+As mensagens têm no máximo 300 caracteres e nunca contêm chaves privadas nem tokens. Um resultado descreve, sim, a configuração do operador: os seus códigos, mensagens e campos dizem o que o conjunto de políticas pede (um alvo, uma operação, uma parte e o seu papel, um limiar, a validade mais longa) e o que o conjunto de confiança tem de uma parte (uma chave não ancorada, revogada ou expirada, pelo seu `kid`), e as fases 2 e 3 dizem isso antes de qualquer assinatura ser verificada. Ver A4 em §6.
 
 <a id="6-adapters"></a>
 
@@ -222,7 +223,7 @@ As funções do núcleo são determinísticas, não fazem nenhuma chamada de red
 - **A1.** A operação é executada apenas quando `authorized` é verdadeiro, e é a operação, sobre o alvo e com os parâmetros que foram dados à avaliação.
 - **A2.** O conjunto de políticas, o conjunto de confiança, as suas fontes, a audiência e o inquilino vêm do código e da configuração do operador. Nenhum campo, cabeçalho ou parâmetro de ferramenta de uma requisição os seleciona ou muda.
 - **A3.** Uma operação que não é idempotente é de uso único, e fazer isso valer cabe ao adaptador (§7).
-- **A4.** Um resultado diz o que a política do operador pede. Um adaptador o devolve apenas a quem o operador deixa conhecê-lo; a qualquer outro, no máximo se a operação ficou autorizada.
+- **A4.** Um resultado descreve o conjunto de políticas e o conjunto de confiança do operador a quem o ler, também para um registro que ninguém assinou. Um adaptador deve (MUST) devolvê-lo apenas a quem o operador deixa conhecê-lo; a qualquer outro devolve, no máximo, se a operação ficou autorizada.
 
 <a id="7-guarantees-and-limits"></a>
 

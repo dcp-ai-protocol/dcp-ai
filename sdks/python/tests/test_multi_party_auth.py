@@ -490,6 +490,24 @@ async def test_takes_well_formed_text_only(registry):
     refused = await evaluate_multi_party_authorization(record, registry, expected=expected({"path": "keys/a"}), **configuration)
     assert [refused["authorized"], refused["structure"], _codes(refused)] == [False, "invalid", ["MPA_NOT_REPRESENTABLE"]]
 
+    # Outside operation_payload such text is no party_id of the schema: one SDK would read it as U+FFFD, which is
+    # the party of an operator whose policy names one so.
+    elsewhere = await signed_over(plain)
+    elsewhere["authorizations"][1]["party_id"] = "human:\ud800"
+    not_a_record = await evaluate_multi_party_authorization(elsewhere, registry, expected=expected({"path": "keys/a"}), **configuration)
+    assert [not_a_record["authorized"], not_a_record["structure"], _codes(not_a_record)] == [False, "invalid", ["MPA_SCHEMA_INVALID"]]
+    # The operator's policy set is text too.
+    for change in (
+        lambda p: p.__setitem__("audience", "verifier:\ud800"),
+        lambda p: p["subjects"][0].__setitem__("target", "agent:\udc00"),
+        lambda p: p["subjects"][0]["parties"][0].__setitem__("party_id", "human:\ud800"),
+    ):
+        changed = copy.deepcopy(configuration["policy"])
+        change(changed)
+        with pytest.raises(MultiPartyConfigError) as unloaded:
+            create_multi_party_policy_store(changed)
+        assert unloaded.value.code == "CONFIG_INVALID_VALUE"
+
 
 @pytest.mark.asyncio
 async def test_bounds_how_deep_the_payload_nests(registry):

@@ -743,6 +743,11 @@ jobs:
       - name: Test with coverage
         run: go test -coverprofile=coverage.out -covermode=atomic ./...
 
+      # encoding/json writes the bytes it replaces in a string another way under this experiment: the profile must
+      # refuse them whichever encoder the SDK is built with.
+      - name: Multi-party profile with the json v2 encoder
+        run: GOEXPERIMENT=jsonv2 go test ./dcp/v2/ -run MultiParty -count=1
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

@@ -255,7 +255,7 @@ export function createMultiPartyPolicyStore(policySet: unknown): MultiPartyPolic
     fail('CONFIG_INVALID_VALUE', 'policy_set_version must be a non-empty string');
   }
   if (policySet.profile !== MPA_V1) fail('CONFIG_INVALID_VALUE', `profile must be ${MPA_V1}`);
-  if (!isBounded(policySet.audience, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'audience must be a string of 1 to 256 characters');
+  if (!isText(policySet.audience, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', 'audience must be a string of 1 to 256 characters');
   const seconds = policySet.max_validity_seconds;
   if (!isInteger(seconds) || seconds < 1 || seconds > MPA_V1_MAX_VALIDITY_SECONDS) {
     fail('CONFIG_INVALID_VALUE', `max_validity_seconds must be an integer from 1 to ${MPA_V1_MAX_VALIDITY_SECONDS}`);
@@ -267,7 +267,7 @@ export function createMultiPartyPolicyStore(policySet: unknown): MultiPartyPolic
     const where = `subjects[${i}]`;
     if (!isObject(subject)) return fail('CONFIG_INVALID_VALUE', `${where} must be an object`);
     unknownField(subject, ['target', 'parties', 'operations'], where);
-    if (!isBounded(subject.target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', `${where}.target must be a string of 1 to 256 characters`);
+    if (!isText(subject.target, MAX_IDENTIFIER)) fail('CONFIG_INVALID_VALUE', `${where}.target must be a string of 1 to 256 characters`);
     const target = subject.target as string;
     if (subjects.has(target)) fail('CONFIG_MPA_DUPLICATE', `${where}: target ${printable(target)} is listed twice`);
     if (!Array.isArray(subject.parties) || subject.parties.length === 0) fail('CONFIG_INVALID_VALUE', `${where}.parties must be a non-empty array`);
@@ -277,7 +277,7 @@ export function createMultiPartyPolicyStore(policySet: unknown): MultiPartyPolic
       const at = `${where}.parties[${j}]`;
       if (!isObject(party)) return fail('CONFIG_INVALID_VALUE', `${at} must be an object`);
       unknownField(party, ['party_id', 'role'], at);
-      if (typeof party.party_id !== 'string' || party.party_id === '') fail('CONFIG_INVALID_VALUE', `${at}.party_id must be a non-empty string`);
+      if (typeof party.party_id !== 'string' || party.party_id === '' || UNPAIRED.test(party.party_id)) fail('CONFIG_INVALID_VALUE', `${at}.party_id must be a non-empty string`);
       if (!ROLES.includes(party.role as string)) fail('CONFIG_INVALID_VALUE', `${at}.role ${printable(party.role)} is not a role`);
       const id = party.party_id as string;
       if (parties.has(id)) fail('CONFIG_MPA_DUPLICATE', `${at}: party ${printable(id)} is listed twice for the target`);
@@ -521,7 +521,7 @@ function conformsToSchema(record: unknown): record is MultiPartyAuthorization {
     if (!isObject(a) || !hasOnly(a, ['party_id', 'role', 'composite_sig']) || !hasAll(a, ['party_id', 'role', 'composite_sig'])) return false;
     const sig = a.composite_sig;
     return (
-      typeof a.party_id === 'string' && ROLES.includes(a.role as string) &&
+      typeof a.party_id === 'string' && !UNPAIRED.test(a.party_id) && ROLES.includes(a.role as string) &&
       isObject(sig) && hasOnly(sig, ['classical', 'pq', 'binding']) && hasAll(sig, ['classical', 'pq', 'binding']) &&
       isSignaturePart(sig.classical) && (sig.pq === null || isSignaturePart(sig.pq)) &&
       (sig.binding === 'pq_over_classical' || sig.binding === 'classical_only')

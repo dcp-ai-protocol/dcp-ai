@@ -365,7 +365,7 @@ def create_multi_party_policy_store(policy_set: Any) -> MultiPartyPolicyStore:
     if policy_set.get("profile") != MPA_V1:
         _fail("CONFIG_INVALID_VALUE", f"profile must be {MPA_V1}")
     audience = policy_set.get("audience")
-    if not _bounded(audience, _MAX_IDENTIFIER):
+    if not _text(audience, _MAX_IDENTIFIER):
         _fail("CONFIG_INVALID_VALUE", "audience must be a string of 1 to 256 characters")
     seconds = policy_set.get("max_validity_seconds")
     if not _is_integer(seconds) or not 1 <= seconds <= MPA_V1_MAX_VALIDITY_SECONDS:
@@ -380,7 +380,7 @@ def create_multi_party_policy_store(policy_set: Any) -> MultiPartyPolicyStore:
             _fail("CONFIG_INVALID_VALUE", f"{where} must be an object")
         _unknown_field(subject, ("target", "parties", "operations"), where)
         target = subject.get("target")
-        if not _bounded(target, _MAX_IDENTIFIER):
+        if not _text(target, _MAX_IDENTIFIER):
             _fail("CONFIG_INVALID_VALUE", f"{where}.target must be a string of 1 to 256 characters")
         if target in subjects:
             _fail("CONFIG_MPA_DUPLICATE", f"{where}: target {_printable(target)} is listed twice")
@@ -394,7 +394,7 @@ def create_multi_party_policy_store(policy_set: Any) -> MultiPartyPolicyStore:
                 _fail("CONFIG_INVALID_VALUE", f"{at} must be an object")
             _unknown_field(party, ("party_id", "role"), at)
             party_id, role = party.get("party_id"), party.get("role")
-            if not isinstance(party_id, str) or party_id == "":
+            if not isinstance(party_id, str) or party_id == "" or not _well_formed(party_id):
                 _fail("CONFIG_INVALID_VALUE", f"{at}.party_id must be a non-empty string")
             if not isinstance(role, str) or role not in _ROLES:
                 _fail("CONFIG_INVALID_VALUE", f"{at}.role {_printable(role)} is not a role")
@@ -572,7 +572,9 @@ def _conforms_to_schema(record: Any) -> bool:
         if not isinstance(auth, dict) or set(auth) != {"party_id", "role", "composite_sig"}:
             return False
         sig = auth["composite_sig"]
-        if not isinstance(auth["party_id"], str) or not isinstance(auth["role"], str) or auth["role"] not in _ROLES:
+        if not isinstance(auth["party_id"], str) or not _well_formed(auth["party_id"]):
+            return False
+        if not isinstance(auth["role"], str) or auth["role"] not in _ROLES:
             return False
         if not isinstance(sig, dict) or set(sig) != {"classical", "pq", "binding"}:
             return False

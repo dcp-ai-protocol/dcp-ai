@@ -26,6 +26,7 @@
 package v2
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -176,6 +177,9 @@ func NewMultiPartyPolicyStore(policySetJSON []byte) (*MultiPartyPolicyStore, err
 	set, ok := mpaObject(decoded)
 	if err != nil || !ok {
 		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the policy set must be a JSON object")
+	}
+	if !mpaWellFormedText(policySetJSON, false) { // read as U+FFFD, a target or a party would be another one
+		return nil, mpaConfigError("CONFIG_INVALID_VALUE", "the policy set must be well-formed text: UTF-8, with no unpaired surrogate")
 	}
 	if err := mpaUnknownField(set, []string{"policy_set_version", "profile", "audience", "max_validity_seconds", "subjects"}, "policy set"); err != nil {
 		return nil, err
@@ -463,6 +467,22 @@ func mpaWellFormedText(text []byte, coerced bool) bool {
 	return true
 }
 
+// mpaCoercionIsVisible reports whether encoding/json marks the bytes it
+// replaces in a string: it writes them as the escape \ufffd, and U+FFFD itself
+// as it is. Built with GOEXPERIMENT=jsonv2 it writes both alike, and then what
+// a caller states cannot hold U+FFFD at all: it could stand for other bytes.
+var mpaCoercionIsVisible = func() bool {
+	data, err := json.Marshal("\xff")
+	return err == nil && string(data) == `"\ufffd"`
+}()
+
+// The algorithms of a hybrid signature of the profile (§ 4): its own, not the
+// ones of a verifier policy.
+var (
+	mpaClassicalAlgs = []string{"ed25519"}
+	mpaPQAlgs        = []string{"ml-dsa-65", "slh-dsa-192f"}
+)
+
 // mpaCanonical is CanonicalizeV2 for a value the caller built, nesting at most
 // levels deep. It is refused when it holds a number outside mpaRange (an
 // int64, a uint64 or a float64 past it is read from its exact digits, before
@@ -476,7 +496,8 @@ func mpaCanonical(v interface{}, levels int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !mpaWellFormedText(data, true) || !mpaProfileData(decoded, levels) {
+	replaced := !mpaCoercionIsVisible && bytes.ContainsRune(data, utf8.RuneError)
+	if replaced || !mpaWellFormedText(data, true) || !mpaProfileData(decoded, levels) {
 		return "", fmt.Errorf("not %s", mpaData)
 	}
 	return CanonicalizeV2(v)
@@ -678,6 +699,16 @@ func mpaStructure(recordJSON []byte) (map[string]interface{}, string) {
 	if !ok {
 		return nil, "MPA_SCHEMA_INVALID"
 	}
+	// The decoder has already put U+FFFD where the text was not well formed: read the record's own bytes. Outside
+	// operation_payload such text is no party_id of the schema; inside it, it is not data of the profile (below).
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(recordJSON, &members); err != nil {
+		return nil, "MPA_SCHEMA_INVALID"
+	}
+	rawPayload := members["operation_payload"]
+	if !mpaWellFormedText(bytes.Replace(recordJSON, rawPayload, []byte("{}"), 1), false) {
+		return nil, "MPA_SCHEMA_INVALID"
+	}
 	payload := record["operation_payload"].(map[string]interface{})
 	if _, has := payload["request"]; !has {
 		return nil, "MPA_REQUEST_MISSING"
@@ -685,9 +716,7 @@ func mpaStructure(recordJSON []byte) (map[string]interface{}, string) {
 	if !mpaConformsToRequest(payload) {
 		return nil, "MPA_REQUEST_INVALID"
 	}
-	// The decoder has already put U+FFFD where the text of the payload was not well formed: read its own bytes.
-	var members map[string]json.RawMessage
-	if err := json.Unmarshal(recordJSON, &members); err != nil || !mpaWellFormedText(members["operation_payload"], false) {
+	if !mpaWellFormedText(rawPayload, false) {
 		return nil, "MPA_NOT_REPRESENTABLE"
 	}
 	if !mpaProfileData(payload, mpaMaxDepth) {
@@ -850,7 +879,6 @@ func EvaluateMultiPartyAuthorization(registry *AlgorithmRegistry, recordJSON []b
 	}
 
 	// 4. Verification: every authorization is a hybrid signature, by the party's trusted keys, over this request.
-	algs := DefaultVerifierPolicy()
 	counted := 0
 	for i, a := range authorizations {
 		before := len(result.Errors)
@@ -860,7 +888,7 @@ func EvaluateMultiPartyAuthorization(registry *AlgorithmRegistry, recordJSON []b
 		pq, hasPQ := mpaObject(sig["pq"])
 		classicalAlg, _ := classical["alg"].(string)
 		pqAlg, _ := pq["alg"].(string)
-		if sig["binding"] != "pq_over_classical" || !hasPQ || !slices.Contains(algs.AcceptedClassicalAlgs, classicalAlg) || !slices.Contains(algs.AcceptedPQAlgs, pqAlg) {
+		if sig["binding"] != "pq_over_classical" || !hasPQ || !slices.Contains(mpaClassicalAlgs, classicalAlg) || !slices.Contains(mpaPQAlgs, pqAlg) {
 			result.add("MPA_HYBRID_REQUIRED", "%s: a classical and a post-quantum signature are both required", printable(party.PartyID))
 		} else {
 			trusted := trust.principals[party.PartyID]

@@ -98,19 +98,23 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   the profile: the Go SDK read it as U+FFFD, so an executor that stated `keys/\xff` was authorized by parties that had
   signed `keys/\uFFFD`, and the Rust SDK could not read the record at all. Such a record now gets
   `MPA_NOT_REPRESENTABLE`, and the request builders and what the executor states refuse it with
-  `CONFIG_INVALID_VALUE`. `operation_payload` nests at most 32 levels deep. A policy set whose `required_parties` is
-  above 16, the most authorizations a record holds, does not load (`CONFIG_MPA_UNSATISFIABLE`). The TypeScript and
-  Python SDKs took the algorithms of a hybrid signature from the default verifier policy, an object any code in the
-  process can change; they are now the profile's own. Go: a nil registry is an error instead of a panic, and `Now` is
-  read in milliseconds, as the other SDKs take the clock. Python: a `required_parties` in a record that no binary64
-  holds is not an integer of the schema, a member name that is not a string is not data, and a subclass of the policy
-  store is not a loaded store. TypeScript: `createPartyAuthorization` signs only data of the profile (a `Map` in a
-  payload was signed as `{}`), and `checkMultiPartyAuthorizationStructure` returns a result for JSON written to make
-  it throw. The [profile](spec/profiles/multi-party/README.md) states the rules (§2.2, §2.3, §3 and §4), says that a
-  result describes the operator's policy, and adds A4 on who an adapter returns it to. Eight cases are new in
-  `tests/interop/v2/multi_party_vectors.json` (142, and 62 policy configuration cases), among them a classical
-  signature that does not verify under a post-quantum one that does, a key the operator marks expired and a validity
-  one millisecond too long; CI checks that the file matches its generator.
+  `CONFIG_INVALID_VALUE`. Outside `operation_payload`, a record with such a `party_id` does not conform to its schema
+  (`MPA_SCHEMA_INVALID`), and a policy set with such a target, audience or `party_id` does not load.
+  `operation_payload` nests at most 32 levels deep. A policy set whose `required_parties` is above 16, the most
+  authorizations a record holds, does not load (`CONFIG_MPA_UNSATISFIABLE`). The algorithms of a hybrid signature are
+  the profile's own in the four SDKs: the TypeScript and Python SDKs took them from the default verifier policy, an
+  object any code in the process can change. Go: a nil registry is an error instead of a panic, and `Now` is read in
+  milliseconds, as the other SDKs take the clock. Python: a `required_parties` in a record that no binary64 holds is
+  not an integer of the schema, a member name that is not a string is not data, and a subclass of the policy store is
+  not a loaded store. TypeScript: `createPartyAuthorization` signs only data of the profile, also for a v2.0 payload
+  with no `request`: a `Map` in a payload was signed as `{}`, and a payload with an `undefined` member, an integer
+  outside the range or more than 32 levels is now refused with `CONFIG_INVALID_VALUE`;
+  `checkMultiPartyAuthorizationStructure` returns a result for JSON written to make it throw. The
+  [profile](spec/profiles/multi-party/README.md) states the rules (§2.2, §2.3, §3 and §4), says what a result reveals
+  of the operator's policy set and trust set, and adds A4: an adapter must return it only to callers the operator lets
+  learn that. Eight cases are new in `tests/interop/v2/multi_party_vectors.json` (142, and 62 policy configuration
+  cases), among them a classical signature that does not verify under a post-quantum one that does, a key the operator
+  marks expired and a validity one millisecond too long; CI checks that the file matches its generator.
 
 - **`mpa-v1`: every number in the signed payload is an integer from -(2^53 - 1) to 2^53 - 1** (source on `main`, not
   in a published version; no version bump). The profile compares `parameters` through `dcp-jcs-v1`, and the SDKs did

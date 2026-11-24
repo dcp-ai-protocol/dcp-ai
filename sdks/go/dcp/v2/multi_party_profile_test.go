@@ -635,17 +635,25 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 			t.Fatalf("a character outside the BMP, %s: %+v, %v", name, r, err)
 		}
 	}
-	// U+FFFD itself is a character: signed, stated and authorized, also written as its escape.
+	// U+FFFD itself is a character: signed, stated and authorized, also written as its escape. That needs
+	// encoding/json to tell it from the bytes it replaces, which it writes as an escape. Built with
+	// GOEXPERIMENT=jsonv2 it writes both alike, and then U+FFFD in what a caller states is refused too.
+	marked, _ := json.Marshal("\xff")
+	coercionIsVisible := string(marked) == `"\ufffd"`
 	replacement := map[string]interface{}{"path": "keys/\uFFFD"}
 	withReplacement, err := s.request(replacement)
-	if err != nil {
-		t.Fatal(err)
-	}
-	signed := s.signedOver(t, withReplacement)
-	for name, record := range map[string][]byte{"as it is": signed, "as its escape": bytes.Replace(signed, []byte("\uFFFD"), []byte(`\ufffd`), 1)} {
-		if r, err := s.evaluate(record, replacement); err != nil || !r.Authorized {
-			t.Fatalf("U+FFFD, %s: %+v, %v", name, r, err)
+	signed := s.signedOver(t, map[string]interface{}{"request": withPair["request"], "parameters": replacement})
+	if coercionIsVisible {
+		if err != nil {
+			t.Fatal(err)
 		}
+		for name, record := range map[string][]byte{"as it is": signed, "as its escape": bytes.Replace(signed, []byte("\uFFFD"), []byte(`\ufffd`), 1)} {
+			if r, err := s.evaluate(record, replacement); err != nil || !r.Authorized {
+				t.Fatalf("U+FFFD, %s: %+v, %v", name, r, err)
+			}
+		}
+	} else if !mpaInvalidValue(err) || withReplacement != nil {
+		t.Fatalf("U+FFFD where the bytes it replaces cannot be told from it, built: %v, %v", withReplacement, err)
 	}
 
 	plainParameters := map[string]interface{}{"path": "keys/a"}
@@ -708,10 +716,26 @@ func TestMultiPartyTakesWellFormedTextOnly(t *testing.T) {
 			t.Fatalf("%s, in a record: %+v, %v", name, r, err)
 		}
 	}
-	// Outside operation_payload nothing changes: a party the policy does not have is unknown, however it is spelled.
-	elsewhere := bytes.Replace(record, []byte(`"party_id":"human:admin"`), []byte(`"party_id":"human:\ud800"`), 1)
-	if r, err := s.evaluate(elsewhere, plainParameters); err != nil || r.Authorized || !reflect.DeepEqual(mpaCodes(r), []string{"MPA_PARTY_UNKNOWN"}) {
-		t.Fatalf("an unpaired surrogate in a party_id: %+v, %v", r, err)
+	// Outside operation_payload such text is no party_id of the schema. Read as U+FFFD it would be the party of an
+	// operator whose policy names one with U+FFFD, and only to this SDK.
+	for name, spelled := range map[string]string{"an unpaired surrogate": `"party_id":"human:\ud800"`, "bytes that are not UTF-8": "\"party_id\":\"human:\xff\""} {
+		elsewhere := bytes.Replace(record, []byte(`"party_id":"human:admin"`), []byte(spelled), 1)
+		if bytes.Equal(record, elsewhere) {
+			t.Fatalf("%s: the record was not rewritten", name)
+		}
+		r, err := s.evaluate(elsewhere, plainParameters)
+		if err != nil || r.Authorized || r.Structure != "invalid" || !reflect.DeepEqual(mpaCodes(r), []string{"MPA_SCHEMA_INVALID"}) {
+			t.Fatalf("%s in a party_id: %+v, %v", name, r, err)
+		}
+	}
+	// The operator's policy set is text too.
+	for name, policy := range map[string]string{
+		"an unpaired surrogate in a target":   `{"policy_set_version":"1","profile":"mpa-v1","audience":"verifier:here","max_validity_seconds":600,"subjects":[{"target":"agent:\ud800","parties":[{"party_id":"human:a","role":"owner"},{"party_id":"human:b","role":"org_admin"}],"operations":{"revoke_agent":{"required_parties":2,"allowed_roles":["owner","org_admin"],"required_roles":["owner"]}}}]}`,
+		"bytes that are not UTF-8 in a party": "{\"policy_set_version\":\"1\",\"profile\":\"mpa-v1\",\"audience\":\"verifier:here\",\"max_validity_seconds\":600,\"subjects\":[{\"target\":\"agent:x\",\"parties\":[{\"party_id\":\"human:a\xff\",\"role\":\"owner\"},{\"party_id\":\"human:b\",\"role\":\"org_admin\"}],\"operations\":{\"revoke_agent\":{\"required_parties\":2,\"allowed_roles\":[\"owner\",\"org_admin\"],\"required_roles\":[\"owner\"]}}}]}",
+	} {
+		if store, err := v2.NewMultiPartyPolicyStore([]byte(policy)); !mpaInvalidValue(err) || store != nil {
+			t.Fatalf("a policy set with %s: %v, %v", name, store, err)
+		}
 	}
 }
 

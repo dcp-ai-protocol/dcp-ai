@@ -149,6 +149,7 @@ Five phases. A phase that adds a code stops the next ones, so no signature of a 
 - In phase 4 each key gets the first that applies of not anchored, revoked, expired (`status` `expired`, or `expires_at` before `now`) and not yet valid (`not_before` after `now`). A signature is verified only when both keys can count.
 - The algorithms of phase 4 are the profile's: `ed25519` in the classical slot, `ml-dsa-65` or `slh-dsa-192f` in the other. They are not read from a verifier policy, which can change.
 - Instants are compared in milliseconds: digits past the third of a fraction are dropped, and a `now` with a finer resolution is truncated.
+- Text that is not well formed is refused outside `operation_payload` too: a record with such a `party_id` does not conform to its schema (`MPA_SCHEMA_INVALID`), and a policy set with such a target, audience or `party_id` does not load (`CONFIG_INVALID_VALUE`).
 
 ## 5. Result
 
@@ -181,7 +182,7 @@ Five phases. A phase that adds a code stops the next ones, so no signature of a 
 | `CONFIG_UNKNOWN_FIELD`, `CONFIG_INVALID_VALUE`, `CONFIG_MPA_DUPLICATE`, `CONFIG_MPA_UNSATISFIABLE` | Raised when a policy set is loaded, or for what the executor states (§3) |
 | `CONFIG_TRUST_*` | Raised when the trust set is loaded (admission profile §2.2) |
 
-Messages are at most 300 characters and never contain private keys or tokens. The codes, the messages and `required_parties` do say what the operator's policy asks for (a threshold, a role, the longest validity): see A4 in §6.
+Messages are at most 300 characters and never contain private keys or tokens. A result does describe the operator's configuration: its codes, messages and fields say what the policy set asks for (a target, an operation, a party and its role, a threshold, the longest validity) and what the trust set holds for a party (a key that is not anchored, revoked or expired, by its `kid`), and phases 2 and 3 say it before any signature is verified. See A4 in §6.
 
 ## 6. Adapters
 
@@ -190,7 +191,7 @@ The core functions are deterministic, make no network call and keep no state. An
 - **A1.** The operation runs only when `authorized` is true, and it is the operation, on the target, with the parameters that were given to the evaluation.
 - **A2.** The policy set, the trust set, their sources, the audience and the tenant come from the operator's code and configuration. No request field, header or tool parameter selects or changes them.
 - **A3.** An operation that is not idempotent is single use, and that is the adapter's to enforce (§7).
-- **A4.** A result says what the operator's policy asks for. An adapter returns it only to callers the operator lets learn that; to anyone else, at most whether the operation was authorized.
+- **A4.** A result describes the operator's policy set and trust set to whoever reads it, also for a record no one signed. An adapter MUST return it only to callers the operator lets learn that; to anyone else it returns at most whether the operation was authorized.
 
 ## 7. Guarantees and limits
 
