@@ -113,6 +113,15 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **`mpa-v1`: o assinante de Go só assina dados do perfil** (código-fonte em `main`, em nenhuma versão publicada; sem
+  mudança de versão). `CreatePartyAuthorization` do SDK de Go assinava qualquer carga que a canonicalização pudesse
+  escrever. No lugar dos bytes que não são UTF-8, `encoding/json` escreve U+FFFD, de modo que uma parte que tinha
+  `keys/\xff` assinava `keys/\uFFFD`, e um executor que declarava isso ficava autorizado. O assinante agora recusa,
+  com `CONFIG_INVALID_VALUE`, uma carga que não é um objeto de dados do perfil (valores JSON como o construtor da
+  requisição os aceita, texto bem formado, inteiros de -(2^53 - 1) a 2^53 - 1 e no máximo 32 níveis), como o assinante
+  do SDK de TypeScript, e uma operação, uma parte ou um papel que não sejam UTF-8. Uma lista ou um mapa nil sob o
+  último nível que uma carga pode aninhar é aceito, como o `null` com que é escrito.
+
 - **`mpa-v1`: texto bem formado, um limite de aninhamento e os algoritmos próprios do perfil** (código-fonte em
   `main`, em nenhuma versão publicada; sem mudança de versão). Correções posteriores à revisão independente do perfil,
   nos quatro SDKs salvo indicação em contrário. Uma string de `operation_payload` com um substituto sem par, ou com
